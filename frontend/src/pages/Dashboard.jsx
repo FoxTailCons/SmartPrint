@@ -8,6 +8,7 @@ import { api, fmt, fmtDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import Modal from '../components/Modal.jsx';
+import OrderForm from './OrderForm.jsx';
 
 function Card({ icon: Icon, label, value, color, sub, open, onClick }) {
   return (
@@ -81,6 +82,7 @@ export default function Dashboard() {
   const [activeDetail, setActiveDetail] = useState(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [merging, setMerging] = useState(false);
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
 
   const load = () => api('/api/dashboard').then(setData).catch((e) => alert(e.message));
   useEffect(() => { load(); }, []);
@@ -124,9 +126,9 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
           <p className="text-sm text-slate-500">Acompanhamento geral dos pedidos e finanças</p>
         </div>
-        <Link to="/pedidos/novo" className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
           <Plus size={16} /> Novo Orçamento
-        </Link>
+        </button>
       </div>
 
       {/* Avisos visuais de contas a pagar */}
@@ -186,6 +188,8 @@ export default function Dashboard() {
           </div>
         )}
       </Modal>
+
+      <OrderForm modal open={newOrderOpen} onCancel={() => setNewOrderOpen(false)} onSaved={() => { setNewOrderOpen(false); load(); }} />
 
       {/* Pedidos recentes / produção ativa */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">

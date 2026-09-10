@@ -69,7 +69,8 @@ const orderSchema = new mongoose.Schema(
 orderSchema.pre('validate', async function (next) {
   if (!this.number) {
     const last = await mongoose.models.Order.findOne().sort({ createdAt: -1 });
-    const seq = last ? (parseInt(last.number.replace(/\D/g, '')) || 0) + 1 : 1;
+    const lastNumber = String(last?.number || '').replace(/\D/g, '');
+    const seq = (parseInt(lastNumber, 10) || 0) + 1;
     this.number = String(seq).padStart(5, '0');
   }
   // Calcula totais

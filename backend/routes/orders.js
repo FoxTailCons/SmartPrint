@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import Client from '../models/Client.js';
 import { protect } from '../middleware/auth.js';
@@ -137,11 +138,19 @@ router.delete('/:id', async (req, res) => {
 
 // Aprovar orçamento (pendente -> aprovado)
 router.post('/:id/approve', async (req, res) => {
-  const order = await Order.findById(req.params.id);
-  order.status = 'aprovado';
-  order.history.push({ action: 'aprovado', by: req.user.name, note: req.body?.note || '' });
-  await order.save();
-  res.json(order);
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Identificador de pedido inválido' });
+    }
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+    order.status = 'aprovado';
+    order.history.push({ action: 'aprovado', by: req.user.name, note: req.body?.note || '' });
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 
 // Iniciar produção

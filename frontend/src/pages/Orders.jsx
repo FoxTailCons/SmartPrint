@@ -4,6 +4,7 @@ import { Plus, Search } from 'lucide-react';
 import { api, fmt } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
+import OrderForm from './OrderForm.jsx';
 
 const filters = [
   { key: 'status', label: 'Status', options: ['', 'pendente', 'aprovado', 'concluido'], labels: ['Todos', 'Pendente', 'Aprovado', 'Concluído'] },
@@ -15,6 +16,7 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [query, setQuery] = useState('');
   const [f, setF] = useState({ status: '', paymentStatus: '', production: '' });
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
 
   const load = () => {
     const params = new URLSearchParams();
@@ -31,9 +33,9 @@ export default function Orders() {
           <h1 className="text-2xl font-bold">Pedidos / Orçamentos</h1>
           <p className="text-sm text-slate-500">{orders.length} pedido(s) encontrado(s)</p>
         </div>
-        <Link to="/pedidos/novo" className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
           <Plus size={16} /> Novo Orçamento
-        </Link>
+        </button>
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-4 flex flex-wrap gap-3 items-center">
@@ -98,6 +100,8 @@ export default function Orders() {
           </table>
         </div>
       </div>
+
+      <OrderForm modal open={newOrderOpen} onCancel={() => setNewOrderOpen(false)} onSaved={() => { setNewOrderOpen(false); load(); }} />
     </div>
   );
 }

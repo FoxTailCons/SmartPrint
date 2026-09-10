@@ -6,7 +6,7 @@ import Modal from '../components/Modal.jsx';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
 
-export default function OrderForm() {
+export default function OrderForm({ modal = false, open = true, onSaved, onCancel }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
@@ -77,7 +77,8 @@ export default function OrderForm() {
       const saved = isEdit
         ? await api(`/api/orders/${id}`, { method: 'PUT', body })
         : await api('/api/orders', { method: 'POST', body });
-      navigate(`/pedidos/${saved._id}`);
+      if (onSaved) onSaved(saved);
+      else navigate(`/pedidos/${saved._id}`);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -94,15 +95,15 @@ export default function OrderForm() {
     setNewClient({ name: '', phone: '', email: '' });
   };
 
-  return (
+  const content = (
     <div className="space-y-5 max-w-4xl">
-      <div className="flex items-center justify-between">
+      {!modal && <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{isEdit ? 'Editar Pedido' : 'Novo Orçamento / Pedido'}</h1>
           <p className="text-sm text-slate-500">Grandes formatos · Adesivagem · SmartPrint Lindóia</p>
         </div>
         <Link to="/pedidos" className="text-sm text-slate-500 hover:underline">← Voltar</Link>
-      </div>
+      </div>}
 
       <form onSubmit={save} className="space-y-5">
         {/* Cliente */}
@@ -212,7 +213,7 @@ export default function OrderForm() {
         </div>
 
         <div className="flex justify-end gap-3 pb-6">
-          <button type="button" onClick={() => navigate(-1)} className="px-5 py-2.5 border rounded-lg hover:bg-slate-50">Cancelar</button>
+          <button type="button" onClick={onCancel || (() => navigate(-1))} className="px-5 py-2.5 border rounded-lg hover:bg-slate-50">Cancelar</button>
           <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium disabled:opacity-50">
             <Save size={16} /> {saving ? 'Salvando...' : 'Salvar Pedido'}
           </button>
@@ -229,4 +230,6 @@ export default function OrderForm() {
       </Modal>
     </div>
   );
+
+  return modal ? <Modal open={open} onClose={onCancel} title={isEdit ? 'Editar Pedido' : 'Novo Orçamento / Pedido'} wide>{content}</Modal> : content;
 }
