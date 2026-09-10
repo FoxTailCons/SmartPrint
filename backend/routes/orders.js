@@ -1,0 +1,195 @@
+import { Router } from 'express';
+import Order from '../models/Order.js';
+import Client from '../models/Client.js';
+import { protect } from '../middleware/auth.js';
+
+const router = Router();
+router.use(protect);
+
+const fmtMoney = (v) =>
+  Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString('pt-BR') : 'a combinar';
+
+// Monta texto para envio via WhatsApp (usado no front com wa.me)
+const buildWhatsappText = (order, client) => {
+  const lines = [];
+  lines.push(`*SmartPrint Lindóia* - Gráfica e Grandes Formatos`);
+  lines.push(`--------------------------------`);
+  lines.push(`*Pedido/Orçamento Nº ${order.number}*`);
+  lines.push(`Cliente: ${client.name}`);
+  lines.push(`Status: ${order.status}`);
+  lines.push(`Entrega: ${fmtDate(order.deliveryDate)}`);
+  lines.push(`--------------------------------`);
+  order.items.forEach((it) => {
+    lines.push(`• ${it.description} (${it.quantity}x) = ${fmtMoney(it.total)}`);
+  });
+  if (order.discount > 0) lines.push(`Desconto: -${fmtMoney(order.discount)}`);
+  lines.push(`*TOTAL: ${fmtMoney(order.finalValue)}*`);
+  if (order.amountPaid > 0) {
+    lines.push(`Pago: ${fmtMoney(order.amountPaid)} | Saldo: ${fmtMoney(order.finalValue - order.amountPaid)}`);
+  }
+  if (order.installments?.length) {
+    lines.push(`--------------------------------`);
+    lines.push(`*Parcelas:*`);
+    order.installments.forEach((p, i) => {
+      lines.push(`${i + 1}ª) ${fmtDate(p.dueDate)} - ${fmtMoney(p.amount)} ${p.paid ? '✔PAGO' : ''}`);
+    });
+  }
+  if (order.observations) lines.push(`Obs: ${order.observations}`);
+  lines.push(`--------------------------------`);
+  lines.push(`Agradecemos a preferência!`);
+  return lines.join('\n');
+};
+
+// Listar pedidos com filtros
+router.get('/', async (req, res) => {
+  const { status, paymentStatus, production, client, q } = req.query;
+  const filter = {};
+  if (status) filter.status = status;
+  if (paymentStatus) filter.paymentStatus = paymentStatus;
+  if (production) filter.production = production;
+  if (client) filter.client = client;
+  if (q) {
+    const clients = await Client.find({ name: { $regex: q, $options: 'i' } }).select('_id');
+    filter.$or = [{ number: { $regex: q, $options: 'i' } }, { client: { $in: clients.map((c) => c._id) } }];
+  }
+  const orders = await Order.find(filter)
+    .populate('client', 'name phone')
+    .sort({ createdAt: -1 })
+    .limit(500);
+  res.json(orders);
+});
+
+router.get('/:id', async (req, res) => {
+  const order = await Order.findById(req.params.id).populate('client');
+  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+  res.json(order);
+});
+
+// Criar orçamento/pedido
+router.post('/', async (req, res) => {
+  try {
+    const order = await Order.create({ ...req.body, createdBy: req.user._id });
+    order.history.push({ action: 'criado', by: req.user.name });
+    await order.save();
+    res.status(201).json(order);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  const order = await Order.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('client');
+  res.json(order);
+});
+
+router.delete('/:id', async (req, res) => {
+  await Order.findByIdAndDelete(req.params.id);
+  res.json({ ok: true });
+});
+
+// ---- Ações de fluxo ----
+
+// Aprovar orçamento (pendente -> aprovado)
+router.post('/:id/approve', async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  order.status = 'aprovado';
+  order.history.push({ action: 'aprovado', by: req.user.name, note: req.body?.note || '' });
+  await order.save();
+  res.json(order);
+});
+
+// Iniciar produção
+router.post('/:id/production/start', async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  order.production = 'em_producao';
+  if (!order.productionStartedAt) order.productionStartedAt = new Date();
+  order.history.push({ action: 'producao_iniciada', by: req.user.name });
+  await order.save();
+  res.json(order);
+});
+
+// Pausar produção
+router.post('/:id/production/pause', async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  order.production = 'pausado';
+  order.productionPausedAt = new Date();
+  order.history.push({ action: 'pausado', by: req.user.name, note: req.body?.note || '' });
+  await order.save();
+  res.json(order);
+});
+
+// Retomar produção
+router.post('/:id/production/resume', async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  order.production = 'em_producao';
+  order.history.push({ action: 'retomado', by: req.user.name });
+  await order.save();
+  res.json(order);
+});
+
+// Concluir pedido (produção concluída + status concluído)
+router.post('/:id/complete', async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  order.production = 'concluido';
+  order.status = 'concluido';
+  order.completedAt = new Date();
+  order.history.push({ action: 'concluido', by: req.user.name });
+  await order.save();
+  res.json(order);
+});
+
+// Registrar pagamento (parcial ou total) - desdobra nas parcelas
+router.post('/:id/payments', async (req, res) => {
+  const { amount, date, installmentIndex } = req.body;
+  const order = await Order.findById(req.params.id);
+  const pay = Number(amount) || 0;
+  if (pay <= 0) return res.status(400).json({ message: 'Valor inválido' });
+
+  order.amountPaid = (order.amountPaid || 0) + pay;
+
+  // Se houver parcela indicada, marca ela
+  if (installmentIndex !== undefined && order.installments[installmentIndex]) {
+    const inst = order.installments[installmentIndex];
+    inst.paid = true;
+    inst.paidAt = date || new Date();
+  } else {
+    // Desdobra automaticamente: paga as parcelas em ordem
+    let remaining = pay;
+    for (const inst of order.installments) {
+      if (remaining <= 0) break;
+      if (!inst.paid && inst.amount <= remaining) {
+        inst.paid = true;
+        inst.paidAt = date || new Date();
+        remaining -= inst.amount;
+      }
+    }
+  }
+
+  const balance = order.finalValue - order.amountPaid;
+  if (balance <= 0.01) order.paymentStatus = 'quitado';
+  else if (order.amountPaid > 0) order.paymentStatus = 'parcial';
+
+  order.history.push({ action: 'pagamento', by: req.user.name, note: `Recebido ${fmtMoney(pay)}` });
+  await order.save();
+  res.json(order);
+});
+
+// Gerar texto WhatsApp + link
+router.get('/:id/whatsapp', async (req, res) => {
+  const order = await Order.findById(req.params.id).populate('client');
+  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+  const text = buildWhatsappText(order, order.client);
+  const phone = (order.client.phone || '').replace(/\D/g, '');
+  order.whatsappSentAt = new Date();
+  await order.save();
+  res.json({
+    text,
+    phone,
+    link: `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`,
+  });
+});
+
+export default router;
