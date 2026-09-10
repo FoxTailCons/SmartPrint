@@ -80,6 +80,49 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Consolida dois ou mais pedidos do mesmo cliente em um único pedido.
+router.post('/merge', async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.orderIds) ? [...new Set(req.body.orderIds)] : [];
+    if (ids.length < 2) return res.status(400).json({ message: 'Selecione pelo menos dois pedidos' });
+
+    const orders = await Order.find({ _id: { $in: ids } }).sort({ createdAt: 1 });
+    if (orders.length !== ids.length) return res.status(404).json({ message: 'Um ou mais pedidos não foram encontrados' });
+
+    const clientId = String(orders[0].client);
+    if (orders.some((order) => String(order.client) !== clientId)) {
+      return res.status(400).json({ message: 'Só é possível agregar pedidos do mesmo cliente' });
+    }
+
+    const allConcluded = orders.every((order) => order.status === 'concluido');
+    const hasApproved = orders.some((order) => order.status === 'aprovado');
+    const hasProduction = orders.some((order) => ['em_producao', 'pausado'].includes(order.production));
+    const totalPaid = orders.reduce((sum, order) => sum + (order.amountPaid || 0), 0);
+    const sourceNumbers = orders.map((order) => `#${order.number}`).join(', ');
+    const merged = await Order.create({
+      client: orders[0].client,
+      items: orders.flatMap((order) => order.items.map((item) => item.toObject())),
+      discount: orders.reduce((sum, order) => sum + (order.discount || 0), 0),
+      amountPaid: totalPaid,
+      status: allConcluded ? 'concluido' : hasApproved ? 'aprovado' : 'pendente',
+      production: allConcluded ? 'concluido' : hasProduction ? 'em_producao' : 'nao_iniciado',
+      deliveryDate: orders.map((order) => order.deliveryDate).filter(Boolean).sort((a, b) => a - b)[0],
+      observations: `Agregado dos pedidos ${sourceNumbers}.`,
+      createdBy: req.user._id,
+      history: [{ action: 'agregado', by: req.user.name, note: `Origem: ${sourceNumbers}` }],
+    });
+
+    if (totalPaid >= merged.finalValue - 0.01) merged.paymentStatus = 'quitado';
+    else if (totalPaid > 0) merged.paymentStatus = 'parcial';
+    await merged.save();
+    await Order.deleteMany({ _id: { $in: ids } });
+
+    res.status(201).json(await merged.populate('client', 'name phone'));
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 router.put('/:id', async (req, res) => {
   const order = await Order.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('client');
   res.json(order);

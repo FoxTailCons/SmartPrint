@@ -10,6 +10,7 @@ router.use(protect);
 router.get('/', async (req, res) => {
   const orders = await Order.find().populate('client', 'name phone');
   const payables = await Payable.find({ paid: false });
+  const clients = await Client.find().sort({ name: 1 });
 
   const today = new Date();
   const in3days = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
@@ -41,7 +42,7 @@ router.get('/', async (req, res) => {
       concluded,
       inProduction,
       paused,
-      clients: await Client.countDocuments(),
+      clients: clients.length,
     },
     finance: {
       totalRevenue,
@@ -56,6 +57,16 @@ router.get('/', async (req, res) => {
       payablesDueSoonValue: payablesDueSoon.reduce((s, p) => s + p.value, 0),
       overdueList: payablesOverdue,
       dueSoonList: payablesDueSoon,
+    },
+    details: {
+      orders,
+      pending: orders.filter((o) => o.status === 'pendente'),
+      inProduction: orders.filter((o) => o.production === 'em_producao'),
+      concluded: orders.filter((o) => o.status === 'concluido'),
+      toReceive: orders.filter((o) => (o.finalValue || 0) > (o.amountPaid || 0)),
+      payables,
+      clients,
+      approved: orders.filter((o) => o.status === 'aprovado'),
     },
     recentOrders: recent,
   });
