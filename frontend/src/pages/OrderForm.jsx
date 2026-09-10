@@ -90,12 +90,15 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   };
 
   const createClient = async () => {
-    if (!newClient.name) return alert('Informe o nome do cliente');
-    const c = await api('/api/clients', { method: 'POST', body: newClient });
-    setClients([...clients, c]);
-    setClientId(c._id);
-    setShowNewClient(false);
-    setNewClient({ name: '', phone: '', email: '' });
+    if (!newClient.name.trim()) return alert('Informe o nome do cliente');
+    if (!newClient.phone.trim()) return alert('Informe o telefone do cliente');
+    try {
+      const c = await api('/api/clients', { method: 'POST', body: { ...newClient, name: newClient.name.trim(), phone: newClient.phone.trim() } });
+      setClients([...clients, c]);
+      setClientId(c._id);
+      setShowNewClient(false);
+      setNewClient({ name: '', phone: '', email: '' });
+    } catch (e) { alert(e.message); }
   };
 
   const content = (
@@ -235,8 +238,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
 
       <Modal open={showNewClient} onClose={() => setShowNewClient(false)} title="Cadastrar cliente rápido">
         <div className="space-y-3">
-          <input placeholder="Nome *" value={newClient.name} onChange={(e) => setNewClient({ ...newClient, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
-          <input placeholder="Telefone/WhatsApp (com DDD)" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          <input required placeholder="Nome *" value={newClient.name} onChange={(e) => setNewClient({ ...newClient, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          <input required placeholder="Telefone/WhatsApp (com DDD) *" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input placeholder="E-mail" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <button onClick={createClient} className="w-full py-2.5 bg-brand-600 text-white rounded-lg font-medium">Cadastrar e selecionar</button>
         </div>

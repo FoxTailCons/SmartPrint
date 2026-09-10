@@ -162,6 +162,12 @@ export default function Dashboard() {
         {cards.map((card) => <Card key={card.key} {...card} open={activeDetail === card.key} onClick={() => setActiveDetail(activeDetail === card.key ? null : card.key)} />)}
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card icon={Wallet} label="Recebido Hoje" value={fmt(finance.receivedToday)} color="bg-emerald-100 text-emerald-600" />
+        <Card icon={Wallet} label="Recebido na Semana" value={fmt(finance.receivedThisWeek)} color="bg-teal-100 text-teal-600" />
+        <Card icon={Wallet} label="Recebido no Mês" value={fmt(finance.receivedThisMonth)} color="bg-cyan-100 text-cyan-600" />
+      </div>
+
       {selectedDetail && selectedDetail.kind !== 'order' && (
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <div className="px-5 py-4 border-b flex items-center justify-between">

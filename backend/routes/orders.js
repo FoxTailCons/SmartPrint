@@ -105,6 +105,7 @@ router.post('/merge', async (req, res) => {
       items: orders.flatMap((order) => order.items.map((item) => item.toObject())),
       discount: orders.reduce((sum, order) => sum + (order.discount || 0), 0),
       amountPaid: totalPaid,
+      payments: orders.flatMap((order) => (order.payments || []).map((payment) => payment.toObject())),
       status: allConcluded ? 'concluido' : hasApproved ? 'aprovado' : 'pendente',
       production: allConcluded ? 'concluido' : hasProduction ? 'em_producao' : 'nao_iniciado',
       deliveryDate: orders.map((order) => order.deliveryDate).filter(Boolean).sort((a, b) => a - b)[0],
@@ -205,6 +206,7 @@ router.post('/:id/payments', async (req, res) => {
 
   order.amountPaid = (order.amountPaid || 0) + pay;
   order.paymentMethod = paymentMethod;
+  order.payments.push({ amount: pay, method: paymentMethod, paidAt: date || new Date() });
 
   // Se houver parcela indicada, marca ela
   if (installmentIndex !== undefined && order.installments[installmentIndex]) {

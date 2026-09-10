@@ -35,8 +35,15 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const client = await Client.create(req.body);
-  res.status(201).json(client);
+  try {
+    const name = String(req.body?.name || '').trim();
+    const phone = String(req.body?.phone || '').trim();
+    if (!name || !phone) return res.status(400).json({ message: 'Nome e telefone são obrigatórios' });
+    const client = await Client.create({ ...req.body, name, phone });
+    res.status(201).json(client);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 
 router.put('/:id', async (req, res) => {

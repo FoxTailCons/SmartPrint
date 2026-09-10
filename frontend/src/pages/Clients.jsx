@@ -28,11 +28,14 @@ export default function Clients() {
   };
 
   const create = async () => {
-    if (!form.name) return alert('Informe o nome');
-    await api('/api/clients', { method: 'POST', body: form });
-    setShowNew(false);
-    setForm({ name: '', phone: '', email: '', document: '', address: '' });
-    load();
+    if (!form.name.trim()) return alert('Informe o nome');
+    if (!form.phone.trim()) return alert('Informe o telefone');
+    try {
+      await api('/api/clients', { method: 'POST', body: { ...form, name: form.name.trim(), phone: form.phone.trim() } });
+      setShowNew(false);
+      setForm({ name: '', phone: '', email: '', document: '', address: '' });
+      load();
+    } catch (e) { alert(e.message); }
   };
 
   return (
@@ -97,8 +100,8 @@ export default function Clients() {
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="Novo Cliente">
         <div className="space-y-3">
-          <input placeholder="Nome *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
-          <input placeholder="Telefone/WhatsApp (com DDD)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          <input required placeholder="Nome *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          <input required placeholder="Telefone/WhatsApp (com DDD) *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input placeholder="CPF/CNPJ" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input placeholder="Endereço" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />

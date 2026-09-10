@@ -31,6 +31,15 @@ router.get('/', async (req, res) => {
   );
   const totalPayables = payables.reduce((s, p) => s + p.value, 0);
 
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const receivedBetween = (start) => orders.reduce(
+    (sum, order) => sum + (order.payments || []).filter((payment) => new Date(payment.paidAt) >= start && new Date(payment.paidAt) <= today).reduce((total, payment) => total + payment.amount, 0),
+    0
+  );
+
   // Últimos pedidos para o feed do dashboard
   const recent = orders.slice(0, 10);
 
@@ -49,6 +58,9 @@ router.get('/', async (req, res) => {
       totalReceived,
       toReceive,
       totalPayables,
+      receivedToday: receivedBetween(startOfToday),
+      receivedThisWeek: receivedBetween(startOfWeek),
+      receivedThisMonth: receivedBetween(startOfMonth),
     },
     warnings: {
       payablesOverdue: payablesOverdue.length,

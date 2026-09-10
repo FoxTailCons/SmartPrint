@@ -16,6 +16,12 @@ const installmentSchema = new mongoose.Schema({
   paidAt: { type: Date },
 });
 
+const paymentSchema = new mongoose.Schema({
+  amount: { type: Number, required: true },
+  method: { type: String, default: 'pix' },
+  paidAt: { type: Date, default: Date.now },
+});
+
 // Histórico de produção e status
 const historySchema = new mongoose.Schema({
   action: { type: String, required: true }, // criado, aprovado, producao_iniciada, pausado, retomado, concluido, pagamento, etc.
@@ -34,6 +40,7 @@ const orderSchema = new mongoose.Schema(
     discount: { type: Number, default: 0 },
     finalValue: { type: Number, default: 0 },
     amountPaid: { type: Number, default: 0 },
+    payments: [paymentSchema],
     paymentMethod: {
       type: String,
       enum: ['pix', 'dinheiro', 'debito', 'credito', 'parcelado'],
