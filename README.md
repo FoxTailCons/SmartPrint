@@ -57,7 +57,6 @@ Em desenvolvimento o Vite faz proxy de `/api` → `http://localhost:5000` automa
 ## 2) Subir para o GitHub
 
 ```bash
-cd smartprint-pdv
 git init
 git add .
 git commit -m "PDV SmartPrint Lindóia"
@@ -68,6 +67,8 @@ git push -u origin main
 
 ## 3) Deploy no Render + MongoDB Atlas
 
+O repositório já inclui o arquivo `render.yaml` com a definição dos dois serviços. No Render, use **New → Blueprint**, selecione este repositório e confirme a criação. O Blueprint solicitará os valores secretos que não devem ser versionados.
+
 ### MongoDB Atlas
 1. Crie um cluster gratuito em https://www.mongodb.com/atlas
 2. Crie um usuário de banco e libere o IP **0.0.0.0/0** (Network Access) para o Render acessar
@@ -76,7 +77,7 @@ git push -u origin main
 ### Backend (Render → New → Web Service)
 - Conecte o repositório do GitHub
 - **Root Directory:** `backend`
-- **Build Command:** `npm install`
+- **Build Command:** `npm ci`
 - **Start Command:** `npm start`
 - **Environment Variables:**
   - `MONGO_URI` = string do Atlas
@@ -87,12 +88,16 @@ git push -u origin main
 ### Frontend (Render → New → Static Site)
 - Conecte o mesmo repositório
 - **Root Directory:** `frontend`
-- **Build Command:** `npm install && npm run build`
+- **Build Command:** `npm ci && npm run build`
 - **Publish Directory:** `dist`
 - **Environment Variable:** `VITE_API_URL` = URL da API do backend (ex: `https://smartprint-api.onrender.com`)
 - **Rewrite/Redirect rule:** adicione `/*` → `/index.html` (SPA fallback)
 
 Pronto: acesse a URL do static site, faça login com um dos usuários acima e comece a cadastrar clientes e orçamentos.
+
+### Variáveis do frontend
+
+Em produção, `VITE_API_URL` deve ser a URL pública do backend, sem barra no final, por exemplo `https://smartprint-api.onrender.com`. O frontend usa o proxy do Vite apenas durante o desenvolvimento local.
 
 ---
 

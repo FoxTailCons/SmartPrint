@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || ''; // em dev usa proxy do Vite (/api -> :5000)
+const BASE = import.meta.env.VITE_API_URL || 'https://smartprint-am7g.onrender.com'; // em dev usa proxy do Vite (/api -> :5000)
 
 const token = () => localStorage.getItem('sp_token');
 
