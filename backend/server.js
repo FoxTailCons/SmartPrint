@@ -24,18 +24,20 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/payables', payableRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
-// Seed automático dos 3 usuários no primeiro boot
+// Garante que os usuários padrão existam sem sobrescrever senhas existentes.
 const seedUsers = async () => {
-  const count = await User.countDocuments();
-  if (count === 0) {
-    const users = [
-      { name: 'Administrador', email: 'admin@smartprint.com', password: 'admin123', role: 'admin' },
-      { name: 'Atendente', email: 'atendente@smartprint.com', password: 'atend123', role: 'atendente' },
-      { name: 'Produção', email: 'producao@smartprint.com', password: 'prod123', role: 'producao' },
-    ];
-    await User.create(users);
-    console.log('Usuários iniciais criados (troque a senha no primeiro acesso):');
-    users.forEach((u) => console.log(`  ${u.email} / ${u.password}`));
+  const users = [
+    { name: 'Administrador', email: 'admin@smartprint.com', password: 'admin123', role: 'admin' },
+    { name: 'Atendente', email: 'atendente@smartprint.com', password: 'atend123', role: 'atendente' },
+    { name: 'Produção', email: 'producao@smartprint.com', password: 'prod123', role: 'producao' },
+  ];
+
+  for (const user of users) {
+    const exists = await User.exists({ email: user.email });
+    if (!exists) {
+      await User.create(user);
+      console.log(`Usuário inicial criado: ${user.email}`);
+    }
   }
 };
 
