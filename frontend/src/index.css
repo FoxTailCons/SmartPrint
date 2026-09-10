@@ -23,7 +23,7 @@ button, input, select, textarea { font: inherit; }
 .brand-mark::after { top: 50%; left: 0; right: 0; height: 2px; transform: translateY(-50%); }
 .brand-wordmark { display: flex; flex-direction: column; line-height: 1; }
 .brand-wordmark strong { font-size: 1.05rem; letter-spacing: -0.03em; }
-.brand-wordmark span { margin-top: 0.28rem; font-size: 0.48rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.62; white-space: nowrap; }
+.brand-wordmark span { margin-top: 0.28rem; font-size: 0.48rem; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.62; white-space: normal; }
 .brand-lockup-dark .brand-wordmark { color: #fff; }
 
 ::selection { background: #bdeff5; color: #111827; }

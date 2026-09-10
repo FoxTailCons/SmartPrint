@@ -10,9 +10,12 @@ const payableSchema = new mongoose.Schema(
     paid: { type: Boolean, default: false },
     paidAt: { type: Date },
     recurring: { type: Boolean, default: false },
+    recurrenceId: { type: String, index: true },
     notes: { type: String, default: '' },
   },
   { timestamps: true }
 );
+
+payableSchema.index({ recurrenceId: 1, dueDate: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('Payable', payableSchema);

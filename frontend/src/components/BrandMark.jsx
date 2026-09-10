@@ -9,8 +9,8 @@ export default function BrandMark({ dark = false }) {
         <span className="brand-mark-center" />
       </div>
       <div className="brand-wordmark">
-        <strong>smart print.</strong>
-        <span>acessórios de papelaria e gráfica rápida</span>
+        <strong>SmartPrint</strong>
+        <span>Acessórios de papelaria<br />e gráfica rápida</span>
       </div>
     </div>
   );
