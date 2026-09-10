@@ -21,7 +21,7 @@ app.use(cors({
   } : true,
 }));
 app.use(helmet());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, app: 'SmartPrint PDV' }));
@@ -31,6 +31,12 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payables', payableRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ message: 'Erro interno do servidor' });
+});
 
 // Garante que os usuários padrão existam sem sobrescrever senhas existentes.
 const seedUsers = async () => {

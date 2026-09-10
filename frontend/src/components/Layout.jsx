@@ -1,8 +1,9 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Printer,
+  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import BrandMark from './BrandMark.jsx';
 
 const menu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -19,18 +20,12 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-64 bg-brand-900 text-white flex flex-col shrink-0">
-        <div className="p-5 border-b border-white/10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-brand-500 flex items-center justify-center">
-            <Printer size={22} />
-          </div>
-          <div>
-            <div className="font-bold leading-tight">SmartPrint</div>
-            <div className="text-xs text-white/60">Lindóia · Gráfica</div>
-          </div>
+    <div className="min-h-screen lg:flex">
+      <aside className="w-full lg:w-64 bg-brand-900 text-white flex flex-col shrink-0">
+        <div className="p-5 border-b border-white/10">
+          <BrandMark dark />
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-x-auto">
           {menu.map((m) => (
             <NavLink
               key={m.to}
@@ -60,8 +55,8 @@ export default function Layout({ children }) {
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-x-hidden">
-        <div className="p-6 max-w-7xl mx-auto">{children}</div>
+      <main className="flex-1 min-w-0 overflow-x-hidden">
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto">{children}</div>
       </main>
     </div>
   );

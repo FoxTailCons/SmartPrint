@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { Printer, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import BrandMark from '../components/BrandMark.jsx';
 
 export default function Login() {
   const { login, user } = useAuth();
@@ -30,18 +31,10 @@ export default function Login() {
   const quick = (em, pw) => { setEmail(em); setPassword(pw); };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 via-brand-700 to-brand-500 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#f6f7f5] p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <div className="flex items-center gap-3 mb-6 justify-center">
-            <div className="w-12 h-12 rounded-xl bg-brand-500 text-white flex items-center justify-center">
-              <Printer size={26} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-brand-900">SmartPrint Lindóia</h1>
-              <p className="text-xs text-slate-500">PDV · Gráfica · Grandes Formatos</p>
-            </div>
-          </div>
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-[0_12px_40px_rgba(17,24,39,0.08)] p-8">
+          <div className="flex justify-center mb-8"><BrandMark /></div>
           <form onSubmit={submit} className="space-y-4">
             <div>
               <label className="text-sm font-medium text-slate-600">E-mail</label>

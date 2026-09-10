@@ -2,16 +2,16 @@ import mongoose from 'mongoose';
 
 // Itens do orçamento/pedido (serviços da gráfica: grandes formatos, adesivagem, etc.)
 const itemSchema = new mongoose.Schema({
-  description: { type: String, required: true },
-  quantity: { type: Number, default: 1 },
-  unitPrice: { type: Number, default: 0 },
+  description: { type: String, required: true, trim: true },
+  quantity: { type: Number, default: 1, min: 0 },
+  unitPrice: { type: Number, default: 0, min: 0 },
   total: { type: Number, default: 0 },
 });
 
 // Parcelas / desdobramento de pagamento
 const installmentSchema = new mongoose.Schema({
   dueDate: { type: Date, required: true },
-  amount: { type: Number, required: true },
+  amount: { type: Number, required: true, min: 0 },
   paid: { type: Boolean, default: false },
   paidAt: { type: Date },
 });
@@ -37,9 +37,9 @@ const orderSchema = new mongoose.Schema(
     client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
     items: [itemSchema],
     totalValue: { type: Number, default: 0 },
-    discount: { type: Number, default: 0 },
+    discount: { type: Number, default: 0, min: 0 },
     finalValue: { type: Number, default: 0 },
-    amountPaid: { type: Number, default: 0 },
+    amountPaid: { type: Number, default: 0, min: 0 },
     payments: [paymentSchema],
     paymentMethod: {
       type: String,
@@ -87,7 +87,12 @@ orderSchema.pre('validate', async function (next) {
     this.number = String(seq).padStart(5, '0');
   }
   // Calcula totais
-  const itemsTotal = this.items.reduce((s, i) => s + (i.total || i.quantity * i.unitPrice || 0), 0);
+  this.items = (this.items || []).filter((item) => item.description?.trim());
+  this.items.forEach((item) => {
+    item.description = item.description.trim();
+    item.total = Number(item.quantity || 0) * Number(item.unitPrice || 0);
+  });
+  const itemsTotal = this.items.reduce((s, i) => s + i.total, 0);
   this.totalValue = itemsTotal;
   this.finalValue = Math.max(0, itemsTotal - (this.discount || 0));
   next();

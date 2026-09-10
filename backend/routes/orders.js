@@ -72,7 +72,14 @@ router.get('/:id', async (req, res) => {
 // Criar orçamento/pedido
 router.post('/', async (req, res) => {
   try {
-    const order = await Order.create({ ...req.body, createdBy: req.user._id });
+    if (!mongoose.isValidObjectId(req.body?.client)) return res.status(400).json({ message: 'Cliente inválido' });
+    if (!await Client.exists({ _id: req.body.client })) return res.status(400).json({ message: 'Cliente não encontrado' });
+    if (!Array.isArray(req.body?.items) || !req.body.items.some((item) => item.description?.trim())) {
+      return res.status(400).json({ message: 'Informe pelo menos um item do pedido' });
+    }
+    const fields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
+    const payload = Object.fromEntries(fields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
+    const order = await Order.create({ ...payload, createdBy: req.user._id });
     order.history.push({ action: 'criado', by: req.user.name });
     await order.save();
     res.status(201).json(order);
@@ -138,9 +145,14 @@ router.post('/merge', adminOnly, async (req, res) => {
 router.put('/:id', async (req, res) => {
   const editableFields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
   const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
-  const order = await Order.findByIdAndUpdate(req.params.id, changes, { new: true, runValidators: true }).populate('client');
+  if (changes.client && (!mongoose.isValidObjectId(changes.client) || !await Client.exists({ _id: changes.client }))) {
+    return res.status(400).json({ message: 'Cliente inválido ou não encontrado' });
+  }
+  const order = await Order.findById(req.params.id);
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-  res.json(order);
+  Object.assign(order, changes);
+  await order.save();
+  res.json(await order.populate('client'));
 });
 
 router.delete('/:id', adminOnly, async (req, res) => {
@@ -158,6 +170,7 @@ router.post('/:id/approve', async (req, res) => {
     }
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+    if (order.status !== 'pendente') return res.status(400).json({ message: 'Somente pedidos pendentes podem ser aprovados' });
     order.status = 'aprovado';
     order.history.push({ action: 'aprovado', by: req.user.name, note: req.body?.note || '' });
     await order.save();
@@ -172,6 +185,7 @@ router.post('/:id/production/start', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+  if (order.status !== 'aprovado' || order.production !== 'nao_iniciado') return res.status(400).json({ message: 'O pedido precisa estar aprovado e não iniciado para começar a produção' });
   order.production = 'em_producao';
   if (!order.productionStartedAt) order.productionStartedAt = new Date();
   order.history.push({ action: 'producao_iniciada', by: req.user.name });
@@ -184,6 +198,7 @@ router.post('/:id/production/pause', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+  if (order.production !== 'em_producao') return res.status(400).json({ message: 'Somente uma produção ativa pode ser pausada' });
   if (!req.body?.note?.trim()) return res.status(400).json({ message: 'O motivo da pausa é obrigatório' });
   order.production = 'pausado';
   order.productionPausedAt = new Date();
@@ -197,6 +212,7 @@ router.post('/:id/production/resume', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+  if (order.production !== 'pausado') return res.status(400).json({ message: 'Somente uma produção pausada pode ser retomada' });
   order.production = 'em_producao';
   order.history.push({ action: 'retomado', by: req.user.name });
   await order.save();
@@ -208,6 +224,7 @@ router.post('/:id/complete', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+  if (order.status !== 'aprovado' || !['em_producao', 'pausado'].includes(order.production)) return res.status(400).json({ message: 'O pedido precisa estar em produção para ser concluído' });
   order.production = 'concluido';
   order.status = 'concluido';
   order.completedAt = new Date();

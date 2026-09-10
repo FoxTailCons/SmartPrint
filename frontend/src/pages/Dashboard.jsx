@@ -16,7 +16,7 @@ function Card({ icon: Icon, label, value, color, sub, open, onClick }) {
       type="button"
       onClick={onClick}
       aria-expanded={open}
-      className={`bg-white rounded-xl p-5 shadow-sm border flex items-start gap-4 text-left transition hover:border-brand-300 hover:shadow-md ${open ? 'border-brand-500 ring-1 ring-brand-200' : ''}`}
+      className={`metric-card bg-white rounded-xl p-4 border border-slate-200 flex items-start gap-4 text-left transition hover:border-brand-300 hover:shadow-sm ${open ? 'border-brand-500 ring-1 ring-brand-200' : ''}`}
     >
       <div className={`w-11 h-11 rounded-lg flex items-center justify-center ${color}`}>
         <Icon size={22} />
@@ -91,14 +91,14 @@ export default function Dashboard() {
 
   const { counts, finance, warnings, recentOrders, details } = data;
   const cards = [
-    { key: 'orders', icon: ClipboardList, label: 'Total de Pedidos', value: counts.orders, color: 'bg-brand-100 text-brand-600', items: details.orders, title: 'Todos os pedidos', kind: 'order' },
-    { key: 'pending', icon: Clock, label: 'Pendentes', value: counts.pending, color: 'bg-amber-100 text-amber-600', items: details.pending, title: 'Pedidos pendentes', kind: 'order' },
-    { key: 'inProduction', icon: Play, label: 'Em Produção', value: counts.inProduction + counts.paused, color: 'bg-blue-100 text-blue-600', sub: `Ativos: ${counts.inProduction} · Pausados: ${counts.paused}`, items: [...details.inProduction, ...details.paused], title: 'Pedidos em produção e pausados', kind: 'order' },
-    { key: 'concluded', icon: CheckCircle2, label: 'Concluídos', value: counts.concluded, color: 'bg-emerald-100 text-emerald-600', items: details.concluded, title: 'Pedidos concluídos', kind: 'order' },
-    { key: 'toReceive', icon: Wallet, label: 'A Receber', value: fmt(finance.toReceive), color: 'bg-orange-100 text-orange-600', sub: `Recebido: ${fmt(finance.totalReceived)}`, items: details.toReceive, title: 'Pedidos com saldo a receber', kind: 'order' },
-    { key: 'payables', icon: TrendingDown, label: 'Contas a Pagar', value: fmt(finance.totalPayables), color: 'bg-red-100 text-red-600', items: details.payables, title: 'Contas em aberto', kind: 'payable' },
-    { key: 'clients', icon: Users, label: 'Clientes', value: counts.clients, color: 'bg-purple-100 text-purple-600', items: details.clients, title: 'Clientes cadastrados', kind: 'client' },
-    { key: 'approved', icon: ClipboardList, label: 'Aprovados', value: counts.approved, color: 'bg-cyan-100 text-cyan-600', items: details.approved, title: 'Pedidos aprovados', kind: 'order' },
+    { key: 'orders', icon: ClipboardList, label: 'Total de Pedidos', value: counts.orders, color: 'bg-cyan-50 text-cyan-700', items: details.orders, title: 'Todos os pedidos', kind: 'order' },
+    { key: 'pending', icon: Clock, label: 'Pendentes', value: counts.pending, color: 'bg-yellow-50 text-yellow-700', items: details.pending, title: 'Pedidos pendentes', kind: 'order' },
+    { key: 'inProduction', icon: Play, label: 'Em Produção', value: counts.inProduction + counts.paused, color: 'bg-slate-100 text-slate-700', sub: `Ativos: ${counts.inProduction} · Pausados: ${counts.paused}`, items: [...details.inProduction, ...details.paused], title: 'Pedidos em produção e pausados', kind: 'order' },
+    { key: 'concluded', icon: CheckCircle2, label: 'Concluídos', value: counts.concluded, color: 'bg-emerald-50 text-emerald-700', items: details.concluded, title: 'Pedidos concluídos', kind: 'order' },
+    { key: 'toReceive', icon: Wallet, label: 'A Receber', value: fmt(finance.toReceive), color: 'bg-orange-50 text-orange-700', sub: `Recebido: ${fmt(finance.totalReceived)}`, items: details.toReceive, title: 'Pedidos com saldo a receber', kind: 'order' },
+    { key: 'payables', icon: TrendingDown, label: 'Contas a Pagar', value: fmt(finance.totalPayables), color: 'bg-rose-50 text-rose-700', items: details.payables, title: 'Contas em aberto', kind: 'payable' },
+    { key: 'clients', icon: Users, label: 'Clientes', value: counts.clients, color: 'bg-slate-100 text-slate-700', items: details.clients, title: 'Clientes cadastrados', kind: 'client' },
+    { key: 'approved', icon: ClipboardList, label: 'Aprovados', value: counts.approved, color: 'bg-cyan-50 text-cyan-700', items: details.approved, title: 'Pedidos aprovados', kind: 'order' },
   ];
   const selectedDetail = cards.find((card) => card.key === activeDetail);
   const toggleOrder = (id) => setSelectedOrderIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
@@ -122,8 +122,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <div className="border-l-4 border-brand-500 pl-4">
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
           <p className="text-sm text-slate-500">Acompanhamento geral dos pedidos e finanças</p>
         </div>
         <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
