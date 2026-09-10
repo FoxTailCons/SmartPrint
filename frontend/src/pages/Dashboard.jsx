@@ -93,7 +93,7 @@ export default function Dashboard() {
   const cards = [
     { key: 'orders', icon: ClipboardList, label: 'Total de Pedidos', value: counts.orders, color: 'bg-brand-100 text-brand-600', items: details.orders, title: 'Todos os pedidos', kind: 'order' },
     { key: 'pending', icon: Clock, label: 'Pendentes', value: counts.pending, color: 'bg-amber-100 text-amber-600', items: details.pending, title: 'Pedidos pendentes', kind: 'order' },
-    { key: 'inProduction', icon: Play, label: 'Em Produção', value: counts.inProduction, color: 'bg-blue-100 text-blue-600', sub: `Pausados: ${counts.paused}`, items: details.inProduction, title: 'Pedidos em produção', kind: 'order' },
+    { key: 'inProduction', icon: Play, label: 'Em Produção', value: counts.inProduction + counts.paused, color: 'bg-blue-100 text-blue-600', sub: `Ativos: ${counts.inProduction} · Pausados: ${counts.paused}`, items: [...details.inProduction, ...details.paused], title: 'Pedidos em produção e pausados', kind: 'order' },
     { key: 'concluded', icon: CheckCircle2, label: 'Concluídos', value: counts.concluded, color: 'bg-emerald-100 text-emerald-600', items: details.concluded, title: 'Pedidos concluídos', kind: 'order' },
     { key: 'toReceive', icon: Wallet, label: 'A Receber', value: fmt(finance.toReceive), color: 'bg-orange-100 text-orange-600', sub: `Recebido: ${fmt(finance.totalReceived)}`, items: details.toReceive, title: 'Pedidos com saldo a receber', kind: 'order' },
     { key: 'payables', icon: TrendingDown, label: 'Contas a Pagar', value: fmt(finance.totalPayables), color: 'bg-red-100 text-red-600', items: details.payables, title: 'Contas em aberto', kind: 'payable' },

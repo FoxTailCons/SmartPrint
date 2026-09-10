@@ -22,6 +22,7 @@ const historySchema = new mongoose.Schema({
   by: { type: String, default: '' },
   at: { type: Date, default: Date.now },
   note: { type: String, default: '' },
+  paymentMethod: { type: String, default: '' },
 });
 
 const orderSchema = new mongoose.Schema(
@@ -33,6 +34,11 @@ const orderSchema = new mongoose.Schema(
     discount: { type: Number, default: 0 },
     finalValue: { type: Number, default: 0 },
     amountPaid: { type: Number, default: 0 },
+    paymentMethod: {
+      type: String,
+      enum: ['pix', 'dinheiro', 'debito', 'credito', 'parcelado'],
+      default: 'pix',
+    },
     // Status do pedido/orçamento
     status: {
       type: String,

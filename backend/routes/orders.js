@@ -195,12 +195,16 @@ router.post('/:id/complete', async (req, res) => {
 
 // Registrar pagamento (parcial ou total) - desdobra nas parcelas
 router.post('/:id/payments', async (req, res) => {
-  const { amount, date, installmentIndex } = req.body;
+  const { amount, date, installmentIndex, paymentMethod = 'pix' } = req.body;
   const order = await Order.findById(req.params.id);
   const pay = Number(amount) || 0;
   if (pay <= 0) return res.status(400).json({ message: 'Valor inválido' });
+  const methods = ['pix', 'dinheiro', 'debito', 'credito', 'parcelado'];
+  if (!methods.includes(paymentMethod)) return res.status(400).json({ message: 'Forma de pagamento inválida' });
+  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
 
   order.amountPaid = (order.amountPaid || 0) + pay;
+  order.paymentMethod = paymentMethod;
 
   // Se houver parcela indicada, marca ela
   if (installmentIndex !== undefined && order.installments[installmentIndex]) {
@@ -224,24 +228,35 @@ router.post('/:id/payments', async (req, res) => {
   if (balance <= 0.01) order.paymentStatus = 'quitado';
   else if (order.amountPaid > 0) order.paymentStatus = 'parcial';
 
-  order.history.push({ action: 'pagamento', by: req.user.name, note: `Recebido ${fmtMoney(pay)}` });
+  order.history.push({ action: 'pagamento', by: req.user.name, paymentMethod, note: `Recebido ${fmtMoney(pay)} via ${paymentMethod}` });
   await order.save();
   res.json(order);
 });
 
 // Gerar texto WhatsApp + link
 router.get('/:id/whatsapp', async (req, res) => {
-  const order = await Order.findById(req.params.id).populate('client');
-  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-  const text = buildWhatsappText(order, order.client);
-  const phone = (order.client.phone || '').replace(/\D/g, '');
-  order.whatsappSentAt = new Date();
-  await order.save();
-  res.json({
-    text,
-    phone,
-    link: `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`,
-  });
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Identificador de pedido inválido' });
+    }
+    const order = await Order.findById(req.params.id).populate('client');
+    if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+    if (!order.client) return res.status(400).json({ message: 'Este pedido não possui um cliente vinculado' });
+
+    const text = buildWhatsappText(order, order.client);
+    const phone = String(order.client.phone || '').replace(/\D/g, '');
+    if (!phone) return res.status(400).json({ message: 'Cadastre um telefone/WhatsApp para este cliente' });
+
+    order.whatsappSentAt = new Date();
+    await order.save();
+    res.json({
+      text,
+      phone,
+      link: `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`,
+    });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 
 export default router;

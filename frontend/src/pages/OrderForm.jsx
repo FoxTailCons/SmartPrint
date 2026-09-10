@@ -15,6 +15,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [clientId, setClientId] = useState('');
   const [items, setItems] = useState([{ ...emptyItem }]);
   const [discount, setDiscount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('pix');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [observations, setObservations] = useState('');
   const [installments, setInstallments] = useState([]); // {dueDate, amount}
@@ -31,6 +32,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         setClientId(o.client?._id || o.client);
         setItems(o.items?.length ? o.items : [{ ...emptyItem }]);
         setDiscount(o.discount || 0);
+        setPaymentMethod(o.paymentMethod || 'pix');
         setDeliveryDate(o.deliveryDate ? new Date(o.deliveryDate).toISOString().slice(0, 10) : '');
         setObservations(o.observations || '');
         setInstallments(o.installments?.map((p) => ({ dueDate: new Date(p.dueDate).toISOString().slice(0, 10), amount: p.amount })) || []);
@@ -70,6 +72,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         client: clientId,
         items: items.filter((i) => i.description),
         discount: Number(discount) || 0,
+        paymentMethod,
         deliveryDate: deliveryDate || undefined,
         observations,
         installments: installments.map((p) => ({ ...p, dueDate: new Date(p.dueDate) })),
@@ -175,6 +178,16 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         {/* Parcelamento / desdobramento de pagamento */}
         <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
           <h2 className="font-semibold">Desdobramento de Pagamento (Parcelas)</h2>
+          <div>
+            <label className="text-sm font-medium">Forma de pagamento</label>
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white">
+              <option value="pix">Pix</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="debito">Cartão de débito</option>
+              <option value="credito">Cartão de crédito</option>
+              <option value="parcelado">Crédito parcelado</option>
+            </select>
+          </div>
           <div className="flex flex-wrap gap-2 items-end">
             <div>
               <label className="text-xs text-slate-500">Nº de parcelas</label>

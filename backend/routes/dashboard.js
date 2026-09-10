@@ -62,6 +62,7 @@ router.get('/', async (req, res) => {
       orders,
       pending: orders.filter((o) => o.status === 'pendente'),
       inProduction: orders.filter((o) => o.production === 'em_producao'),
+      paused: orders.filter((o) => o.production === 'pausado'),
       concluded: orders.filter((o) => o.status === 'concluido'),
       toReceive: orders.filter((o) => (o.finalValue || 0) > (o.amountPaid || 0)),
       payables,

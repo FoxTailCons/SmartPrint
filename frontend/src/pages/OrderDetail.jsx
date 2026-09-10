@@ -15,6 +15,9 @@ export default function OrderDetail() {
   const [payOpen, setPayOpen] = useState(false);
   const [payAmount, setPayAmount] = useState('');
   const [payInst, setPayInst] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('pix');
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [pauseNote, setPauseNote] = useState('');
   const [loading, setLoading] = useState(true);
 
   const load = () => api(`/api/orders/${id}`).then((o) => { setOrder(o); setLoading(false); });
@@ -35,7 +38,7 @@ export default function OrderDetail() {
   const submitPayment = async () => {
     const amount = Number(payAmount);
     if (!amount || amount <= 0) return alert('Informe um valor válido');
-    const body = { amount };
+    const body = { amount, paymentMethod };
     if (payInst !== '') body.installmentIndex = Number(payInst);
     try {
       const o = await api(`/api/orders/${id}/payments`, { method: 'POST', body });
@@ -43,7 +46,16 @@ export default function OrderDetail() {
       setPayOpen(false);
       setPayAmount('');
       setPayInst('');
+      setPaymentMethod('pix');
     } catch (e) { alert(e.message); }
+  };
+
+  const pauseProduction = async () => {
+    const note = pauseNote.trim();
+    if (!note) return alert('Informe o motivo da pausa');
+    await action('production/pause', { note });
+    setPauseNote('');
+    setPauseOpen(false);
   };
 
   const remove = async () => {
@@ -103,7 +115,7 @@ export default function OrderDetail() {
             </button>
           )}
           {order.production === 'em_producao' && (
-            <button onClick={() => action('production/pause')} className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600">
+            <button onClick={() => setPauseOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600">
               <Pause size={16} /> Pausar produção
             </button>
           )}
@@ -195,6 +207,16 @@ export default function OrderDetail() {
             <input type="number" step="any" autoFocus value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder={balance} className="mt-1 w-full px-3 py-2.5 border rounded-lg text-lg font-semibold" />
             <button type="button" onClick={() => setPayAmount(balance)} className="mt-1 text-xs text-brand-600 hover:underline">Preencher com saldo total</button>
           </div>
+          <div>
+            <label className="text-sm font-medium">Forma de pagamento</label>
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white">
+              <option value="pix">Pix</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="debito">Cartão de débito</option>
+              <option value="credito">Cartão de crédito</option>
+              <option value="parcelado">Crédito parcelado</option>
+            </select>
+          </div>
           {order.installments?.length > 0 && (
             <div>
               <label className="text-sm font-medium">Marcar parcela específica (opcional)</label>
@@ -205,6 +227,30 @@ export default function OrderDetail() {
             </div>
           )}
           <button onClick={submitPayment} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold">Confirmar recebimento</button>
+        </div>
+      </Modal>
+
+      <Modal open={pauseOpen} onClose={() => setPauseOpen(false)} title="Motivo da pausa da produção">
+        <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+            Informe o motivo para manter o histórico do pedido completo.
+          </div>
+          <div>
+            <label htmlFor="pause-note" className="text-sm font-medium">Observação / motivo *</label>
+            <textarea
+              id="pause-note"
+              autoFocus
+              value={pauseNote}
+              onChange={(e) => setPauseNote(e.target.value)}
+              rows="4"
+              required
+              placeholder="Ex.: aguardando material do fornecedor..."
+              className="mt-1 w-full px-3 py-2.5 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+          <button type="button" onClick={pauseProduction} className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold">
+            Confirmar pausa
+          </button>
         </div>
       </Modal>
     </div>
