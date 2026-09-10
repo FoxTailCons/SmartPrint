@@ -1,15 +1,23 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import User from '../models/User.js';
-import { protect } from '../middleware/auth.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Muitas tentativas de login. Tente novamente em alguns minutos.' },
+});
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES || '7d' });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email: email?.toLowerCase() }).select('+password');
@@ -32,7 +40,7 @@ router.get('/me', protect, (req, res) => {
 });
 
 // GET /api/auth/users (lista usuários)
-router.get('/users', protect, async (req, res) => {
+router.get('/users', protect, adminOnly, async (req, res) => {
   const users = await User.find().select('-password');
   res.json(users);
 });

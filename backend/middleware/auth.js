@@ -9,6 +9,7 @@ export const protect = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       req.user = await User.findById(decoded.id);
       if (!req.user) return res.status(401).json({ message: 'Usuário não encontrado' });
+      if (!req.user.active) return res.status(403).json({ message: 'Usuário inativo' });
       next();
     } catch (err) {
       return res.status(401).json({ message: 'Token inválido ou expirado' });

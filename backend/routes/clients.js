@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import Client from '../models/Client.js';
 import Order from '../models/Order.js';
-import { protect } from '../middleware/auth.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
 router.use(protect);
@@ -47,11 +47,15 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const client = await Client.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const name = String(req.body?.name || '').trim();
+  const phone = String(req.body?.phone || '').trim();
+  if (!name || !phone) return res.status(400).json({ message: 'Nome e telefone são obrigatórios' });
+  const client = await Client.findByIdAndUpdate(req.params.id, { ...req.body, name, phone }, { new: true, runValidators: true });
+  if (!client) return res.status(404).json({ message: 'Cliente não encontrado' });
   res.json(client);
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', adminOnly, async (req, res) => {
   await Client.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });

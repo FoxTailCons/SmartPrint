@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import morgan from 'morgan';
 import { connectDB } from './config/db.js';
 import authRoutes from './routes/auth.js';
@@ -12,7 +13,14 @@ import dashboardRoutes from './routes/dashboard.js';
 import User from './models/User.js';
 
 const app = express();
-app.use(cors({ origin: process.env.CLIENT_URL || '*' }));
+const allowedOrigins = (process.env.CLIENT_URL || '').split(',').map((origin) => origin.trim()).filter(Boolean);
+app.use(cors({
+  origin: allowedOrigins.length ? (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Origem não autorizada'));
+  } : true,
+}));
+app.use(helmet());
 app.use(express.json());
 app.use(morgan('dev'));
 

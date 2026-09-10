@@ -35,8 +35,24 @@ router.get('/', async (req, res) => {
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const endOfToday = new Date(startOfToday);
+  endOfToday.setDate(endOfToday.getDate() + 1);
+  const paymentEntries = (order) => {
+    if (order.payments?.length) return order.payments;
+    return (order.history || [])
+      .filter((entry) => entry.action === 'pagamento')
+      .map((entry) => {
+        const match = entry.note?.match(/Recebido\s+R\$\s*([\d.,]+)/i);
+        if (!match) return null;
+        const amount = Number(match[1].replace(/\./g, '').replace(',', '.'));
+        return Number.isFinite(amount) ? { amount, paidAt: entry.at } : null;
+      })
+      .filter(Boolean);
+  };
   const receivedBetween = (start) => orders.reduce(
-    (sum, order) => sum + (order.payments || []).filter((payment) => new Date(payment.paidAt) >= start && new Date(payment.paidAt) <= today).reduce((total, payment) => total + payment.amount, 0),
+    (sum, order) => sum + paymentEntries(order)
+      .filter((payment) => new Date(payment.paidAt) >= start && new Date(payment.paidAt) < endOfToday)
+      .reduce((total, payment) => total + payment.amount, 0),
     0
   );
 

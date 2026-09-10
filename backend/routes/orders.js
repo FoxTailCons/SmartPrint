@@ -2,7 +2,7 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import Client from '../models/Client.js';
-import { protect } from '../middleware/auth.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
 router.use(protect);
@@ -82,17 +82,21 @@ router.post('/', async (req, res) => {
 });
 
 // Consolida dois ou mais pedidos do mesmo cliente em um único pedido.
-router.post('/merge', async (req, res) => {
+router.post('/merge', adminOnly, async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     const ids = Array.isArray(req.body?.orderIds) ? [...new Set(req.body.orderIds)] : [];
     if (ids.length < 2) return res.status(400).json({ message: 'Selecione pelo menos dois pedidos' });
+    if (ids.some((id) => !mongoose.isValidObjectId(id))) return res.status(400).json({ message: 'Um ou mais IDs de pedido são inválidos' });
 
-    const orders = await Order.find({ _id: { $in: ids } }).sort({ createdAt: 1 });
-    if (orders.length !== ids.length) return res.status(404).json({ message: 'Um ou mais pedidos não foram encontrados' });
+    let merged;
+    await session.withTransaction(async () => {
+      const orders = await Order.find({ _id: { $in: ids } }).sort({ createdAt: 1 }).session(session);
+    if (orders.length !== ids.length) throw new Error('Um ou mais pedidos não foram encontrados');
 
     const clientId = String(orders[0].client);
     if (orders.some((order) => String(order.client) !== clientId)) {
-      return res.status(400).json({ message: 'Só é possível agregar pedidos do mesmo cliente' });
+      throw new Error('Só é possível agregar pedidos do mesmo cliente');
     }
 
     const allConcluded = orders.every((order) => order.status === 'concluido');
@@ -100,37 +104,46 @@ router.post('/merge', async (req, res) => {
     const hasProduction = orders.some((order) => ['em_producao', 'pausado'].includes(order.production));
     const totalPaid = orders.reduce((sum, order) => sum + (order.amountPaid || 0), 0);
     const sourceNumbers = orders.map((order) => `#${order.number}`).join(', ');
-    const merged = await Order.create({
+    [merged] = await Order.create([{
       client: orders[0].client,
       items: orders.flatMap((order) => order.items.map((item) => item.toObject())),
       discount: orders.reduce((sum, order) => sum + (order.discount || 0), 0),
       amountPaid: totalPaid,
       payments: orders.flatMap((order) => (order.payments || []).map((payment) => payment.toObject())),
+      history: [
+        ...orders.flatMap((order) => (order.history || []).map((entry) => entry.toObject())),
+        { action: 'agregado', by: req.user.name, note: `Origem: ${sourceNumbers}` },
+      ],
       status: allConcluded ? 'concluido' : hasApproved ? 'aprovado' : 'pendente',
       production: allConcluded ? 'concluido' : hasProduction ? 'em_producao' : 'nao_iniciado',
       deliveryDate: orders.map((order) => order.deliveryDate).filter(Boolean).sort((a, b) => a - b)[0],
       observations: `Agregado dos pedidos ${sourceNumbers}.`,
       createdBy: req.user._id,
-      history: [{ action: 'agregado', by: req.user.name, note: `Origem: ${sourceNumbers}` }],
-    });
+    }], { session });
 
     if (totalPaid >= merged.finalValue - 0.01) merged.paymentStatus = 'quitado';
     else if (totalPaid > 0) merged.paymentStatus = 'parcial';
-    await merged.save();
-    await Order.deleteMany({ _id: { $in: ids } });
+    await merged.save({ session });
+    await Order.deleteMany({ _id: { $in: ids } }, { session });
+    });
 
     res.status(201).json(await merged.populate('client', 'name phone'));
   } catch (err) {
     res.status(400).json({ message: err.message });
+  } finally {
+    await session.endSession();
   }
 });
 
 router.put('/:id', async (req, res) => {
-  const order = await Order.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('client');
+  const editableFields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
+  const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
+  const order = await Order.findByIdAndUpdate(req.params.id, changes, { new: true, runValidators: true }).populate('client');
+  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
   res.json(order);
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', adminOnly, async (req, res) => {
   await Order.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });
@@ -156,7 +169,9 @@ router.post('/:id/approve', async (req, res) => {
 
 // Iniciar produção
 router.post('/:id/production/start', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
+  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
   order.production = 'em_producao';
   if (!order.productionStartedAt) order.productionStartedAt = new Date();
   order.history.push({ action: 'producao_iniciada', by: req.user.name });
@@ -166,17 +181,22 @@ router.post('/:id/production/start', async (req, res) => {
 
 // Pausar produção
 router.post('/:id/production/pause', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
+  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+  if (!req.body?.note?.trim()) return res.status(400).json({ message: 'O motivo da pausa é obrigatório' });
   order.production = 'pausado';
   order.productionPausedAt = new Date();
-  order.history.push({ action: 'pausado', by: req.user.name, note: req.body?.note || '' });
+  order.history.push({ action: 'pausado', by: req.user.name, note: req.body.note.trim() });
   await order.save();
   res.json(order);
 });
 
 // Retomar produção
 router.post('/:id/production/resume', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
+  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
   order.production = 'em_producao';
   order.history.push({ action: 'retomado', by: req.user.name });
   await order.save();
@@ -185,7 +205,9 @@ router.post('/:id/production/resume', async (req, res) => {
 
 // Concluir pedido (produção concluída + status concluído)
 router.post('/:id/complete', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
+  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
   order.production = 'concluido';
   order.status = 'concluido';
   order.completedAt = new Date();
@@ -197,20 +219,28 @@ router.post('/:id/complete', async (req, res) => {
 // Registrar pagamento (parcial ou total) - desdobra nas parcelas
 router.post('/:id/payments', async (req, res) => {
   const { amount, date, installmentIndex, paymentMethod = 'pix' } = req.body;
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
   const pay = Number(amount) || 0;
   if (pay <= 0) return res.status(400).json({ message: 'Valor inválido' });
   const methods = ['pix', 'dinheiro', 'debito', 'credito', 'parcelado'];
   if (!methods.includes(paymentMethod)) return res.status(400).json({ message: 'Forma de pagamento inválida' });
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+  const balanceBefore = Math.max(0, (order.finalValue || 0) - (order.amountPaid || 0));
+  if (pay > balanceBefore + 0.01) return res.status(400).json({ message: `O pagamento não pode exceder o saldo de ${fmtMoney(balanceBefore)}` });
+  if (installmentIndex !== undefined && !order.installments[installmentIndex]) {
+    return res.status(400).json({ message: 'Parcela inválida' });
+  }
 
   order.amountPaid = (order.amountPaid || 0) + pay;
   order.paymentMethod = paymentMethod;
   order.payments.push({ amount: pay, method: paymentMethod, paidAt: date || new Date() });
 
   // Se houver parcela indicada, marca ela
-  if (installmentIndex !== undefined && order.installments[installmentIndex]) {
+  if (installmentIndex !== undefined) {
     const inst = order.installments[installmentIndex];
+    if (inst.paid) return res.status(400).json({ message: 'Esta parcela já está paga' });
+    if (pay + 0.01 < inst.amount) return res.status(400).json({ message: 'O pagamento precisa quitar a parcela selecionada ou ser lançado sem selecionar parcela' });
     inst.paid = true;
     inst.paidAt = date || new Date();
   } else {

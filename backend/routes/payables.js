@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import Payable from '../models/Payable.js';
-import { protect } from '../middleware/auth.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
 router.use(protect);
@@ -19,7 +19,8 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const item = await Payable.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const item = await Payable.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  if (!item) return res.status(404).json({ message: 'Conta não encontrada' });
   res.json(item);
 });
 
@@ -33,7 +34,7 @@ router.post('/:id/pay', async (req, res) => {
   res.json(item);
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', adminOnly, async (req, res) => {
   await Payable.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });
