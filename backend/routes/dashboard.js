@@ -7,6 +7,27 @@ import { protect } from '../middleware/auth.js';
 const router = Router();
 router.use(protect);
 
+export const filterOrdersForDashboard = (orders = [], filters = {}) => {
+  const { clientId, period } = filters;
+  const now = new Date();
+  const fromDate = new Date(now);
+
+  if (period === '7d') fromDate.setDate(now.getDate() - 7);
+  else if (period === '30d') fromDate.setDate(now.getDate() - 30);
+  else if (period === '90d') fromDate.setDate(now.getDate() - 90);
+  else if (period === '12m') fromDate.setMonth(now.getMonth() - 12);
+
+  return orders.filter((order) => {
+    const orderClientId = order?.client?._id ? String(order.client._id) : order?.client ? String(order.client) : null;
+    if (clientId && clientId !== 'all' && orderClientId !== String(clientId)) return false;
+
+    if (!period || period === 'all') return true;
+
+    const createdAt = new Date(order.createdAt || Date.now());
+    return createdAt >= fromDate;
+  });
+};
+
 export const buildCashflowSummary = (orders = [], payables = []) => {
   const receivables = orders.reduce((sum, order) => {
     const finalValue = Number(order.finalValue || 0);
@@ -74,6 +95,33 @@ export const buildServicePerformance = (orders = []) => {
   return [...map.values()].sort((a, b) => b.revenue - a.revenue);
 };
 
+export const buildMonthlyComparison = (orders = []) => {
+  const today = new Date();
+  const months = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
+    return {
+      label: date.toLocaleDateString('pt-BR', { month: 'short' }),
+      monthKey: new Date(date.getFullYear(), date.getMonth(), 1).getTime(),
+      revenue: 0,
+      received: 0,
+      orders: 0,
+    };
+  });
+
+  orders.forEach((order) => {
+    const date = new Date(order.createdAt || Date.now());
+    const monthKey = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+    const month = months.find((item) => item.monthKey === monthKey);
+    if (!month) return;
+
+    month.revenue += Number(order.finalValue || 0);
+    month.received += Number(order.amountPaid || 0);
+    month.orders += 1;
+  });
+
+  return months;
+};
+
 export const buildCashflowTrend = (orders) => {
   const today = new Date();
   const last7Days = Array.from({ length: 7 }, (_, index) => {
@@ -127,19 +175,21 @@ export const buildCashflowTrend = (orders) => {
 };
 
 router.get('/', async (req, res) => {
+  const { clientId, period } = req.query;
   const orders = await Order.find().populate('client', 'name phone');
   const allPayables = await Payable.find();
-  const payables = allPayables.filter((p) => !p.paid);
   const clients = await Client.find().sort({ name: 1 });
+  const filteredOrders = filterOrdersForDashboard(orders, { clientId, period });
+  const payables = allPayables.filter((p) => !p.paid);
 
   const today = new Date();
   const in3days = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-  const totalRevenue = orders.reduce((s, o) => s + (o.finalValue || 0), 0);
-  const totalDiscounts = orders.reduce((s, o) => s + (o.discount || 0), 0);
-  const totalReceived = orders.reduce((s, o) => s + (o.amountPaid || 0), 0);
+  const totalRevenue = filteredOrders.reduce((s, o) => s + (o.finalValue || 0), 0);
+  const totalDiscounts = filteredOrders.reduce((s, o) => s + (o.discount || 0), 0);
+  const totalReceived = filteredOrders.reduce((s, o) => s + (o.amountPaid || 0), 0);
   const toReceive = totalRevenue - totalReceived;
-  const liquidity = buildCashflowSummary(orders, allPayables);
+  const liquidity = buildCashflowSummary(filteredOrders, allPayables);
   const netRevenue = Math.max(0, totalRevenue - totalDiscounts);
   const directCosts = allPayables
     .filter((p) => ['consumo', 'insumo'].includes(p.category))
@@ -151,11 +201,11 @@ router.get('/', async (req, res) => {
   const ebitda = grossProfit - operatingExpenses;
   const ebitdaMargin = netRevenue > 0 ? (ebitda / netRevenue) * 100 : 0;
 
-  const pending = orders.filter((o) => o.status === 'pendente').length;
-  const approved = orders.filter((o) => o.status === 'aprovado').length;
-  const concluded = orders.filter((o) => o.status === 'concluido').length;
-  const inProduction = orders.filter((o) => o.production === 'em_producao').length;
-  const paused = orders.filter((o) => o.production === 'pausado').length;
+  const pending = filteredOrders.filter((o) => o.status === 'pendente').length;
+  const approved = filteredOrders.filter((o) => o.status === 'aprovado').length;
+  const concluded = filteredOrders.filter((o) => o.status === 'concluido').length;
+  const inProduction = filteredOrders.filter((o) => o.production === 'em_producao').length;
+  const paused = filteredOrders.filter((o) => o.production === 'pausado').length;
 
   const payablesOverdue = payables.filter((p) => new Date(p.dueDate) < today);
   const payablesDueSoon = payables.filter(
@@ -186,7 +236,7 @@ router.get('/', async (req, res) => {
       })
       .filter(Boolean);
   };
-  const receivedBetween = (start, end) => orders.reduce(
+  const receivedBetween = (start, end) => filteredOrders.reduce(
     (sum, order) => sum + paymentEntries(order)
       .filter((payment) => {
         const paidAt = new Date(payment.paidAt);
@@ -205,16 +255,17 @@ router.get('/', async (req, res) => {
     return ((current - previous) / previous) * 100;
   };
 
-  const cashflowTrend = buildCashflowTrend(orders);
-  const clientPerformance = buildClientPerformance(orders);
-  const servicePerformance = buildServicePerformance(orders);
+  const cashflowTrend = buildCashflowTrend(filteredOrders);
+  const clientPerformance = buildClientPerformance(filteredOrders);
+  const servicePerformance = buildServicePerformance(filteredOrders);
+  const monthlyComparison = buildMonthlyComparison(filteredOrders);
 
   // Últimos pedidos para o feed do dashboard
-  const recent = orders.slice(0, 10);
+  const recent = filteredOrders.slice(0, 10);
 
   res.json({
     counts: {
-      orders: orders.length,
+      orders: filteredOrders.length,
       pending,
       approved,
       concluded,
@@ -257,6 +308,7 @@ router.get('/', async (req, res) => {
     analytics: {
       clients: clientPerformance,
       services: servicePerformance,
+      monthlyComparison,
     },
     warnings: {
       payablesOverdue: payablesOverdue.length,
@@ -267,15 +319,15 @@ router.get('/', async (req, res) => {
       dueSoonList: payablesDueSoon,
     },
     details: {
-      orders,
-      pending: orders.filter((o) => o.status === 'pendente'),
-      inProduction: orders.filter((o) => o.production === 'em_producao'),
-      paused: orders.filter((o) => o.production === 'pausado'),
-      concluded: orders.filter((o) => o.status === 'concluido'),
-      toReceive: orders.filter((o) => (o.finalValue || 0) > (o.amountPaid || 0)),
+      orders: filteredOrders,
+      pending: filteredOrders.filter((o) => o.status === 'pendente'),
+      inProduction: filteredOrders.filter((o) => o.production === 'em_producao'),
+      paused: filteredOrders.filter((o) => o.production === 'pausado'),
+      concluded: filteredOrders.filter((o) => o.status === 'concluido'),
+      toReceive: filteredOrders.filter((o) => (o.finalValue || 0) > (o.amountPaid || 0)),
       payables,
       clients,
-      approved: orders.filter((o) => o.status === 'aprovado'),
+      approved: filteredOrders.filter((o) => o.status === 'aprovado'),
     },
     recentOrders: recent,
   });

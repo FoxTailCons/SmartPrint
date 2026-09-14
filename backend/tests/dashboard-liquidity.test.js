@@ -5,6 +5,8 @@ import {
   buildCashflowSummary,
   buildClientPerformance,
   buildServicePerformance,
+  filterOrdersForDashboard,
+  buildMonthlyComparison,
 } from '../routes/dashboard.js';
 
 test('buildCashflowSummary calculates net cash from receivables and payables', () => {
@@ -47,4 +49,41 @@ test('buildServicePerformance groups item totals by service type', () => {
 
   assert.deepEqual(services[0], { name: 'Banner / sinalização', revenue: 1200, orders: 1 });
   assert.deepEqual(services[1], { name: 'Impressão / papel', revenue: 250, orders: 1 });
+});
+
+test('filterOrdersForDashboard supports client and period filtering', () => {
+  const today = new Date();
+  const older = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 40);
+  const recent = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2);
+  const sameClient = { _id: 'c1', name: 'Maria' };
+  const anotherClient = { _id: 'c2', name: 'João' };
+
+  const orders = [
+    { client: sameClient, finalValue: 100, amountPaid: 10, createdAt: recent },
+    { client: sameClient, finalValue: 200, amountPaid: 80, createdAt: older },
+    { client: anotherClient, finalValue: 300, amountPaid: 50, createdAt: recent },
+  ];
+
+  const filtered = filterOrdersForDashboard(orders, { clientId: 'c1', period: '30d' });
+
+  assert.deepEqual(filtered.map((order) => order.finalValue), [100]);
+});
+
+test('buildMonthlyComparison sums revenue and receipts by month for the last six months', () => {
+  const now = new Date();
+  const currentMonth = new Date(now.getFullYear(), now.getMonth(), 5);
+  const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 12);
+  const olderMonth = new Date(now.getFullYear(), now.getMonth() - 2, 15);
+
+  const orders = [
+    { createdAt: currentMonth, finalValue: 250, amountPaid: 200 },
+    { createdAt: previousMonth, finalValue: 400, amountPaid: 150 },
+    { createdAt: olderMonth, finalValue: 500, amountPaid: 500 },
+  ];
+
+  const comparison = buildMonthlyComparison(orders);
+
+  assert.equal(comparison.length, 6);
+  assert.equal(comparison[comparison.length - 1].revenue, 250);
+  assert.equal(comparison[comparison.length - 2].received, 150);
 });

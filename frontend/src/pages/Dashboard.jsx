@@ -83,9 +83,18 @@ export default function Dashboard() {
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [merging, setMerging] = useState(false);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState('all');
+  const [selectedPeriod, setSelectedPeriod] = useState('all');
 
-  const load = () => api('/api/dashboard').then(setData).catch((e) => alert(e.message));
-  useEffect(() => { load(); }, []);
+  const load = () => {
+    const query = new URLSearchParams();
+    if (selectedClientId && selectedClientId !== 'all') query.set('clientId', selectedClientId);
+    if (selectedPeriod && selectedPeriod !== 'all') query.set('period', selectedPeriod);
+    return api(`/api/dashboard${query.toString() ? `?${query.toString()}` : ''}`)
+      .then(setData)
+      .catch((e) => alert(e.message));
+  };
+  useEffect(() => { load(); }, [selectedClientId, selectedPeriod]);
 
   if (!data) return <div className="p-8 text-center text-slate-500">Carregando dashboard...</div>;
 
@@ -122,14 +131,37 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="border-l-4 border-brand-500 pl-4">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
           <p className="text-sm text-slate-500">Acompanhamento geral dos pedidos e finanças</p>
         </div>
-        <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-          <Plus size={16} /> Novo Orçamento
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <select
+            value={selectedClientId}
+            onChange={(event) => setSelectedClientId(event.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            <option value="all">Todos os clientes</option>
+            {data.details?.clients?.map((client) => (
+              <option key={client._id} value={client._id}>{client.name}</option>
+            ))}
+          </select>
+          <select
+            value={selectedPeriod}
+            onChange={(event) => setSelectedPeriod(event.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            <option value="all">Todo o período</option>
+            <option value="7d">Últimos 7 dias</option>
+            <option value="30d">Últimos 30 dias</option>
+            <option value="90d">Últimos 90 dias</option>
+            <option value="12m">Últimos 12 meses</option>
+          </select>
+          <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <Plus size={16} /> Novo Orçamento
+          </button>
+        </div>
       </div>
 
       {/* Avisos visuais de contas a pagar */}
@@ -272,6 +304,23 @@ export default function Dashboard() {
               );
             })}
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border shadow-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-800">Comparativo mensal</h3>
+          <span className="text-xs uppercase tracking-[0.12em] text-slate-400">Últimos 6 meses</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {data.analytics?.monthlyComparison?.map((month) => (
+            <div key={month.monthKey} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{month.label}</div>
+              <div className="mt-2 text-sm font-semibold text-slate-800">{fmt(month.revenue)}</div>
+              <div className="mt-1 text-[11px] text-emerald-700">Recebido: {fmt(month.received)}</div>
+              <div className="text-[11px] text-slate-500">{month.orders} pedido(s)</div>
+            </div>
+          ))}
         </div>
       </div>
 
