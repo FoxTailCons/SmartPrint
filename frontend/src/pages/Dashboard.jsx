@@ -169,6 +169,26 @@ export default function Dashboard() {
         <Card icon={Wallet} label="Recebido no Mês" value={fmt(finance.receivedThisMonth)} color="bg-cyan-100 text-cyan-600" />
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border shadow-sm p-5">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Recebíveis</div>
+          <div className="mt-2 text-2xl font-bold text-emerald-700">{fmt(finance.liquidity?.receivables ?? 0)}</div>
+          <p className="mt-1 text-xs text-slate-500">Valor a receber dos pedidos em aberto</p>
+        </div>
+        <div className="bg-white rounded-2xl border shadow-sm p-5">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Pagáveis</div>
+          <div className="mt-2 text-2xl font-bold text-rose-700">{fmt(finance.liquidity?.payables ?? 0)}</div>
+          <p className="mt-1 text-xs text-slate-500">Dívidas pendentes do caixa</p>
+        </div>
+        <div className="bg-white rounded-2xl border shadow-sm p-5">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Saldo líquido</div>
+          <div className={`mt-2 text-2xl font-bold ${((finance.liquidity?.netCash ?? 0) >= 0) ? 'text-brand-700' : 'text-red-600'}`}>
+            {fmt(finance.liquidity?.netCash ?? 0)}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">Recebíveis menos pagáveis em aberto</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border shadow-sm p-5">
           <div className="flex items-center justify-between">

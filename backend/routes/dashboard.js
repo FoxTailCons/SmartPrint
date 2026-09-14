@@ -7,6 +7,22 @@ import { protect } from '../middleware/auth.js';
 const router = Router();
 router.use(protect);
 
+export const buildCashflowSummary = (orders = [], payables = []) => {
+  const receivables = orders.reduce((sum, order) => {
+    const finalValue = Number(order.finalValue || 0);
+    const amountPaid = Number(order.amountPaid || 0);
+    return sum + Math.max(0, finalValue - amountPaid);
+  }, 0);
+
+  const openPayables = payables.filter((p) => !p.paid).reduce((sum, payable) => sum + Number(payable.value || 0), 0);
+
+  return {
+    receivables,
+    payables: openPayables,
+    netCash: receivables - openPayables,
+  };
+};
+
 export const buildCashflowTrend = (orders) => {
   const today = new Date();
   const last7Days = Array.from({ length: 7 }, (_, index) => {
@@ -72,6 +88,7 @@ router.get('/', async (req, res) => {
   const totalDiscounts = orders.reduce((s, o) => s + (o.discount || 0), 0);
   const totalReceived = orders.reduce((s, o) => s + (o.amountPaid || 0), 0);
   const toReceive = totalRevenue - totalReceived;
+  const liquidity = buildCashflowSummary(orders, allPayables);
   const netRevenue = Math.max(0, totalRevenue - totalDiscounts);
   const directCosts = allPayables
     .filter((p) => ['consumo', 'insumo'].includes(p.category))
@@ -158,6 +175,7 @@ router.get('/', async (req, res) => {
       netRevenue,
       totalReceived,
       toReceive,
+      liquidity,
       totalPayables,
       directCosts,
       operatingExpenses,
