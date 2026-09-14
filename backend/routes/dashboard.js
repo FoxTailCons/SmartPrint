@@ -9,15 +9,27 @@ router.use(protect);
 
 router.get('/', async (req, res) => {
   const orders = await Order.find().populate('client', 'name phone');
-  const payables = await Payable.find({ paid: false });
+  const allPayables = await Payable.find();
+  const payables = allPayables.filter((p) => !p.paid);
   const clients = await Client.find().sort({ name: 1 });
 
   const today = new Date();
   const in3days = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
 
   const totalRevenue = orders.reduce((s, o) => s + (o.finalValue || 0), 0);
+  const totalDiscounts = orders.reduce((s, o) => s + (o.discount || 0), 0);
   const totalReceived = orders.reduce((s, o) => s + (o.amountPaid || 0), 0);
   const toReceive = totalRevenue - totalReceived;
+  const netRevenue = Math.max(0, totalRevenue - totalDiscounts);
+  const directCosts = allPayables
+    .filter((p) => ['consumo', 'insumo'].includes(p.category))
+    .reduce((s, p) => s + (p.value || 0), 0);
+  const operatingExpenses = allPayables
+    .filter((p) => ['aluguel', 'funcionario', 'imposto', 'outro'].includes(p.category))
+    .reduce((s, p) => s + (p.value || 0), 0);
+  const grossProfit = netRevenue - directCosts;
+  const ebitda = grossProfit - operatingExpenses;
+  const ebitdaMargin = netRevenue > 0 ? (ebitda / netRevenue) * 100 : 0;
 
   const pending = orders.filter((o) => o.status === 'pendente').length;
   const approved = orders.filter((o) => o.status === 'aprovado').length;
@@ -71,9 +83,16 @@ router.get('/', async (req, res) => {
     },
     finance: {
       totalRevenue,
+      totalDiscounts,
+      netRevenue,
       totalReceived,
       toReceive,
       totalPayables,
+      directCosts,
+      operatingExpenses,
+      grossProfit,
+      ebitda,
+      ebitdaMargin,
       receivedToday: receivedBetween(startOfToday),
       receivedThisWeek: receivedBetween(startOfWeek),
       receivedThisMonth: receivedBetween(startOfMonth),

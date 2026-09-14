@@ -48,6 +48,9 @@ export default function Payables() {
   };
 
   const totalOpen = items.filter((p) => !p.paid).reduce((s, p) => s + p.value, 0);
+  const totalPaid = items.filter((p) => p.paid).reduce((s, p) => s + p.value, 0);
+  const totalOverdue = items.filter((p) => !p.paid && new Date(p.dueDate) < today).reduce((s, p) => s + p.value, 0);
+  const totalDueSoon = items.filter((p) => !p.paid && new Date(p.dueDate) >= today && new Date(p.dueDate) <= in3).reduce((s, p) => s + p.value, 0);
 
   return (
     <div className="space-y-5">
@@ -65,6 +68,25 @@ export default function Payables() {
           <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
             <Plus size={16} /> Nova Conta
           </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Em aberto</div>
+          <div className="mt-2 text-2xl font-bold text-slate-800">{fmt(totalOpen)}</div>
+        </div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-rose-700">Vencidas</div>
+          <div className="mt-2 text-2xl font-bold text-rose-700">{fmt(totalOverdue)}</div>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-amber-700">Próximo vencimento</div>
+          <div className="mt-2 text-2xl font-bold text-amber-700">{fmt(totalDueSoon)}</div>
+        </div>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-emerald-700">Pagas</div>
+          <div className="mt-2 text-2xl font-bold text-emerald-700">{fmt(totalPaid)}</div>
         </div>
       </div>
 

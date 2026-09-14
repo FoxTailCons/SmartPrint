@@ -100,6 +100,7 @@ export default function Dashboard() {
     { key: 'clients', icon: Users, label: 'Clientes', value: counts.clients, color: 'bg-slate-100 text-slate-700', items: details.clients, title: 'Clientes cadastrados', kind: 'client' },
     { key: 'approved', icon: ClipboardList, label: 'Aprovados', value: counts.approved, color: 'bg-cyan-50 text-cyan-700', items: details.approved, title: 'Pedidos aprovados', kind: 'order' },
   ];
+  const percent = (value) => `${Number(value || 0).toFixed(1)}%`;
   const selectedDetail = cards.find((card) => card.key === activeDetail);
   const toggleOrder = (id) => setSelectedOrderIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const mergeOrders = async () => {
@@ -166,6 +167,84 @@ export default function Dashboard() {
         <Card icon={Wallet} label="Recebido Hoje" value={fmt(finance.receivedToday)} color="bg-emerald-100 text-emerald-600" />
         <Card icon={Wallet} label="Recebido na Semana" value={fmt(finance.receivedThisWeek)} color="bg-teal-100 text-teal-600" />
         <Card icon={Wallet} label="Recebido no Mês" value={fmt(finance.receivedThisMonth)} color="bg-cyan-100 text-cyan-600" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-4">
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 text-white rounded-2xl shadow-sm border border-slate-700 p-5">
+          <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+            <div>
+              <h2 className="text-lg font-bold">DRE / EBITDA</h2>
+              <p className="text-xs text-slate-300">Resumo financeiro do período atual</p>
+            </div>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${finance.ebitda >= 0 ? 'bg-emerald-500/20 text-emerald-200' : 'bg-red-500/20 text-red-200'}`}>
+              EBITDA {percent(finance.ebitdaMargin)}
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-300">Receita Bruta</div>
+              <div className="mt-2 text-lg font-bold text-white">{fmt(finance.totalRevenue)}</div>
+            </div>
+            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-300">Descontos</div>
+              <div className="mt-2 text-lg font-bold text-white">{fmt(finance.totalDiscounts)}</div>
+            </div>
+            <div className="rounded-xl bg-emerald-500/10 p-3 border border-emerald-400/20">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-emerald-200">Lucro Bruto</div>
+              <div className="mt-2 text-lg font-bold text-emerald-300">{fmt(finance.grossProfit)}</div>
+            </div>
+            <div className="rounded-xl bg-cyan-500/10 p-3 border border-cyan-400/20">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-cyan-200">EBITDA</div>
+              <div className="mt-2 text-lg font-bold text-cyan-300">{fmt(finance.ebitda)}</div>
+            </div>
+          </div>
+
+          <div className="mt-5 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+            <table className="w-full text-sm">
+              <tbody>
+                <tr className="border-b border-white/10">
+                  <td className="px-4 py-3 text-slate-300">Receita líquida</td>
+                  <td className="px-4 py-3 text-right font-semibold text-white">{fmt(finance.netRevenue)}</td>
+                </tr>
+                <tr className="border-b border-white/10">
+                  <td className="px-4 py-3 text-slate-300">Custos diretos</td>
+                  <td className="px-4 py-3 text-right font-semibold text-slate-200">{fmt(finance.directCosts)}</td>
+                </tr>
+                <tr className="border-b border-white/10">
+                  <td className="px-4 py-3 text-slate-300">Margem bruta</td>
+                  <td className="px-4 py-3 text-right font-semibold text-emerald-300">{fmt(finance.grossProfit)}</td>
+                </tr>
+                <tr className="border-b border-white/10">
+                  <td className="px-4 py-3 text-slate-300">Despesas operacionais</td>
+                  <td className="px-4 py-3 text-right font-semibold text-slate-200">{fmt(finance.operatingExpenses)}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-slate-300">EBITDA</td>
+                  <td className={`px-4 py-3 text-right font-bold ${finance.ebitda >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{fmt(finance.ebitda)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border p-5">
+          <h3 className="text-lg font-bold text-slate-800">Indicadores</h3>
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-emerald-700">Margem bruta</div>
+              <div className="mt-1 text-2xl font-bold text-emerald-700">{percent((finance.netRevenue ? ((finance.grossProfit / finance.netRevenue) * 100) : 0))}</div>
+            </div>
+            <div className="rounded-xl bg-cyan-50 border border-cyan-200 p-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-cyan-700">Receita líquida</div>
+              <div className="mt-1 text-2xl font-bold text-cyan-700">{fmt(finance.netRevenue)}</div>
+            </div>
+            <div className="rounded-xl bg-rose-50 border border-rose-200 p-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-rose-700">Contas em aberto</div>
+              <div className="mt-1 text-2xl font-bold text-rose-700">{fmt(finance.totalPayables)}</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {selectedDetail && selectedDetail.kind !== 'order' && (
