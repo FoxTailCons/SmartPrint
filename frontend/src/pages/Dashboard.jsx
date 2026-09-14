@@ -215,6 +215,46 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border shadow-sm p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-800">Fluxo de caixa — últimos 7 dias</h3>
+          </div>
+          <div className="mt-4 flex items-end gap-2 h-40">
+            {finance.trend.last7Days.map((item) => {
+              const height = Math.max(10, (item.value / Math.max(...finance.trend.last7Days.map((entry) => entry.value), 1)) * 100);
+              return (
+                <div key={item.label} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-full flex items-end justify-center h-28">
+                    <div className="w-full rounded-t-md bg-gradient-to-t from-emerald-500 to-emerald-300" style={{ height: `${height}%` }} title={`${item.label}: ${fmt(item.value)}`} />
+                  </div>
+                  <span className="text-[10px] text-slate-500">{item.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border shadow-sm p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-800">Fluxo de caixa — últimos 6 meses</h3>
+          </div>
+          <div className="mt-4 flex items-end gap-2 h-40">
+            {finance.trend.last6Months.map((item) => {
+              const height = Math.max(10, (item.value / Math.max(...finance.trend.last6Months.map((entry) => entry.value), 1)) * 100);
+              return (
+                <div key={item.label} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-full flex items-end justify-center h-28">
+                    <div className="w-full rounded-t-md bg-gradient-to-t from-cyan-500 to-cyan-300" style={{ height: `${height}%` }} title={`${item.label}: ${fmt(item.value)}`} />
+                  </div>
+                  <span className="text-[10px] text-slate-500">{item.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-4">
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 text-white rounded-2xl shadow-sm border border-slate-700 p-5">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">

@@ -7,6 +7,58 @@ import { protect } from '../middleware/auth.js';
 const router = Router();
 router.use(protect);
 
+export const buildCashflowTrend = (orders) => {
+  const today = new Date();
+  const last7Days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - index));
+    return { label: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), value: 0, date };
+  });
+
+  const last6Months = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
+    return { label: date.toLocaleDateString('pt-BR', { month: 'short' }), value: 0, date };
+  });
+
+  const addPayments = (entries, target) => {
+    entries.forEach((entry) => {
+      const paidAt = new Date(entry.paidAt || entry.at || entry.date || Date.now());
+      const dayKey = new Date(paidAt.getFullYear(), paidAt.getMonth(), paidAt.getDate()).getTime();
+      const monthKey = new Date(paidAt.getFullYear(), paidAt.getMonth(), 1).getTime();
+
+      const dayMatch = target.last7Days.find((item) => item.date.getTime() === dayKey);
+      if (dayMatch) dayMatch.value += Number(entry.amount || 0);
+
+      const monthMatch = target.last6Months.find((item) => item.date.getTime() === monthKey);
+      if (monthMatch) monthMatch.value += Number(entry.amount || 0);
+    });
+  };
+
+  const paymentEntries = (order) => {
+    if (Array.isArray(order.payments) && order.payments.length) {
+      return order.payments.map((payment) => ({ amount: payment.amount || 0, paidAt: payment.paidAt || new Date() }));
+    }
+
+    return (order.history || [])
+      .filter((entry) => entry.action === 'pagamento')
+      .map((entry) => {
+        const match = entry.note?.match(/Recebido\s+R\$\s*([\d.,]+)/i);
+        if (!match) return null;
+        const amount = Number(match[1].replace(/\./g, '').replace(',', '.'));
+        return Number.isFinite(amount) ? { amount, paidAt: entry.at || new Date() } : null;
+      })
+      .filter(Boolean);
+  };
+
+  orders.forEach((order) => {
+    addPayments(paymentEntries(order), { last7Days, last6Months });
+  });
+
+  return {
+    last7Days,
+    last6Months,
+  };
+};
+
 router.get('/', async (req, res) => {
   const orders = await Order.find().populate('client', 'name phone');
   const allPayables = await Payable.find();
@@ -85,6 +137,8 @@ router.get('/', async (req, res) => {
     return ((current - previous) / previous) * 100;
   };
 
+  const cashflowTrend = buildCashflowTrend(orders);
+
   // Últimos pedidos para o feed do dashboard
   const recent = orders.slice(0, 10);
 
@@ -127,6 +181,7 @@ router.get('/', async (req, res) => {
           deltaPct: deltaPercent(currentMonthValue, previousMonthValue),
         },
       },
+      trend: cashflowTrend,
     },
     warnings: {
       payablesOverdue: payablesOverdue.length,
