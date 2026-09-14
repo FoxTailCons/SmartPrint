@@ -169,6 +169,52 @@ export default function Dashboard() {
         <Card icon={Wallet} label="Recebido no Mês" value={fmt(finance.receivedThisMonth)} color="bg-cyan-100 text-cyan-600" />
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border shadow-sm p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-800">Fluxo de caixa - semana</h3>
+            <span className={`text-sm font-semibold ${finance.cashFlowComparison.weekly.delta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {finance.cashFlowComparison.weekly.delta >= 0 ? '+' : ''}{Number(finance.cashFlowComparison.weekly.deltaPct || 0).toFixed(1)}%
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-emerald-700">Semana atual</div>
+              <div className="mt-2 text-xl font-bold text-emerald-700">{fmt(finance.cashFlowComparison.weekly.current)}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Semana anterior</div>
+              <div className="mt-2 text-xl font-bold text-slate-700">{fmt(finance.cashFlowComparison.weekly.previous)}</div>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-slate-500">
+            Variação de {fmt(Math.abs(finance.cashFlowComparison.weekly.delta))} em relação à semana anterior.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border shadow-sm p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-800">Fluxo de caixa - mês</h3>
+            <span className={`text-sm font-semibold ${finance.cashFlowComparison.monthly.delta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {finance.cashFlowComparison.monthly.delta >= 0 ? '+' : ''}{Number(finance.cashFlowComparison.monthly.deltaPct || 0).toFixed(1)}%
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-cyan-50 border border-cyan-200 p-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-cyan-700">Mês atual</div>
+              <div className="mt-2 text-xl font-bold text-cyan-700">{fmt(finance.cashFlowComparison.monthly.current)}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Mês anterior</div>
+              <div className="mt-2 text-xl font-bold text-slate-700">{fmt(finance.cashFlowComparison.monthly.previous)}</div>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-slate-500">
+            Variação de {fmt(Math.abs(finance.cashFlowComparison.monthly.delta))} em relação ao mês anterior.
+          </p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-4">
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 text-white rounded-2xl shadow-sm border border-slate-700 p-5">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
@@ -302,7 +348,7 @@ export default function Dashboard() {
               {recentOrders.map((o) => (
                 <tr key={o._id} className="border-t hover:bg-slate-50">
                   <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
-                  <td className="px-5 py-3">{o.client?.name}</td>
+                  <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
                   <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
                   <td className="px-5 py-3"><StatusBadge value={o.production} /></td>
                   <td className="px-5 py-3"><StatusBadge value={o.paymentStatus} /></td>

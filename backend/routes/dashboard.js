@@ -47,6 +47,11 @@ router.get('/', async (req, res) => {
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const previousMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const previousMonthEnd = new Date(today.getFullYear(), today.getMonth(), 1);
+  const previousWeekStart = new Date(startOfWeek);
+  previousWeekStart.setDate(startOfWeek.getDate() - 7);
+  const previousWeekEnd = new Date(startOfWeek);
   const endOfToday = new Date(startOfToday);
   endOfToday.setDate(endOfToday.getDate() + 1);
   const paymentEntries = (order) => {
@@ -61,12 +66,24 @@ router.get('/', async (req, res) => {
       })
       .filter(Boolean);
   };
-  const receivedBetween = (start) => orders.reduce(
+  const receivedBetween = (start, end) => orders.reduce(
     (sum, order) => sum + paymentEntries(order)
-      .filter((payment) => new Date(payment.paidAt) >= start && new Date(payment.paidAt) < endOfToday)
+      .filter((payment) => {
+        const paidAt = new Date(payment.paidAt);
+        return paidAt >= start && paidAt < end;
+      })
       .reduce((total, payment) => total + payment.amount, 0),
     0
   );
+
+  const currentWeekValue = receivedBetween(startOfWeek, endOfToday);
+  const previousWeekValue = receivedBetween(previousWeekStart, startOfWeek);
+  const currentMonthValue = receivedBetween(startOfMonth, endOfToday);
+  const previousMonthValue = receivedBetween(previousMonthStart, previousMonthEnd);
+  const deltaPercent = (current, previous) => {
+    if (!previous) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  };
 
   // Últimos pedidos para o feed do dashboard
   const recent = orders.slice(0, 10);
@@ -93,9 +110,23 @@ router.get('/', async (req, res) => {
       grossProfit,
       ebitda,
       ebitdaMargin,
-      receivedToday: receivedBetween(startOfToday),
-      receivedThisWeek: receivedBetween(startOfWeek),
-      receivedThisMonth: receivedBetween(startOfMonth),
+      receivedToday: receivedBetween(startOfToday, endOfToday),
+      receivedThisWeek: currentWeekValue,
+      receivedThisMonth: currentMonthValue,
+      cashFlowComparison: {
+        weekly: {
+          current: currentWeekValue,
+          previous: previousWeekValue,
+          delta: currentWeekValue - previousWeekValue,
+          deltaPct: deltaPercent(currentWeekValue, previousWeekValue),
+        },
+        monthly: {
+          current: currentMonthValue,
+          previous: previousMonthValue,
+          delta: currentMonthValue - previousMonthValue,
+          deltaPct: deltaPercent(currentMonthValue, previousMonthValue),
+        },
+      },
     },
     warnings: {
       payablesOverdue: payablesOverdue.length,

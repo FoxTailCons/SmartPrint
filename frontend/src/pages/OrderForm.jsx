@@ -65,11 +65,10 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
 
   const save = async (e) => {
     e.preventDefault();
-    if (!clientId) return alert('Selecione um cliente');
     setSaving(true);
     try {
       const body = {
-        client: clientId,
+        client: clientId || null,
         items: items.filter((i) => i.description),
         discount: Number(discount) || 0,
         paymentMethod,
@@ -120,9 +119,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
               className="flex-1 px-3 py-2.5 border rounded-lg text-sm bg-white"
-              required
             >
-              <option value="">Selecione o cliente...</option>
+              <option value="">Sem cliente cadastrado / orçar para pessoa física</option>
               {clients.map((c) => <option key={c._id} value={c._id}>{c.name} {c.phone ? `(${c.phone})` : ''}</option>)}
             </select>
             <button type="button" onClick={() => setShowNewClient(true)} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm hover:bg-slate-50">

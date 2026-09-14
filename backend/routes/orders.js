@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
+import PDFDocument from 'pdfkit';
 import Order from '../models/Order.js';
 import Client from '../models/Client.js';
 import { protect, adminOnly } from '../middleware/auth.js';
@@ -13,13 +14,98 @@ const fmtMoney = (v) =>
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('pt-BR') : 'a combinar';
 
+export const buildOrderPdfBuffer = async (order) => {
+  const client = order?.client || {};
+  const items = Array.isArray(order.items) ? order.items : [];
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const chunks = [];
+
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const leftX = 50;
+    const rightX = 350;
+    const itemsStartY = 220;
+
+    doc.fontSize(22).fillColor('#111827').text('SmartPrint Lindóia', leftX, 50);
+    doc.fontSize(9).fillColor('#475569').text('Gráfica e Grandes Formatos', leftX, 80);
+    doc.fontSize(16).fillColor('#111827').text(`Orçamento / Recibo Nº ${order.number || '00000'}`, leftX, 110);
+
+    doc.fontSize(10).fillColor('#374151').text(`Data: ${fmtDate(order.createdAt)}`, rightX, 55);
+    doc.text(`Entrega: ${fmtDate(order.deliveryDate)}`, rightX, 72);
+    doc.text(`Status: ${order.status || 'pendente'}`, rightX, 89);
+    doc.text(`Pagamento: ${order.paymentMethod || 'pix'}`, rightX, 106);
+
+    doc.moveTo(40, 140).lineTo(pageWidth + 40, 140).stroke('#d1d5db');
+
+    doc.fontSize(10).fillColor('#111827');
+    doc.text(`Cliente: ${client.name || 'Cliente não cadastrado'}`, leftX, 160);
+    doc.text(`Contato: ${client.phone || 'Não informado'}`, leftX, 176);
+    doc.text(`Observações: ${order.observations || 'Sem observações.'}`, leftX, 192);
+
+    doc.fontSize(11).font('Helvetica-Bold').text('Produto', 50, itemsStartY);
+    doc.text('Qtde', 310, itemsStartY);
+    doc.text('Unit.', 370, itemsStartY);
+    doc.text('Total', 470, itemsStartY);
+    doc.moveTo(40, itemsStartY + 15).lineTo(pageWidth + 40, itemsStartY + 15).stroke('#d1d5db');
+
+    let currentY = itemsStartY + 30;
+    const tableRows = Array.isArray(order.items) ? order.items : [];
+
+    tableRows.forEach((item) => {
+      const description = String(item.description || 'Item sem descrição');
+      const quantity = Number(item.quantity || 0);
+      const unitPrice = Number(item.unitPrice || 0);
+      const total = Number(item.total || quantity * unitPrice);
+
+      const wrappedDescription = doc.widthOfString(description, { width: 220 });
+      const lines = wrappedDescription > 220 ? 2 : 1;
+      if (currentY + lines * 14 > 700) {
+        doc.addPage();
+        currentY = 50;
+      }
+
+      doc.font('Helvetica').fontSize(10).text(description, 50, currentY, { width: 230, align: 'left' });
+      doc.text(String(quantity), 310, currentY);
+      doc.text(fmtMoney(unitPrice), 370, currentY);
+      doc.text(fmtMoney(total), 470, currentY);
+      currentY += 18;
+    });
+
+    doc.moveTo(40, currentY + 8).lineTo(pageWidth + 40, currentY + 8).stroke('#d1d5db');
+
+    const subtotal = Number(order.totalValue || tableRows.reduce((sum, item) => sum + (Number(item.total || 0)), 0));
+    const discount = Number(order.discount || 0);
+    const finalValue = Number(order.finalValue || Math.max(0, subtotal - discount));
+
+    currentY += 24;
+    doc.font('Helvetica').fontSize(10).text('Subtotal', 360, currentY);
+    doc.text(fmtMoney(subtotal), 470, currentY);
+    doc.text('Desconto', 360, currentY + 18);
+    doc.text(`-${fmtMoney(discount)}`, 470, currentY + 18);
+    doc.font('Helvetica-Bold').fontSize(12).text('Valor total', 360, currentY + 40);
+    doc.text(fmtMoney(finalValue), 470, currentY + 40);
+
+    doc.font('Helvetica').fontSize(9).fillColor('#475569').text('Observações do pedido:', 50, currentY + 70);
+    doc.text(order.observations || 'Sem observações complementares.', 50, currentY + 86, { width: 500 });
+    doc.text('Documento emitido pelo sistema SmartPrint. Consulte o pedido no sistema para mais detalhes.', 50, 760, { align: 'center' });
+
+    doc.end();
+  });
+};
+
 // Monta texto para envio via WhatsApp (usado no front com wa.me)
 const buildWhatsappText = (order, client) => {
   const lines = [];
+  const clientName = client?.name || 'Cliente não cadastrado';
   lines.push(`*SmartPrint Lindóia* - Gráfica e Grandes Formatos`);
   lines.push(`--------------------------------`);
   lines.push(`*Pedido/Orçamento Nº ${order.number}*`);
-  lines.push(`Cliente: ${client.name}`);
+  lines.push(`Cliente: ${clientName}`);
   lines.push(`Status: ${order.status}`);
   lines.push(`Entrega: ${fmtDate(order.deliveryDate)}`);
   lines.push(`--------------------------------`);
@@ -72,13 +158,15 @@ router.get('/:id', async (req, res) => {
 // Criar orçamento/pedido
 router.post('/', async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(req.body?.client)) return res.status(400).json({ message: 'Cliente inválido' });
-    if (!await Client.exists({ _id: req.body.client })) return res.status(400).json({ message: 'Cliente não encontrado' });
+    const rawClientId = req.body?.client;
+    if (rawClientId && !mongoose.isValidObjectId(rawClientId)) return res.status(400).json({ message: 'Cliente inválido' });
+    if (rawClientId && !await Client.exists({ _id: rawClientId })) return res.status(400).json({ message: 'Cliente não encontrado' });
     if (!Array.isArray(req.body?.items) || !req.body.items.some((item) => item.description?.trim())) {
       return res.status(400).json({ message: 'Informe pelo menos um item do pedido' });
     }
     const fields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
     const payload = Object.fromEntries(fields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
+    if (payload.client === '') payload.client = null;
     const order = await Order.create({ ...payload, createdBy: req.user._id });
     order.history.push({ action: 'criado', by: req.user.name });
     await order.save();
@@ -145,6 +233,7 @@ router.post('/merge', adminOnly, async (req, res) => {
 router.put('/:id', async (req, res) => {
   const editableFields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
   const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
+  if (changes.client === '') changes.client = null;
   if (changes.client && (!mongoose.isValidObjectId(changes.client) || !await Client.exists({ _id: changes.client }))) {
     return res.status(400).json({ message: 'Cliente inválido ou não encontrado' });
   }
@@ -303,6 +392,23 @@ router.get('/:id/whatsapp', async (req, res) => {
       phone,
       link: `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`,
     });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.get('/:id/pdf', async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Identificador de pedido inválido' });
+    }
+    const order = await Order.findById(req.params.id).populate('client');
+    if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+
+    const pdfBuffer = await buildOrderPdfBuffer(order.toObject());
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="pedido-${order.number}.pdf"`);
+    res.send(pdfBuffer);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

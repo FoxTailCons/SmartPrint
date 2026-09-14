@@ -34,7 +34,7 @@ const historySchema = new mongoose.Schema({
 const orderSchema = new mongoose.Schema(
   {
     number: { type: String, unique: true, index: true },
-    client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
+    client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', default: null },
     items: [itemSchema],
     totalValue: { type: Number, default: 0 },
     discount: { type: Number, default: 0, min: 0 },

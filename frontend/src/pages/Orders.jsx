@@ -82,7 +82,7 @@ export default function Orders() {
               {orders.map((o) => (
                 <tr key={o._id} className="border-t hover:bg-slate-50">
                   <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
-                  <td className="px-5 py-3">{o.client?.name}</td>
+                  <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
                   <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
                   <td className="px-5 py-3"><StatusBadge value={o.production} /></td>
                   <td className="px-5 py-3"><StatusBadge value={o.paymentStatus} /></td>

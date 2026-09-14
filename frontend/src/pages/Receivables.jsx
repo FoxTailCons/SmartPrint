@@ -52,7 +52,7 @@ export default function Receivables() {
           <div className="flex flex-wrap gap-2">
             {upcoming.slice(0, 8).map((u, i) => (
               <div key={i} className="text-xs bg-slate-50 border rounded-lg px-3 py-2">
-                <div className="font-semibold">#{u.order.number} · {u.order.client?.name}</div>
+                <div className="font-semibold">#{u.order.number} · {u.order.client?.name || 'Cliente não cadastrado'}</div>
                 <div className="text-slate-500">{u.parcela}ª · {fmtDate(u.dueDate)} · <strong>{fmt(u.amount)}</strong></div>
               </div>
             ))}
@@ -78,7 +78,7 @@ export default function Receivables() {
             {withBalance.map((o) => (
               <tr key={o._id} className="border-t hover:bg-slate-50">
                 <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
-                <td className="px-5 py-3">{o.client?.name}</td>
+                <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
                 <td className="px-5 py-3"><StatusBadge value={o.paymentStatus} /></td>
                 <td className="px-5 py-3 text-right">{fmt(o.finalValue)}</td>
                 <td className="px-5 py-3 text-right text-emerald-600">{fmt(o.amountPaid)}</td>
