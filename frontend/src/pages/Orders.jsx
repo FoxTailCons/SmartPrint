@@ -4,6 +4,7 @@ import { Plus, Search } from 'lucide-react';
 import { api, fmt } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
+import PrintButton from '../components/PrintButton.jsx';
 import OrderForm from './OrderForm.jsx';
 
 const filters = [
@@ -90,6 +91,7 @@ export default function Orders() {
                   <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
                   <td className="px-5 py-3 text-right">
                     <div className="inline-flex gap-2">
+                      <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
                       <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
                       <Link to={`/pedidos/${o._id}`} className="inline-flex items-center px-2.5 py-1.5 rounded-lg border text-xs hover:bg-slate-50">Detalhes</Link>
                     </div>

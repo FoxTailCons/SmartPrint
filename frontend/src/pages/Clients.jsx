@@ -5,6 +5,7 @@ import { api, fmt } from '../api';
 import Modal from '../components/Modal.jsx';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
+import PrintButton from '../components/PrintButton.jsx';
 
 export default function Clients() {
   const [clients, setClients] = useState([]);
@@ -87,7 +88,10 @@ export default function Clients() {
                       <StatusBadge value={o.status} />
                       <StatusBadge value={o.paymentStatus} />
                       <span className="flex-1 text-right font-medium">{fmt(o.finalValue)}</span>
-                      <WhatsAppButton orderId={o._id} className="!py-1 !px-2 text-xs" />
+                      <div className="inline-flex gap-2">
+                        <PrintButton orderId={o._id} className="!py-1 !px-2 text-xs" />
+                        <WhatsAppButton orderId={o._id} className="!py-1 !px-2 text-xs" />
+                      </div>
                       <Link to={`/pedidos/${o._id}`} className="px-2 py-1 border rounded text-xs hover:bg-slate-50">Abrir</Link>
                     </div>
                   ))}
