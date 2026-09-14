@@ -275,6 +275,47 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border shadow-sm p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-800">Top clientes</h3>
+            <span className="text-xs uppercase tracking-[0.12em] text-slate-400">Receita</span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {data.analytics?.clients?.slice(0, 5).map((client) => (
+              <div key={client.name} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                <div>
+                  <div className="font-medium text-slate-700">{client.name}</div>
+                  <div className="text-xs text-slate-500">{client.orders} pedido(s)</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold text-slate-800">{fmt(client.revenue)}</div>
+                  <div className="text-[11px] text-slate-500">{fmt(client.outstanding)} em aberto</div>
+                </div>
+              </div>
+            )) || <div className="text-sm text-slate-400">Nenhum cliente encontrado.</div>}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border shadow-sm p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-800">Linha de serviço</h3>
+            <span className="text-xs uppercase tracking-[0.12em] text-slate-400">Faturamento</span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {data.analytics?.services?.slice(0, 5).map((service) => (
+              <div key={service.name} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                <div>
+                  <div className="font-medium text-slate-700">{service.name}</div>
+                  <div className="text-xs text-slate-500">{service.orders} item(ns)</div>
+                </div>
+                <div className="font-semibold text-slate-800">{fmt(service.revenue)}</div>
+              </div>
+            )) || <div className="text-sm text-slate-400">Nenhuma linha de serviço encontrada.</div>}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-4">
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 text-white rounded-2xl shadow-sm border border-slate-700 p-5">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">

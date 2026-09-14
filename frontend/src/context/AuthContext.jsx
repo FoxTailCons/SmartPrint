@@ -27,8 +27,9 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('sp_token');
+    localStorage.clear();
     setUser(null);
+    window.location.reload();
   };
 
   return (

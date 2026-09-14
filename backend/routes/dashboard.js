@@ -23,6 +23,57 @@ export const buildCashflowSummary = (orders = [], payables = []) => {
   };
 };
 
+export const buildClientPerformance = (orders = []) => {
+  const map = new Map();
+
+  orders.forEach((order) => {
+    const name = order?.client?.name || 'Cliente não cadastrado';
+    const current = map.get(name) || { name, revenue: 0, orders: 0, outstanding: 0 };
+    const finalValue = Number(order.finalValue || 0);
+    const amountPaid = Number(order.amountPaid || 0);
+
+    current.revenue += finalValue;
+    current.orders += 1;
+    current.outstanding += Math.max(0, finalValue - amountPaid);
+    map.set(name, current);
+  });
+
+  return [...map.values()].sort((a, b) => b.revenue - a.revenue);
+};
+
+export const buildServicePerformance = (orders = []) => {
+  const rules = [
+    { name: 'Banner / sinalização', regex: /(banner|faixa|sinal|outdoor|vinil|adesivo|letreiro|placa|pvc|sinaliza)/i },
+    { name: 'Impressão / papel', regex: /(papel|fotograf|a4|a3|impress|offset|digital|cópia|copia)/i },
+    { name: 'Personalização / corte', regex: /(corte|recorte|plotter|personaliz|grava|laser|vinil cort)/i },
+    { name: 'Embalagem / etiqueta', regex: /(embalagem|etiqueta|caixa|rótulo|rotulo)/i },
+  ];
+
+  const map = new Map();
+
+  orders.forEach((order) => {
+    const seenByService = new Set();
+
+    (order.items || []).forEach((item) => {
+      const description = String(item.description || '').trim();
+      if (!description) return;
+
+      const match = rules.find((rule) => rule.regex.test(description));
+      const name = match ? match.name : 'Outros';
+      const current = map.get(name) || { name, revenue: 0, orders: 0 };
+
+      current.revenue += Number(item.total || 0);
+      if (!seenByService.has(name)) {
+        current.orders += 1;
+        seenByService.add(name);
+      }
+      map.set(name, current);
+    });
+  });
+
+  return [...map.values()].sort((a, b) => b.revenue - a.revenue);
+};
+
 export const buildCashflowTrend = (orders) => {
   const today = new Date();
   const last7Days = Array.from({ length: 7 }, (_, index) => {
@@ -155,6 +206,8 @@ router.get('/', async (req, res) => {
   };
 
   const cashflowTrend = buildCashflowTrend(orders);
+  const clientPerformance = buildClientPerformance(orders);
+  const servicePerformance = buildServicePerformance(orders);
 
   // Últimos pedidos para o feed do dashboard
   const recent = orders.slice(0, 10);
@@ -200,6 +253,10 @@ router.get('/', async (req, res) => {
         },
       },
       trend: cashflowTrend,
+    },
+    analytics: {
+      clients: clientPerformance,
+      services: servicePerformance,
     },
     warnings: {
       payablesOverdue: payablesOverdue.length,
