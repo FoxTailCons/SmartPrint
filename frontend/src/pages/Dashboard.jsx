@@ -7,6 +7,7 @@ import {
 import { api, fmt, fmtDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
+import PrintButton from '../components/PrintButton.jsx';
 import Modal from '../components/Modal.jsx';
 import OrderForm from './OrderForm.jsx';
 
