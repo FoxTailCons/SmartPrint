@@ -19,80 +19,122 @@ export const buildOrderPdfBuffer = async (order) => {
   const items = Array.isArray(order.items) ? order.items : [];
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const doc = new PDFDocument({ size: 'A4', margin: 0 });
     const chunks = [];
 
     doc.on('data', (chunk) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-    const leftX = 50;
-    const rightX = 350;
-    const itemsStartY = 220;
+    const pageWidth = doc.page.width;
+    const left = 30;
+    const right = pageWidth - 30;
+    const contentWidth = right - left;
+    const tableRows = items;
+    const subtotal = Number(order.totalValue || tableRows.reduce((sum, item) => sum + Number(item.total || 0), 0));
+    const discount = Number(order.discount || 0);
+    const finalValue = Number(order.finalValue ?? Math.max(0, subtotal - discount));
+    const documentLabel = Number(order.amountPaid || 0) > 0 ? 'Recibo' : 'Orçamento';
+    const paymentLabel = {
+      pix: 'PIX', dinheiro: 'DINHEIRO', debito: 'DÉBITO', credito: 'CRÉDITO', parcelado: 'PARCELADO',
+    }[order.paymentMethod] || String(order.paymentMethod || 'A COMBINAR').toUpperCase();
 
-    doc.fontSize(22).fillColor('#111827').text('SmartPrint Lindóia', leftX, 50);
-    doc.fontSize(9).fillColor('#475569').text('Gráfica e Grandes Formatos', leftX, 80);
-    doc.fontSize(16).fillColor('#111827').text(`Orçamento / Recibo Nº ${order.number || '00000'}`, leftX, 110);
+    const drawLogo = (x, y) => {
+      doc.save();
+      doc.circle(x + 18, y + 18, 18).fill('#111827');
+      doc.rect(x, y, 18, 18).fill('#00a6c7');
+      doc.rect(x + 18, y, 18, 18).fill('#e91e73');
+      doc.rect(x + 18, y + 18, 18, 18).fill('#f4d21f');
+      doc.rect(x, y + 18, 18, 18).fill('#111827');
+      doc.lineWidth(1.5).strokeColor('#111827').moveTo(x + 18, y).lineTo(x + 18, y + 36).stroke();
+      doc.moveTo(x, y + 18).lineTo(x + 36, y + 18).stroke();
+      doc.circle(x + 18, y + 18, 5).fill('#fff').stroke('#111827');
+      doc.restore();
+      doc.font('Helvetica-Bold').fontSize(25).fillColor('#111827').text('smart print.', x, y + 43);
+      doc.font('Helvetica').fontSize(8).fillColor('#111827').text('gráfica e comunicação visual', x + 3, y + 72);
+    };
 
-    doc.fontSize(10).fillColor('#374151').text(`Data: ${fmtDate(order.createdAt)}`, rightX, 55);
-    doc.text(`Entrega: ${fmtDate(order.deliveryDate)}`, rightX, 72);
-    doc.text(`Status: ${order.status || 'pendente'}`, rightX, 89);
-    doc.text(`Pagamento: ${order.paymentMethod || 'pix'}`, rightX, 106);
+    const labelValue = (label, value, x, y, width) => {
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text(`${label}:`, x, y, { continued: true });
+      doc.font('Helvetica').text(` ${value || '—'}`, { width });
+    };
 
-    doc.moveTo(40, 140).lineTo(pageWidth + 40, 140).stroke('#d1d5db');
+    drawLogo(left + 8, 16);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(client.name || 'Cliente não cadastrado', 330, 18, { width: 235, align: 'right' });
+    doc.font('Helvetica').fontSize(10).text(`Cnpj: ${client.document || '—'}`, 330, 34, { width: 235, align: 'right' });
+    doc.text(client.address || '—', 330, 50, { width: 235, align: 'right' });
+    doc.text(`${client.city || '—'} - ${client.state || '—'} | Cep: ${client.zipCode || '—'}`, 330, 66, { width: 235, align: 'right' });
+    doc.moveTo(left, 91).lineTo(right, 91).lineWidth(1).stroke('#6b7280');
 
-    doc.fontSize(10).fillColor('#111827');
-    doc.text(`Cliente: ${client.name || 'Cliente não cadastrado'}`, leftX, 160);
-    doc.text(`Contato: ${client.phone || 'Não informado'}`, leftX, 176);
-    doc.text(`Observações: ${order.observations || 'Sem observações.'}`, leftX, 192);
+    doc.rect(left + 18, 96, contentWidth - 36, 27).fill('#000');
+    doc.font('Helvetica-Bold').fontSize(15).fillColor('#fff').text(`${documentLabel} Nº ${order.number || '00000'}`, left + 18, 103, { width: contentWidth - 36, align: 'center' });
+    doc.font('Helvetica').fontSize(10).fillColor('#111827').text('Orçamento aos cuidados do(a) Sr(a):', left, 133, { width: contentWidth, align: 'center' });
 
-    doc.fontSize(11).font('Helvetica-Bold').text('Produto', 50, itemsStartY);
-    doc.text('Qtde', 310, itemsStartY);
-    doc.text('Unit.', 370, itemsStartY);
-    doc.text('Total', 470, itemsStartY);
-    doc.moveTo(40, itemsStartY + 15).lineTo(pageWidth + 40, itemsStartY + 15).stroke('#d1d5db');
+    labelValue('Data de Emissão', fmtDate(order.createdAt), left + 40, 153, 220);
+    labelValue('Prev. Entrega', fmtDate(order.deliveryDate), 350, 153, 190);
+    labelValue('Cliente', client.name || 'Cliente não cadastrado', left + 48, 175, contentWidth - 96);
+    labelValue('Endereço', client.address || '—', left + 48, 197, 230);
+    labelValue('Bairro', client.neighborhood || '—', 355, 197, 180);
+    labelValue('Cidade', client.city || '—', left + 48, 219, 230);
+    labelValue('Estado', client.state || '—', 355, 219, 180);
+    labelValue('CEP', client.zipCode || '—', left + 48, 241, 230);
+    labelValue('CNPJ/CPF', client.document || '—', 355, 241, 180);
+    labelValue('Fone', client.phone || '—', left + 48, 263, 230);
+    labelValue('Inscrição Est', client.stateRegistration || '—', 355, 263, 180);
+    labelValue('E-mail', client.email || '—', left + 48, 285, 230);
+    labelValue('Contato', client.contact || '—', 355, 285, 180);
 
-    let currentY = itemsStartY + 30;
-    const tableRows = Array.isArray(order.items) ? order.items : [];
+    const tableY = 310;
+    const cols = { code: left, description: left + 42, quantity: 320, unit: 385, discount: 450, total: 520 };
+    doc.rect(left, tableY, contentWidth, 22).fill('#000');
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#fff');
+    doc.text('Cod', cols.code + 4, tableY + 6);
+    doc.text('Produto', cols.description + 4, tableY + 6);
+    doc.text('Qtde', cols.quantity, tableY + 6, { width: 45, align: 'right' });
+    doc.text('Valor Un.', cols.unit, tableY + 6, { width: 55, align: 'right' });
+    doc.text('Desc R$', cols.discount, tableY + 6, { width: 55, align: 'right' });
+    doc.text('Total', cols.total, tableY + 6, { width: 45, align: 'right' });
 
-    tableRows.forEach((item) => {
+    let currentY = tableY + 30;
+    tableRows.forEach((item, index) => {
       const description = String(item.description || 'Item sem descrição');
       const quantity = Number(item.quantity || 0);
       const unitPrice = Number(item.unitPrice || 0);
-      const total = Number(item.total || quantity * unitPrice);
-
-      const wrappedDescription = doc.widthOfString(description, { width: 220 });
-      const lines = wrappedDescription > 220 ? 2 : 1;
-      if (currentY + lines * 14 > 700) {
-        doc.addPage();
-        currentY = 50;
-      }
-
-      doc.font('Helvetica').fontSize(10).text(description, 50, currentY, { width: 230, align: 'left' });
-      doc.text(String(quantity), 310, currentY);
-      doc.text(fmtMoney(unitPrice), 370, currentY);
-      doc.text(fmtMoney(total), 470, currentY);
-      currentY += 18;
+      const total = Number(item.total ?? quantity * unitPrice);
+      const descriptionHeight = doc.heightOfString(description, { width: 265, fontSize: 9 });
+      doc.font('Helvetica').fontSize(9).fillColor('#111827');
+      doc.text(item.code || String(index + 1).padStart(3, '0'), cols.code + 4, currentY);
+      doc.text(description, cols.description + 4, currentY, { width: 265 });
+      doc.text(quantity.toFixed(4).replace('.', ','), cols.quantity, currentY, { width: 45, align: 'right' });
+      doc.text(fmtMoney(unitPrice), cols.unit, currentY, { width: 55, align: 'right' });
+      doc.text('0,0000', cols.discount, currentY, { width: 55, align: 'right' });
+      doc.text(fmtMoney(total), cols.total, currentY, { width: 45, align: 'right' });
+      currentY += Math.max(22, descriptionHeight + 7);
     });
 
-    doc.moveTo(40, currentY + 8).lineTo(pageWidth + 40, currentY + 8).stroke('#d1d5db');
+    doc.font('Helvetica-Oblique').fontSize(9).fillColor('#6b7280').text('—', cols.description + 4, currentY);
+    doc.font('Helvetica-BoldOblique').fontSize(10).text('Total Desconto: ', 315, currentY, { continued: true });
+    doc.text(fmtMoney(discount));
+    doc.font('Helvetica-BoldOblique').fontSize(12).fillColor('#111827').text('Valor', 450, currentY, { continued: true });
+    doc.text(` ${fmtMoney(finalValue)}`);
+    doc.text('Total:', 450, currentY + 14);
 
-    const subtotal = Number(order.totalValue || tableRows.reduce((sum, item) => sum + (Number(item.total || 0)), 0));
-    const discount = Number(order.discount || 0);
-    const finalValue = Number(order.finalValue || Math.max(0, subtotal - discount));
+    const paymentY = currentY + 42;
+    doc.rect(left, paymentY, contentWidth, 39).stroke('#111827');
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('Forma de Pagamento:', left + 185, paymentY + 11, { continued: true });
+    doc.font('Helvetica').text(` ${paymentLabel}`);
+    doc.font('Helvetica-Bold').fontSize(9).text('Observações:', left + 42, paymentY + 46);
+    doc.moveTo(left + 42, paymentY + 66).lineTo(right, paymentY + 66).stroke('#6b7280');
+    doc.font('Helvetica-Bold').fontSize(9).text('Informações Complementares:', left + 42, paymentY + 78);
+    doc.moveTo(left, paymentY + 110).lineTo(right, paymentY + 110).stroke('#6b7280');
+    if (order.observations) doc.font('Helvetica').fontSize(9).text(order.observations, left + 42, paymentY + 48, { width: contentWidth - 55 });
 
-    currentY += 24;
-    doc.font('Helvetica').fontSize(10).text('Subtotal', 360, currentY);
-    doc.text(fmtMoney(subtotal), 470, currentY);
-    doc.text('Desconto', 360, currentY + 18);
-    doc.text(`-${fmtMoney(discount)}`, 470, currentY + 18);
-    doc.font('Helvetica-Bold').fontSize(12).text('Valor total', 360, currentY + 40);
-    doc.text(fmtMoney(finalValue), 470, currentY + 40);
-
-    doc.font('Helvetica').fontSize(9).fillColor('#475569').text('Observações do pedido:', 50, currentY + 70);
-    doc.text(order.observations || 'Sem observações complementares.', 50, currentY + 86, { width: 500 });
-    doc.text('Documento emitido pelo sistema SmartPrint. Consulte o pedido no sistema para mais detalhes.', 50, 760, { align: 'center' });
+    const signatureY = Math.min(paymentY + 180, 700);
+    doc.moveTo(left, signatureY).lineTo(left + 220, signatureY).stroke('#111827');
+    doc.moveTo(right - 220, signatureY).lineTo(right, signatureY).stroke('#111827');
+    doc.font('Helvetica').fontSize(8).fillColor('#111827').text(client.name || 'Cliente', left, signatureY + 7, { width: 220, align: 'center' });
+    doc.text('LINDOIANO FONTES DE AGUAS MINERAIS LTDA', right - 220, signatureY + 7, { width: 220, align: 'center' });
+    doc.moveTo(left, 805).lineTo(right, 805).stroke('#111827');
 
     doc.end();
   });
@@ -102,31 +144,30 @@ export const buildOrderPdfBuffer = async (order) => {
 const buildWhatsappText = (order, client) => {
   const lines = [];
   const clientName = client?.name || 'Cliente não cadastrado';
-  lines.push(`*SmartPrint Lindóia* - Gráfica e Grandes Formatos`);
-  lines.push(`--------------------------------`);
-  lines.push(`*Pedido/Orçamento Nº ${order.number}*`);
+  const subtotal = Number(order.totalValue || (order.items || []).reduce((sum, item) => sum + Number(item.total || 0), 0));
+  const discount = Number(order.discount || 0);
+  const finalValue = Number(order.finalValue ?? Math.max(0, subtotal - discount));
+  const documentLabel = Number(order.amountPaid || 0) > 0 ? 'RECIBO' : 'ORÇAMENTO';
+  lines.push('*SMART PRINT*');
+  lines.push('gráfica e comunicação visual');
+  lines.push(`*${documentLabel} Nº ${order.number}*`);
+  lines.push('');
   lines.push(`Cliente: ${clientName}`);
-  lines.push(`Status: ${order.status}`);
-  lines.push(`Entrega: ${fmtDate(order.deliveryDate)}`);
-  lines.push(`--------------------------------`);
-  order.items.forEach((it) => {
-    lines.push(`• ${it.description} (${it.quantity}x) = ${fmtMoney(it.total)}`);
+  lines.push(`Data de Emissão: ${fmtDate(order.createdAt)}`);
+  lines.push(`Prev. Entrega: ${fmtDate(order.deliveryDate)}`);
+  lines.push('');
+  lines.push('*Cod | Produto | Qtde | Valor Un. | Desc R$ | Total*');
+  (order.items || []).forEach((it, index) => {
+    lines.push(`${it.code || String(index + 1).padStart(3, '0')} | ${it.description} | ${Number(it.quantity || 0).toFixed(4).replace('.', ',')} | ${fmtMoney(it.unitPrice)} | R$ 0,00 | ${fmtMoney(it.total)}`);
   });
-  if (order.discount > 0) lines.push(`Desconto: -${fmtMoney(order.discount)}`);
-  lines.push(`*TOTAL: ${fmtMoney(order.finalValue)}*`);
-  if (order.amountPaid > 0) {
-    lines.push(`Pago: ${fmtMoney(order.amountPaid)} | Saldo: ${fmtMoney(order.finalValue - order.amountPaid)}`);
-  }
-  if (order.installments?.length) {
-    lines.push(`--------------------------------`);
-    lines.push(`*Parcelas:*`);
-    order.installments.forEach((p, i) => {
-      lines.push(`${i + 1}ª) ${fmtDate(p.dueDate)} - ${fmtMoney(p.amount)} ${p.paid ? '✔PAGO' : ''}`);
-    });
-  }
-  if (order.observations) lines.push(`Obs: ${order.observations}`);
-  lines.push(`--------------------------------`);
-  lines.push(`Agradecemos a preferência!`);
+  lines.push(`Total Desconto: ${fmtMoney(discount)}`);
+  lines.push(`*VALOR TOTAL: ${fmtMoney(finalValue)}*`);
+  lines.push(`Forma de Pagamento: ${String(order.paymentMethod || 'a combinar').toUpperCase()}`);
+  if (order.amountPaid > 0) lines.push(`Pago: ${fmtMoney(order.amountPaid)} | Saldo: ${fmtMoney(finalValue - order.amountPaid)}`);
+  if (order.observations) lines.push(`Observações: ${order.observations}`);
+  lines.push('');
+  lines.push('O PDF neste mesmo formato pode ser baixado pelo botão Imprimir antes do envio.');
+  lines.push('Agradecemos a preferência!');
   return lines.join('\n');
 };
 

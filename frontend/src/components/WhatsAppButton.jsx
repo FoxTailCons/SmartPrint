@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageCircle, Copy, Check } from 'lucide-react';
+import { MessageCircle, Copy, Check, Download } from 'lucide-react';
 import { api } from '../api';
 import Modal from './Modal.jsx';
 
@@ -26,6 +26,26 @@ export default function WhatsAppButton({ orderId, className = '' }) {
     navigator.clipboard.writeText(data?.text || '');
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const downloadPdf = async () => {
+    try {
+      const base = import.meta.env.VITE_API_URL || 'https://smartprint-am7g.onrender.com';
+      const tokenValue = localStorage.getItem('sp_token');
+      const response = await fetch(`${base}/api/orders/${orderId}/pdf`, {
+        headers: tokenValue ? { Authorization: `Bearer ${tokenValue}` } : {},
+      });
+      if (!response.ok) throw new Error('Não foi possível gerar o PDF do pedido.');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `orcamento-${orderId}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e.message);
+    }
   };
 
   return (
@@ -63,9 +83,15 @@ export default function WhatsAppButton({ orderId, className = '' }) {
                 {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
                 {copied ? 'Copiado!' : 'Copiar mensagem'}
               </button>
+              <button
+                onClick={downloadPdf}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-slate-50 font-medium"
+              >
+                <Download size={16} /> Baixar PDF
+              </button>
             </div>
             <p className="text-xs text-slate-500">
-              Dica: se o número não abrir direto, copie a mensagem e envie manualmente no WhatsApp Web.
+              Dica: abra o WhatsApp e, se necessário, anexe o PDF baixado para enviar o orçamento com o mesmo layout impresso.
             </p>
           </div>
         )}
