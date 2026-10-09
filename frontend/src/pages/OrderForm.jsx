@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Plus, Trash2, Save, UserPlus } from 'lucide-react';
+import { Plus, Trash2, Save, UserPlus, Ruler } from 'lucide-react';
 import { api, fmt } from '../api';
 import Modal from '../components/Modal.jsx';
+import MeasureCalculator from '../components/MeasureCalculator.jsx';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
 
@@ -22,6 +23,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [instCount, setInstCount] = useState(1);
   const [firstDue, setFirstDue] = useState('');
   const [showNewClient, setShowNewClient] = useState(false);
+  const [showMeasureCalculator, setShowMeasureCalculator] = useState(false);
   const [newClient, setNewClient] = useState({ name: '', phone: '', email: '' });
   const [saving, setSaving] = useState(false);
 
@@ -133,9 +135,14 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Itens / Serviços</h2>
-            <button type="button" onClick={() => setItems([...items, { ...emptyItem }])} className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">
-              <Plus size={14} /> Adicionar item
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => setShowMeasureCalculator(true)} className="inline-flex items-center gap-1 text-sm text-emerald-700 hover:underline">
+                <Ruler size={14} /> Calcular por dimensão
+              </button>
+              <button type="button" onClick={() => setItems([...items, { ...emptyItem }])} className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">
+                <Plus size={14} /> Adicionar item
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             {items.map((it, idx) => (
@@ -242,6 +249,11 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
           <button onClick={createClient} className="w-full py-2.5 bg-brand-600 text-white rounded-lg font-medium">Cadastrar e selecionar</button>
         </div>
       </Modal>
+      <MeasureCalculator
+        open={showMeasureCalculator}
+        onClose={() => setShowMeasureCalculator(false)}
+        onAddItem={(item) => setItems((current) => [...current, item])}
+      />
     </div>
   );
 
