@@ -9,6 +9,7 @@ import OrderDetail from './pages/OrderDetail.jsx';
 import Clients from './pages/Clients.jsx';
 import Payables from './pages/Payables.jsx';
 import Receivables from './pages/Receivables.jsx';
+import Products from './pages/Products.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -27,6 +28,7 @@ export default function App() {
       <Route path="/pedidos/:id" element={<Protected><OrderDetail /></Protected>} />
       <Route path="/pedidos/:id/editar" element={<Protected><OrderForm /></Protected>} />
       <Route path="/clientes" element={<Protected><Clients /></Protected>} />
+      <Route path="/produtos" element={<Protected><Products /></Protected>} />
       <Route path="/contas-pagar" element={<Protected><Payables /></Protected>} />
       <Route path="/contas-receber" element={<Protected><Receivables /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />

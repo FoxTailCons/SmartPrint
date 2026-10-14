@@ -1,0 +1,136 @@
+import { Router } from 'express';
+import Product from '../models/Product.js';
+import { protect, adminOnly } from '../middleware/auth.js';
+import { saleUnits } from '../models/Product.js';
+
+const normalizeInput = (body, { allowActive = false } = {}) => {
+  const name = typeof body?.name === 'string' ? body.name.trim() : '';
+  const saleUnit = body?.saleUnit;
+  const rawPrice = body?.price;
+  const price = typeof rawPrice === 'number' ? rawPrice : Number(String(rawPrice ?? '').trim());
+  const code = typeof body?.code === 'string' ? body.code.trim() : '';
+
+  if (!name) return { error: 'Nome do produto é obrigatório' };
+  if (!saleUnits.includes(saleUnit)) return { error: 'Unidade de venda inválida' };
+  if (!Number.isFinite(price) || price < 0 || String(rawPrice ?? '').trim() === '') {
+    return { error: 'Informe um preço válido, maior ou igual a zero' };
+  }
+  if (allowActive && body.active !== undefined && typeof body.active !== 'boolean') {
+    return { error: 'Status do produto inválido' };
+  }
+
+  return {
+    value: {
+      name,
+      code: code || undefined,
+      saleUnit,
+      price,
+      ...(allowActive && body.active !== undefined ? { active: body.active } : {}),
+    },
+  };
+};
+
+const duplicateCode = async (ProductModel, code, currentId) => {
+  if (!code) return false;
+  const existing = await ProductModel.findOne({ code });
+  return existing && String(existing._id) !== String(currentId || '');
+};
+
+const isDuplicateKeyError = (error) => error?.code === 11000;
+
+export function createProductsRouter({
+  ProductModel = Product,
+  protectMiddleware = protect,
+  adminMiddleware = adminOnly,
+} = {}) {
+  const router = Router();
+  router.use(protectMiddleware);
+
+  router.get('/', async (req, res, next) => {
+    const includeInactive = req.query.includeInactive === 'true';
+    if (includeInactive && req.user?.role !== 'admin') {
+      return res.status(403).json({ message: 'Acesso restrito ao administrador' });
+    }
+
+    const filter = includeInactive ? {} : { active: true };
+    const query = String(req.query.q || '').trim();
+    if (query) {
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { name: { $regex: escaped, $options: 'i' } },
+        { code: { $regex: escaped, $options: 'i' } },
+      ];
+    }
+
+    try {
+      const products = await ProductModel.find(filter).sort({ name: 1 });
+      return res.json(products);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get('/:id', async (req, res, next) => {
+    try {
+      const product = await ProductModel.findById(req.params.id);
+      if (!product || (!product.active && req.user?.role !== 'admin')) {
+        return res.status(404).json({ message: 'Produto não encontrado' });
+      }
+      return res.json(product);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.post('/', adminMiddleware, async (req, res, next) => {
+    const normalized = normalizeInput(req.body);
+    if (normalized.error) return res.status(400).json({ message: normalized.error });
+
+    try {
+      if (await duplicateCode(ProductModel, normalized.value.code)) {
+        return res.status(409).json({ message: 'Já existe um produto com esse código' });
+      }
+      const product = new ProductModel(normalized.value);
+      await product.save();
+      return res.status(201).json(product);
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return res.status(409).json({ message: 'Já existe um produto com esse código' });
+      return next(error);
+    }
+  });
+
+  router.put('/:id', adminMiddleware, async (req, res, next) => {
+    const normalized = normalizeInput(req.body, { allowActive: true });
+    if (normalized.error) return res.status(400).json({ message: normalized.error });
+
+    try {
+      const product = await ProductModel.findById(req.params.id);
+      if (!product) return res.status(404).json({ message: 'Produto não encontrado' });
+      if (await duplicateCode(ProductModel, normalized.value.code, product._id)) {
+        return res.status(409).json({ message: 'Já existe um produto com esse código' });
+      }
+      Object.assign(product, normalized.value);
+      await product.save();
+      return res.json(product);
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return res.status(409).json({ message: 'Já existe um produto com esse código' });
+      return next(error);
+    }
+  });
+
+  router.patch('/:id/deactivate', adminMiddleware, async (req, res, next) => {
+    try {
+      const product = await ProductModel.findById(req.params.id);
+      if (!product) return res.status(404).json({ message: 'Produto não encontrado' });
+      product.active = false;
+      await product.save();
+      return res.json(product);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  return router;
+}
+
+export default createProductsRouter();

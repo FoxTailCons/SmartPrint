@@ -1,11 +1,28 @@
 import mongoose from 'mongoose';
 
+const measurementsSchema = new mongoose.Schema(
+  {
+    pieceCount: { type: Number, min: 1 },
+    lengthPerPiece: { type: Number, min: 0 },
+    width: { type: Number, min: 0 },
+    height: { type: Number, min: 0 },
+    dimensionUnit: { type: String, enum: ['cm', 'm'] },
+    moldEnabled: { type: Boolean },
+    moldFactor: { type: Number, min: 0 },
+  },
+  { _id: false }
+);
+
 // Itens do orçamento/pedido (serviços da gráfica: grandes formatos, adesivagem, etc.)
 const itemSchema = new mongoose.Schema({
   description: { type: String, required: true, trim: true },
   quantity: { type: Number, default: 1, min: 0 },
   unitPrice: { type: Number, default: 0, min: 0 },
   total: { type: Number, default: 0 },
+  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+  productName: { type: String },
+  saleUnit: { type: String, enum: ['unit', 'linear_meter', 'square_meter'] },
+  measurements: { type: measurementsSchema },
 });
 
 // Parcelas / desdobramento de pagamento

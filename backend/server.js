@@ -10,6 +10,7 @@ import clientRoutes from './routes/clients.js';
 import orderRoutes from './routes/orders.js';
 import payableRoutes from './routes/payables.js';
 import dashboardRoutes from './routes/dashboard.js';
+import productRoutes from './routes/products.js';
 import User from './models/User.js';
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payables', payableRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/products', productRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

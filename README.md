@@ -19,6 +19,8 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - **Contas a pagar** (consumo/insumos/aluguel etc.) com **aviso visual no Dashboard** (vencidas em vermelho, vencendo em até 3 dias em amarelo)
 - **Contas a receber** com saldo devedor e próximos vencimentos
 - Dashboard com KPIs e feed de pedidos recentes
+- Catálogo de produtos por unidade, metro linear ou metro quadrado, com cadastro restrito a administradores
+- Venda de itens do catálogo em pedidos com preço validado no backend e snapshot histórico de preço e medidas
 
 ## Usuários iniciais (criados no primeiro acesso ao banco)
 | Perfil | E-mail | Senha |
@@ -107,15 +109,21 @@ smartprint-pdv/
 ├── backend/
 │   ├── server.js            # entrada da API
 │   ├── config/              # conexão MongoDB + seed de usuários
-│   ├── models/              # User, Client, Order, Payable
-│   ├── routes/              # auth, clients, orders, payables, dashboard
+│   ├── models/              # User, Client, Product, Order, Payable
+│   ├── routes/              # auth, clients, products, orders, payables, dashboard
 │   └── middleware/          # auth JWT
 └── frontend/
     └── src/
-        ├── pages/           # Login, Dashboard, Orders, OrderForm, OrderDetail, Clients, Payables, Receivables
+        ├── pages/           # Login, Dashboard, Orders, OrderForm, OrderDetail, Clients, Products, Payables, Receivables
         ├── components/      # Layout, Badges, Modal, WhatsAppButton
         └── context/         # AuthContext
 ```
+
+### Catálogo e preços por medida
+
+Administradores acessam **Produtos** no menu para cadastrar, editar, pesquisar e desativar produtos. Cada produto tem preço por unidade, metro linear ou metro quadrado; a desativação é lógica e mantém os registros existentes.
+
+No cadastro de um pedido, selecione um produto do catálogo e informe a quantidade ou as medidas correspondentes. O backend calcula o total usando o preço vigente no momento da inclusão e grava nome, unidade, preço e medidas no item do pedido. Alterações futuras no catálogo não modificam o histórico; itens livres continuam disponíveis.
 
 ## Próximos passos sugeridos
 - Trocar senha padrão dos usuários / criar tela de gestão de usuários

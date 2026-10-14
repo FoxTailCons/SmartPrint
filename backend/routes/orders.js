@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import PDFDocument from 'pdfkit';
 import Order from '../models/Order.js';
 import Client from '../models/Client.js';
+import Product from '../models/Product.js';
+import { buildCatalogOrderItem } from '../services/orderItemPricing.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
@@ -13,6 +15,48 @@ const fmtMoney = (v) =>
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('pt-BR') : 'a combinar';
+
+const orderItemError = (message) => Object.assign(new Error(message), { statusCode: 400 });
+
+export const buildOrderItems = async (items, existingItems = []) => Promise.all(items.map(async (item) => {
+  if (!item?.productId) return item;
+  if (!mongoose.isValidObjectId(item.productId)) throw orderItemError('Produto inválido');
+
+  const previousItem = item._id && typeof existingItems.id === 'function'
+    ? existingItems.id(item._id)
+    : null;
+  const hasMatchingSnapshot = previousItem
+    && String(previousItem.productId) === String(item.productId)
+    && previousItem.productName
+    && previousItem.saleUnit
+    && Number.isFinite(previousItem.unitPrice);
+  const product = await Product.findById(item.productId);
+  if (!product || (!product.active && !hasMatchingSnapshot)) {
+    throw orderItemError('Produto não encontrado ou inativo');
+  }
+
+  const pricingSnapshot = hasMatchingSnapshot
+    ? {
+      productName: previousItem.productName,
+      saleUnit: previousItem.saleUnit,
+      unitPrice: previousItem.unitPrice,
+    }
+    : undefined;
+  const calculatedItem = buildCatalogOrderItem({
+    product,
+    quantity: item.quantity,
+    pieceCount: item.measurements?.pieceCount ?? item.pieceCount,
+    lengthPerPiece: item.measurements?.lengthPerPiece ?? item.lengthPerPiece,
+    width: item.measurements?.width ?? item.width,
+    height: item.measurements?.height ?? item.height,
+    dimensionUnit: item.measurements?.dimensionUnit ?? item.dimensionUnit,
+    moldEnabled: item.measurements?.moldEnabled ?? item.moldEnabled ?? false,
+    moldFactor: item.measurements?.moldFactor ?? item.moldFactor,
+    pricingSnapshot,
+  });
+
+  return { ...calculatedItem, ...(hasMatchingSnapshot ? { _id: previousItem._id } : {}) };
+}));
 
 export const buildOrderPdfBuffer = async (order) => {
   const client = order?.client || {};
@@ -202,18 +246,19 @@ router.post('/', async (req, res) => {
     const rawClientId = req.body?.client;
     if (rawClientId && !mongoose.isValidObjectId(rawClientId)) return res.status(400).json({ message: 'Cliente inválido' });
     if (rawClientId && !await Client.exists({ _id: rawClientId })) return res.status(400).json({ message: 'Cliente não encontrado' });
-    if (!Array.isArray(req.body?.items) || !req.body.items.some((item) => item.description?.trim())) {
+    if (!Array.isArray(req.body?.items) || !req.body.items.some((item) => item?.productId || item?.description?.trim())) {
       return res.status(400).json({ message: 'Informe pelo menos um item do pedido' });
     }
     const fields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
     const payload = Object.fromEntries(fields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
     if (payload.client === '') payload.client = null;
+    payload.items = await buildOrderItems(payload.items);
     const order = await Order.create({ ...payload, createdBy: req.user._id });
     order.history.push({ action: 'criado', by: req.user.name });
     await order.save();
     res.status(201).json(order);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(err.statusCode || 400).json({ message: err.message });
   }
 });
 
@@ -272,17 +317,25 @@ router.post('/merge', adminOnly, async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const editableFields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
-  const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
-  if (changes.client === '') changes.client = null;
-  if (changes.client && (!mongoose.isValidObjectId(changes.client) || !await Client.exists({ _id: changes.client }))) {
-    return res.status(400).json({ message: 'Cliente inválido ou não encontrado' });
+  try {
+    const editableFields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
+    const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
+    if (changes.client === '') changes.client = null;
+    if (changes.client && (!mongoose.isValidObjectId(changes.client) || !await Client.exists({ _id: changes.client }))) {
+      return res.status(400).json({ message: 'Cliente inválido ou não encontrado' });
+    }
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+    if ('items' in changes) {
+      if (!Array.isArray(changes.items)) return res.status(400).json({ message: 'Lista de itens inválida' });
+      changes.items = await buildOrderItems(changes.items, order.items);
+    }
+    Object.assign(order, changes);
+    await order.save();
+    return res.json(await order.populate('client'));
+  } catch (err) {
+    return res.status(err.statusCode || 400).json({ message: err.message });
   }
-  const order = await Order.findById(req.params.id);
-  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-  Object.assign(order, changes);
-  await order.save();
-  res.json(await order.populate('client'));
 });
 
 router.delete('/:id', adminOnly, async (req, res) => {

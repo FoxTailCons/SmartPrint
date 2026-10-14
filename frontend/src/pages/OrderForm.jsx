@@ -4,8 +4,19 @@ import { Plus, Trash2, Save, UserPlus, Ruler } from 'lucide-react';
 import { api, fmt } from '../api';
 import Modal from '../components/Modal.jsx';
 import MeasureCalculator from '../components/MeasureCalculator.jsx';
+import { calculateAreaPerPiece } from './measurements.js';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
+const emptyCatalogMeasure = {
+  pieceCount: '1',
+  lengthPerPiece: '',
+  width: '',
+  height: '',
+  dimensionUnit: 'cm',
+  moldEnabled: false,
+  moldFactor: '1',
+};
+const saleUnitLabels = { unit: 'un.', linear_meter: 'm', square_meter: 'm²' };
 
 export default function OrderForm({ modal = false, open = true, onSaved, onCancel }) {
   const { id } = useParams();
@@ -13,6 +24,10 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const isEdit = !!id;
 
   const [clients, setClients] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogProductId, setCatalogProductId] = useState('');
+  const [catalogMeasure, setCatalogMeasure] = useState(emptyCatalogMeasure);
   const [clientId, setClientId] = useState('');
   const [items, setItems] = useState([{ ...emptyItem }]);
   const [discount, setDiscount] = useState(0);
@@ -29,6 +44,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
 
   useEffect(() => {
     api('/api/clients').then(setClients);
+    api('/api/products').then(setProducts).catch((error) => setCatalogError(error.message));
     if (isEdit) {
       api(`/api/orders/${id}`).then((o) => {
         setClientId(o.client?._id || o.client);
@@ -44,12 +60,79 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
 
   const itemsTotal = items.reduce((s, i) => s + (Number(i.quantity) * Number(i.unitPrice) || 0), 0);
   const finalValue = Math.max(0, itemsTotal - Number(discount || 0));
+  const selectedProduct = products.find((product) => product._id === catalogProductId);
+  const pieceCount = Number(catalogMeasure.pieceCount);
+  const lengthPerPiece = Number(catalogMeasure.lengthPerPiece);
+  const width = Number(catalogMeasure.width);
+  const height = Number(catalogMeasure.height);
+  let catalogQuantity = 0;
+  let catalogValid = false;
+
+  if (selectedProduct?.saleUnit === 'unit') {
+    catalogQuantity = pieceCount;
+    catalogValid = Number.isInteger(pieceCount) && pieceCount > 0;
+  } else if (selectedProduct?.saleUnit === 'linear_meter') {
+    catalogQuantity = pieceCount * lengthPerPiece;
+    catalogValid = Number.isInteger(pieceCount) && pieceCount > 0 && Number.isFinite(lengthPerPiece) && lengthPerPiece > 0;
+  } else if (selectedProduct?.saleUnit === 'square_meter') {
+    const moldFactor = Number(catalogMeasure.moldFactor);
+    const moldValid = !catalogMeasure.moldEnabled || (Number.isFinite(moldFactor) && moldFactor > 0);
+    const areaPerPiece = calculateAreaPerPiece({
+      width,
+      height,
+      unit: catalogMeasure.dimensionUnit,
+      moldEnabled: catalogMeasure.moldEnabled,
+      moldFactor,
+    });
+    catalogQuantity = areaPerPiece * pieceCount;
+    catalogValid = Number.isInteger(pieceCount) && pieceCount > 0
+      && Number.isFinite(width) && width > 0
+      && Number.isFinite(height) && height > 0
+      && moldValid
+      && Number.isFinite(catalogQuantity);
+  }
+  const catalogTotal = selectedProduct ? catalogQuantity * selectedProduct.price : 0;
+  catalogValid = catalogValid && Number.isFinite(catalogTotal);
 
   const updateItem = (idx, field, val) => {
     const next = [...items];
     next[idx][field] = val;
     next[idx].total = Number(next[idx].quantity) * Number(next[idx].unitPrice) || 0;
     setItems(next);
+  };
+
+  const addCatalogItem = () => {
+    if (!selectedProduct || !catalogValid) return;
+    const count = pieceCount;
+    const measurements = selectedProduct.saleUnit === 'unit'
+      ? { pieceCount: count }
+      : selectedProduct.saleUnit === 'linear_meter'
+        ? { pieceCount: count, lengthPerPiece }
+        : {
+          pieceCount: count,
+          width,
+          height,
+          dimensionUnit: catalogMeasure.dimensionUnit,
+          moldEnabled: catalogMeasure.moldEnabled,
+          moldFactor: catalogMeasure.moldEnabled ? Number(catalogMeasure.moldFactor) : undefined,
+        };
+    const description = selectedProduct.saleUnit === 'unit'
+      ? selectedProduct.name
+      : selectedProduct.saleUnit === 'linear_meter'
+        ? `${selectedProduct.name} - ${lengthPerPiece} m x ${count} peça(s)`
+        : `${selectedProduct.name} - ${width} x ${height} ${catalogMeasure.dimensionUnit} - ${count} peça(s)`;
+    setItems((current) => [...current, {
+      productId: selectedProduct._id,
+      productName: selectedProduct.name,
+      saleUnit: selectedProduct.saleUnit,
+      description,
+      quantity: catalogQuantity,
+      unitPrice: selectedProduct.price,
+      total: catalogTotal,
+      measurements,
+    }]);
+    setCatalogProductId('');
+    setCatalogMeasure(emptyCatalogMeasure);
   };
 
   const generateInstallments = () => {
@@ -71,7 +154,16 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
     try {
       const body = {
         client: clientId || null,
-        items: items.filter((i) => i.description),
+        items: items
+          .filter((i) => i.productId || i.description?.trim())
+          .map((item) => item.productId
+            ? {
+              ...(item._id ? { _id: item._id } : {}),
+              productId: item.productId,
+              quantity: item.quantity,
+              measurements: item.measurements,
+            }
+            : item),
         discount: Number(discount) || 0,
         paymentMethod,
         deliveryDate: deliveryDate || undefined,
@@ -144,29 +236,133 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
               </button>
             </div>
           </div>
+          <div className="rounded-lg border border-brand-100 bg-brand-50/50 p-4 space-y-3">
+            <div>
+              <label htmlFor="catalog-product" className="block text-sm font-medium">Adicionar produto do catálogo</label>
+              <p className="text-xs text-slate-500">Prévia estimada. O preço cadastrado será validado novamente ao salvar o pedido.</p>
+            </div>
+            {catalogError && <p role="alert" className="text-sm text-red-600">{catalogError}</p>}
+            <select
+              id="catalog-product"
+              value={catalogProductId}
+              onChange={(event) => setCatalogProductId(event.target.value)}
+              className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+            >
+              <option value="">Selecione um produto ativo...</option>
+              {products.map((product) => (
+                <option key={product._id} value={product._id}>
+                  {product.name} · {fmt(product.price)}/{saleUnitLabels[product.saleUnit]}
+                </option>
+              ))}
+            </select>
+            {selectedProduct && (
+              <div className="space-y-3">
+                {selectedProduct.saleUnit === 'unit' && (
+                  <label className="block text-sm">
+                    Quantidade
+                    <input type="number" min="1" step="1" value={catalogMeasure.pieceCount} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, pieceCount: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                  </label>
+                )}
+                {selectedProduct.saleUnit === 'linear_meter' && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="text-sm">
+                      Comprimento por peça (m)
+                      <input type="number" min="0" step="any" value={catalogMeasure.lengthPerPiece} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, lengthPerPiece: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                    </label>
+                    <label className="text-sm">
+                      Quantidade de peças
+                      <input type="number" min="1" step="1" value={catalogMeasure.pieceCount} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, pieceCount: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                    </label>
+                  </div>
+                )}
+                {selectedProduct.saleUnit === 'square_meter' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <label className="text-sm">
+                        Largura
+                        <input type="number" min="0" step="any" value={catalogMeasure.width} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, width: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </label>
+                      <label className="text-sm">
+                        Altura
+                        <input type="number" min="0" step="any" value={catalogMeasure.height} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, height: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </label>
+                      <label className="text-sm">
+                        Medida
+                        <select value={catalogMeasure.dimensionUnit} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, dimensionUnit: event.target.value })} className="mt-1 block w-full rounded-lg border bg-white px-3 py-2">
+                          <option value="cm">cm</option>
+                          <option value="m">m</option>
+                        </select>
+                      </label>
+                      <label className="text-sm">
+                        Quantidade de peças
+                        <input type="number" min="1" step="1" value={catalogMeasure.pieceCount} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, pieceCount: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={catalogMeasure.moldEnabled} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, moldEnabled: event.target.checked })} />
+                        Aplicar fator de molde
+                      </label>
+                      {catalogMeasure.moldEnabled && (
+                        <label className="text-sm">
+                          Fator
+                          <input type="number" min="0" step="any" value={catalogMeasure.moldFactor} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, moldFactor: event.target.value })} className="ml-2 w-24 rounded-lg border px-2 py-1.5" />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
+                  <span>
+                    Quantidade calculada: <strong>{catalogValid ? catalogQuantity.toFixed(4).replace('.', ',') : '—'} {saleUnitLabels[selectedProduct.saleUnit]}</strong>
+                    {' · '}Preço: <strong>{fmt(selectedProduct.price)}</strong>
+                    {' · '}Total: <strong className="text-brand-700">{catalogValid ? fmt(catalogTotal) : '—'}</strong>
+                  </span>
+                  <button type="button" disabled={!catalogValid} onClick={addCatalogItem} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    Adicionar ao pedido
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <div className="space-y-2">
             {items.map((it, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                <input
-                  className="col-span-6 px-3 py-2 border rounded-lg text-sm"
-                  placeholder="Descrição (ex: Banner 2x1m, Adesivo 100un...)"
-                  value={it.description}
-                  onChange={(e) => updateItem(idx, 'description', e.target.value)}
-                />
-                <input
-                  type="number" min="0" step="any"
-                  className="col-span-2 px-3 py-2 border rounded-lg text-sm"
-                  placeholder="Qtd"
-                  value={it.quantity}
-                  onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
-                />
-                <input
-                  type="number" min="0" step="any"
-                  className="col-span-3 px-3 py-2 border rounded-lg text-sm"
-                  placeholder="Preço unit. (R$)"
-                  value={it.unitPrice}
-                  onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
-                />
+              <div key={idx} className="grid grid-cols-12 items-center gap-2">
+                {it.productId ? (
+                  <div className="col-span-11 flex min-w-0 items-center gap-3 rounded-lg border bg-slate-50 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{it.description}</div>
+                      <div className="text-xs text-slate-500">
+                        {Number(it.quantity).toFixed(4).replace('.', ',')} {saleUnitLabels[it.saleUnit] || ''}
+                        {' × '}{fmt(it.unitPrice)}{it.saleUnit ? `/${saleUnitLabels[it.saleUnit]}` : ''}
+                      </div>
+                    </div>
+                    <strong className="shrink-0 text-sm">{fmt(Number(it.quantity) * Number(it.unitPrice))}</strong>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      className="col-span-6 rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Descrição (ex: Banner 2x1m, Adesivo 100un...)"
+                      value={it.description}
+                      onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                    />
+                    <input
+                      type="number" min="0" step="any"
+                      className="col-span-2 rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Qtd"
+                      value={it.quantity}
+                      onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
+                    />
+                    <input
+                      type="number" min="0" step="any"
+                      className="col-span-3 rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Preço unit. (R$)"
+                      value={it.unitPrice}
+                      onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
+                    />
+                  </>
+                )}
                 <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-1 text-red-500 hover:bg-red-50 p-2 rounded-lg">
                   <Trash2 size={16} />
                 </button>
