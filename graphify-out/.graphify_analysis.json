@@ -1,0 +1,349 @@
+{
+  "communities": {
+    "0": [
+      "frontend_src_api",
+      "frontend_src_api_api",
+      "frontend_src_api_fmt",
+      "frontend_src_api_fmtdate",
+      "frontend_src_api_onlydigits",
+      "frontend_src_api_token",
+      "frontend_src_app_app",
+      "frontend_src_components_badges",
+      "frontend_src_components_badges_labels",
+      "frontend_src_components_badges_statusbadge",
+      "frontend_src_components_badges_statusstyles",
+      "frontend_src_components_modal",
+      "frontend_src_components_modal_modal",
+      "frontend_src_components_printbutton",
+      "frontend_src_components_printbutton_printbutton",
+      "frontend_src_components_whatsappbutton",
+      "frontend_src_components_whatsappbutton_whatsappbutton",
+      "frontend_src_pages_clients",
+      "frontend_src_pages_clients_clients",
+      "frontend_src_pages_dashboard",
+      "frontend_src_pages_dashboard_card",
+      "frontend_src_pages_dashboard_dashboard",
+      "frontend_src_pages_dashboard_detaillist",
+      "frontend_src_pages_orderdetail",
+      "frontend_src_pages_orderdetail_orderdetail",
+      "frontend_src_pages_orderform",
+      "frontend_src_pages_orderform_emptyitem",
+      "frontend_src_pages_orderform_orderform",
+      "frontend_src_pages_orders",
+      "frontend_src_pages_orders_filters",
+      "frontend_src_pages_orders_orders",
+      "frontend_src_pages_payables",
+      "frontend_src_pages_payables_categories",
+      "frontend_src_pages_payables_catlabel",
+      "frontend_src_pages_payables_payables",
+      "frontend_src_pages_receivables",
+      "frontend_src_pages_receivables_receivables",
+      "ref_lucide_react",
+      "ref_react"
+    ],
+    "1": [
+      "frontend_package",
+      "frontend_package_dependencies",
+      "frontend_package_dependencies_lucide_react",
+      "frontend_package_dependencies_react",
+      "frontend_package_dependencies_react_dom",
+      "frontend_package_dependencies_react_router_dom",
+      "frontend_package_devdependencies",
+      "frontend_package_devdependencies_autoprefixer",
+      "frontend_package_devdependencies_postcss",
+      "frontend_package_devdependencies_tailwindcss",
+      "frontend_package_devdependencies_vite",
+      "frontend_package_devdependencies_vitejs_plugin_react",
+      "frontend_package_engines",
+      "frontend_package_engines_node",
+      "frontend_package_name",
+      "frontend_package_private",
+      "frontend_package_scripts",
+      "frontend_package_scripts_build",
+      "frontend_package_scripts_dev",
+      "frontend_package_scripts_preview",
+      "frontend_package_type",
+      "frontend_package_version",
+      "frontend_vite_config",
+      "ref_autoprefixer",
+      "ref_postcss",
+      "ref_tailwindcss",
+      "ref_vite",
+      "ref_vitejs_plugin_react"
+    ],
+    "2": [
+      "backend_models_order",
+      "backend_models_order_historyschema",
+      "backend_models_order_installmentschema",
+      "backend_models_order_itemschema",
+      "backend_models_order_orderschema",
+      "backend_models_order_paymentschema",
+      "backend_routes_dashboard",
+      "backend_routes_dashboard_buildcashflowsummary",
+      "backend_routes_dashboard_buildcashflowtrend",
+      "backend_routes_dashboard_buildclientperformance",
+      "backend_routes_dashboard_buildmonthlycomparison",
+      "backend_routes_dashboard_buildserviceperformance",
+      "backend_routes_dashboard_filterordersfordashboard",
+      "backend_tests_dashboard_cashflow_test",
+      "backend_tests_dashboard_liquidity_test",
+      "backend_tests_orders_pdf_test",
+      "ref_node_assert",
+      "ref_node_fs",
+      "ref_node_os",
+      "ref_node_path",
+      "ref_node_test"
+    ],
+    "3": [
+      "frontend_src_app",
+      "frontend_src_app_protected",
+      "frontend_src_components_brandmark",
+      "frontend_src_components_brandmark_brandmark",
+      "frontend_src_components_layout",
+      "frontend_src_components_layout_layout",
+      "frontend_src_components_layout_menu",
+      "frontend_src_components_layout_rolelabel",
+      "frontend_src_context_authcontext",
+      "frontend_src_context_authcontext_authcontext",
+      "frontend_src_context_authcontext_authprovider",
+      "frontend_src_context_authcontext_useauth",
+      "frontend_src_index",
+      "frontend_src_main",
+      "frontend_src_pages_login",
+      "frontend_src_pages_login_login",
+      "ref_react_dom",
+      "ref_react_router_dom"
+    ],
+    "4": [
+      "backend_middleware_auth",
+      "backend_middleware_auth_adminonly",
+      "backend_middleware_auth_protect",
+      "backend_models_user",
+      "backend_models_user_userschema",
+      "backend_routes_auth",
+      "backend_routes_auth_loginlimiter",
+      "backend_routes_auth_signtoken",
+      "backend_routes_clients",
+      "backend_routes_clients_router",
+      "backend_routes_payables",
+      "backend_routes_payables_nextmonthlydate",
+      "backend_routes_payables_router",
+      "ref_express",
+      "ref_jsonwebtoken",
+      "ref_node_crypto"
+    ],
+    "5": [
+      "backend_package",
+      "backend_package_description",
+      "backend_package_devdependencies",
+      "backend_package_devdependencies_nodemon",
+      "backend_package_engines",
+      "backend_package_engines_node",
+      "backend_package_main",
+      "backend_package_name",
+      "backend_package_type",
+      "backend_package_version",
+      "ref_bcryptjs",
+      "ref_cors",
+      "ref_express_rate_limit",
+      "ref_nodemon"
+    ],
+    "6": [
+      "backend_package_dependencies",
+      "backend_package_dependencies_bcryptjs",
+      "backend_package_dependencies_cors",
+      "backend_package_dependencies_dotenv",
+      "backend_package_dependencies_express",
+      "backend_package_dependencies_express_rate_limit",
+      "backend_package_dependencies_helmet",
+      "backend_package_dependencies_jsonwebtoken",
+      "backend_package_dependencies_mongoose",
+      "backend_package_dependencies_morgan",
+      "backend_package_dependencies_pdfkit"
+    ],
+    "7": [
+      "backend_config_db",
+      "backend_config_db_connectdb",
+      "backend_routes_auth_router",
+      "backend_routes_dashboard_router",
+      "backend_server",
+      "backend_server_allowedorigins",
+      "backend_server_app",
+      "backend_server_seedusers",
+      "ref_helmet",
+      "ref_morgan"
+    ],
+    "8": [
+      "backend_config_seed",
+      "backend_config_seed_run",
+      "backend_config_seed_users",
+      "backend_models_client",
+      "backend_models_client_clientschema",
+      "backend_models_payable",
+      "backend_models_payable_payableschema",
+      "ref_dotenv",
+      "ref_mongoose"
+    ],
+    "9": [
+      "backend_routes_orders",
+      "backend_routes_orders_buildorderpdfbuffer",
+      "backend_routes_orders_buildwhatsapptext",
+      "backend_routes_orders_fmtdate",
+      "backend_routes_orders_fmtmoney",
+      "backend_routes_orders_router",
+      "ref_pdfkit"
+    ],
+    "10": [
+      "frontend_src_components_measurecalculator",
+      "frontend_src_components_measurecalculator_formatmoney",
+      "frontend_src_components_measurecalculator_formatnumber",
+      "frontend_src_components_measurecalculator_measurecalculator",
+      "frontend_src_components_measurecalculator_parsenumber",
+      "frontend_src_pages_measurements",
+      "frontend_src_pages_measurements_calculateareaperpiece"
+    ],
+    "11": [
+      "backend_package_scripts",
+      "backend_package_scripts_dev",
+      "backend_package_scripts_seed",
+      "backend_package_scripts_start",
+      "backend_package_scripts_test"
+    ],
+    "12": [
+      "frontend_tailwind_config",
+      "tailwindcss"
+    ],
+    "13": [
+      "frontend_postcss_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.22672064777327935,
+    "1": 0.07407407407407407,
+    "2": 0.1380952380952381,
+    "3": 0.24836601307189543,
+    "4": 0.20833333333333334,
+    "5": 0.14285714285714285,
+    "6": 0.18181818181818182,
+    "7": 0.2222222222222222,
+    "8": 0.2222222222222222,
+    "9": 0.47619047619047616,
+    "10": 0.5238095238095238,
+    "11": 0.4,
+    "12": 1.0,
+    "13": 1.0
+  },
+  "gods": [
+    {
+      "id": "frontend_src_api_api",
+      "label": "api()",
+      "degree": 20
+    },
+    {
+      "id": "frontend_src_api_fmt",
+      "label": "fmt()",
+      "degree": 16
+    },
+    {
+      "id": "frontend_src_components_modal_modal",
+      "label": "Modal()",
+      "degree": 15
+    },
+    {
+      "id": "ref_lucide_react",
+      "label": "lucide-react",
+      "degree": 13
+    },
+    {
+      "id": "ref_react",
+      "label": "react",
+      "degree": 13
+    },
+    {
+      "id": "frontend_src_components_whatsappbutton_whatsappbutton",
+      "label": "WhatsAppButton()",
+      "degree": 13
+    },
+    {
+      "id": "frontend_src_components_badges_statusbadge",
+      "label": "StatusBadge()",
+      "degree": 12
+    },
+    {
+      "id": "frontend_src_pages_dashboard_dashboard",
+      "label": "Dashboard()",
+      "degree": 12
+    },
+    {
+      "id": "ref_react_router_dom",
+      "label": "react-router-dom",
+      "degree": 11
+    },
+    {
+      "id": "frontend_src_app_app",
+      "label": "App()",
+      "degree": 11
+    }
+  ],
+  "surprises": [
+    {
+      "source": "App()",
+      "target": "Login()",
+      "source_files": [
+        "frontend/src/App.jsx",
+        "frontend/src/pages/Login.jsx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "AuthProvider()",
+      "target": "api()",
+      "source_files": [
+        "frontend/src/context/AuthContext.jsx",
+        "frontend/src/api.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "MeasureCalculator()",
+      "target": "Modal()",
+      "source_files": [
+        "frontend/src/components/MeasureCalculator.jsx",
+        "frontend/src/components/Modal.jsx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "OrderForm()",
+      "target": "MeasureCalculator()",
+      "source_files": [
+        "frontend/src/pages/OrderForm.jsx",
+        "frontend/src/components/MeasureCalculator.jsx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "Protected()",
+      "target": "Layout()",
+      "source_files": [
+        "frontend/src/App.jsx",
+        "frontend/src/components/Layout.jsx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

@@ -1,0 +1,248 @@
+{
+  "backend/config/db.js": {
+    "mtime": 1789065928.902732,
+    "seen": 1791635541.693418,
+    "ast_hash": "8d58fe6248fad12e44bdec26c18da15d",
+    "semantic_hash": "8d58fe6248fad12e44bdec26c18da15d"
+  },
+  "backend/config/seed.js": {
+    "mtime": 1789065928.9117653,
+    "seen": 1791635541.693427,
+    "ast_hash": "e777f87576bf4762e7a2a00cfe6b5260",
+    "semantic_hash": "e777f87576bf4762e7a2a00cfe6b5260"
+  },
+  "backend/middleware/auth.js": {
+    "mtime": 1789071173.2372334,
+    "seen": 1791635541.6934314,
+    "ast_hash": "d91dcd3c9132cd0ac4c2a4627b97db94",
+    "semantic_hash": "d91dcd3c9132cd0ac4c2a4627b97db94"
+  },
+  "backend/models/Client.js": {
+    "mtime": 1789070706.6469567,
+    "seen": 1791635541.693434,
+    "ast_hash": "67cafc44d52a55dbdb0e26b6581e709f",
+    "semantic_hash": "67cafc44d52a55dbdb0e26b6581e709f"
+  },
+  "backend/models/Order.js": {
+    "mtime": 1789408952.2607837,
+    "seen": 1791635541.6934369,
+    "ast_hash": "b23e7ec89b4e9a4e2d1deabe0e0f5296",
+    "semantic_hash": "b23e7ec89b4e9a4e2d1deabe0e0f5296"
+  },
+  "backend/models/Payable.js": {
+    "mtime": 1789072484.7602532,
+    "seen": 1791635541.6934395,
+    "ast_hash": "9bd3bd1ab4daa746a130fd96de994c3b",
+    "semantic_hash": "9bd3bd1ab4daa746a130fd96de994c3b"
+  },
+  "backend/models/User.js": {
+    "mtime": 1789065928.970736,
+    "seen": 1791635541.6934428,
+    "ast_hash": "8e41ecef8b7266bd6cd8ba21051dde00",
+    "semantic_hash": "8e41ecef8b7266bd6cd8ba21051dde00"
+  },
+  "backend/package.json": {
+    "mtime": 1789409711.0984604,
+    "seen": 1791635541.6934452,
+    "ast_hash": "8485dc470969bcbd9206362af8d66143",
+    "semantic_hash": "8485dc470969bcbd9206362af8d66143"
+  },
+  "backend/routes/auth.js": {
+    "mtime": 1789071932.6614206,
+    "seen": 1791635541.6934474,
+    "ast_hash": "e61f441a101c1d7dd89a3a39e56875a8",
+    "semantic_hash": "e61f441a101c1d7dd89a3a39e56875a8"
+  },
+  "backend/routes/clients.js": {
+    "mtime": 1789071173.2372334,
+    "seen": 1791635541.6934497,
+    "ast_hash": "ca7067b11d0527c2580eb777db3d2a17",
+    "semantic_hash": "ca7067b11d0527c2580eb777db3d2a17"
+  },
+  "backend/routes/dashboard.js": {
+    "mtime": 1789410739.4855022,
+    "seen": 1791635541.6934536,
+    "ast_hash": "1823e9d9e11efd1b61903a7c183fa01b",
+    "semantic_hash": "1823e9d9e11efd1b61903a7c183fa01b"
+  },
+  "backend/routes/orders.js": {
+    "mtime": 1789475385.7705724,
+    "seen": 1791635541.6934564,
+    "ast_hash": "3f479908d90b49a94b471595aec4748f",
+    "semantic_hash": "3f479908d90b49a94b471595aec4748f"
+  },
+  "backend/routes/payables.js": {
+    "mtime": 1789072484.759253,
+    "seen": 1791635541.6934583,
+    "ast_hash": "28983a57f6f705375652649815db8ef6",
+    "semantic_hash": "28983a57f6f705375652649815db8ef6"
+  },
+  "backend/server.js": {
+    "mtime": 1789071932.656423,
+    "seen": 1791635541.6934607,
+    "ast_hash": "62883cc4710e1a98ec389c4cf79608d1",
+    "semantic_hash": "62883cc4710e1a98ec389c4cf79608d1"
+  },
+  "backend/tests/dashboard-cashflow.test.js": {
+    "mtime": 1789409819.746594,
+    "seen": 1791635541.6934633,
+    "ast_hash": "d8b7d344d21162e51cd25739feb7651c",
+    "semantic_hash": "d8b7d344d21162e51cd25739feb7651c"
+  },
+  "backend/tests/dashboard-liquidity.test.js": {
+    "mtime": 1789410739.4865007,
+    "seen": 1791635541.693466,
+    "ast_hash": "e0b41ce3120e6cd1a645b23ee4d326a5",
+    "semantic_hash": "e0b41ce3120e6cd1a645b23ee4d326a5"
+  },
+  "backend/tests/orders-pdf.test.js": {
+    "mtime": 1789409711.1431065,
+    "seen": 1791635541.6934683,
+    "ast_hash": "97389636c9816600fef60e5d3a102166",
+    "semantic_hash": "97389636c9816600fef60e5d3a102166"
+  },
+  "frontend/package.json": {
+    "mtime": 1789071356.0914364,
+    "seen": 1791635541.6934707,
+    "ast_hash": "b9a213d68b8a666cb2b74ade9e677bcc",
+    "semantic_hash": "b9a213d68b8a666cb2b74ade9e677bcc"
+  },
+  "frontend/postcss.config.js": {
+    "mtime": 1789065929.0537362,
+    "seen": 1791635541.693473,
+    "ast_hash": "c735540bb63936a123bc867d950c9f69",
+    "semantic_hash": "c735540bb63936a123bc867d950c9f69"
+  },
+  "frontend/src/App.jsx": {
+    "mtime": 1789065929.0827296,
+    "seen": 1791635541.6934755,
+    "ast_hash": "d4dfc9479d2a08851f5b05638247d706",
+    "semantic_hash": "d4dfc9479d2a08851f5b05638247d706"
+  },
+  "frontend/src/api.js": {
+    "mtime": 1789069326.6845357,
+    "seen": 1791635541.6934779,
+    "ast_hash": "e7ad986a4589c3778291106e62e6c19c",
+    "semantic_hash": "e7ad986a4589c3778291106e62e6c19c"
+  },
+  "frontend/src/components/Badges.jsx": {
+    "mtime": 1789065929.1277812,
+    "seen": 1791635541.6934803,
+    "ast_hash": "8a34c37ff9715eab581d175a0a5a14ea",
+    "semantic_hash": "8a34c37ff9715eab581d175a0a5a14ea"
+  },
+  "frontend/src/components/BrandMark.jsx": {
+    "mtime": 1789072484.7811491,
+    "seen": 1791635541.6934843,
+    "ast_hash": "51d0d39aac60d2be24f0c27a593e736f",
+    "semantic_hash": "51d0d39aac60d2be24f0c27a593e736f"
+  },
+  "frontend/src/components/Layout.jsx": {
+    "mtime": 1789071863.9676547,
+    "seen": 1791635541.6934867,
+    "ast_hash": "fef0af827ef33de8c6e9b726a217eb88",
+    "semantic_hash": "fef0af827ef33de8c6e9b726a217eb88"
+  },
+  "frontend/src/components/MeasureCalculator.jsx": {
+    "mtime": 1791569203.4682567,
+    "seen": 1791635541.6934886,
+    "ast_hash": "763a7d03ca143635af2c8cc3056cee9a",
+    "semantic_hash": "763a7d03ca143635af2c8cc3056cee9a"
+  },
+  "frontend/src/components/Modal.jsx": {
+    "mtime": 1789071863.9676547,
+    "seen": 1791635541.6934912,
+    "ast_hash": "6826ba1dcf738a654f80f244e83bfe93",
+    "semantic_hash": "6826ba1dcf738a654f80f244e83bfe93"
+  },
+  "frontend/src/components/PrintButton.jsx": {
+    "mtime": 1789417682.7995536,
+    "seen": 1791635541.6934938,
+    "ast_hash": "b29a979eebf0a31fd7d8abf2ae066b08",
+    "semantic_hash": "b29a979eebf0a31fd7d8abf2ae066b08"
+  },
+  "frontend/src/components/WhatsAppButton.jsx": {
+    "mtime": 1789475385.7715714,
+    "seen": 1791635541.6934958,
+    "ast_hash": "55a599133264de4b0dd5866807877ac1",
+    "semantic_hash": "55a599133264de4b0dd5866807877ac1"
+  },
+  "frontend/src/context/AuthContext.jsx": {
+    "mtime": 1789410261.1009567,
+    "seen": 1791635541.6934981,
+    "ast_hash": "9fb0f9d2943fd7d430640a93ee80c7e9",
+    "semantic_hash": "9fb0f9d2943fd7d430640a93ee80c7e9"
+  },
+  "frontend/src/main.jsx": {
+    "mtime": 1789065929.112781,
+    "seen": 1791635541.6935005,
+    "ast_hash": "9692ac71a143e31c11d80336812bd4e0",
+    "semantic_hash": "9692ac71a143e31c11d80336812bd4e0"
+  },
+  "frontend/src/pages/Clients.jsx": {
+    "mtime": 1789417682.815609,
+    "seen": 1791635541.693503,
+    "ast_hash": "b107f112f428c037d4709fc870469648",
+    "semantic_hash": "b107f112f428c037d4709fc870469648"
+  },
+  "frontend/src/pages/Dashboard.jsx": {
+    "mtime": 1789418562.6507978,
+    "seen": 1791635541.693505,
+    "ast_hash": "fb624d297e32e9df520b6ee63bed0026",
+    "semantic_hash": "fb624d297e32e9df520b6ee63bed0026"
+  },
+  "frontend/src/pages/Login.jsx": {
+    "mtime": 1789071863.9676547,
+    "seen": 1791635541.693507,
+    "ast_hash": "4bf538614cc4159d7df4bc2cfb2bf5cb",
+    "semantic_hash": "4bf538614cc4159d7df4bc2cfb2bf5cb"
+  },
+  "frontend/src/pages/OrderDetail.jsx": {
+    "mtime": 1789417682.8431454,
+    "seen": 1791635541.6935093,
+    "ast_hash": "37594c90e2d69664f9e244210bc6b2fb",
+    "semantic_hash": "37594c90e2d69664f9e244210bc6b2fb"
+  },
+  "frontend/src/pages/OrderForm.jsx": {
+    "mtime": 1791569157.791024,
+    "seen": 1791635541.693512,
+    "ast_hash": "3c8bd3879713eff68c773c29c9d2b782",
+    "semantic_hash": "3c8bd3879713eff68c773c29c9d2b782"
+  },
+  "frontend/src/pages/Orders.jsx": {
+    "mtime": 1789417682.7995536,
+    "seen": 1791635541.6935146,
+    "ast_hash": "a78e11c823285448c0746b64e9b3f139",
+    "semantic_hash": "a78e11c823285448c0746b64e9b3f139"
+  },
+  "frontend/src/pages/Payables.jsx": {
+    "mtime": 1789408376.7385948,
+    "seen": 1791635541.6935167,
+    "ast_hash": "e5d157100603cce630a4a0fa424d001b",
+    "semantic_hash": "e5d157100603cce630a4a0fa424d001b"
+  },
+  "frontend/src/pages/Receivables.jsx": {
+    "mtime": 1789417682.8431454,
+    "seen": 1791635541.693519,
+    "ast_hash": "67929bbbee65582123d5456a68c88372",
+    "semantic_hash": "67929bbbee65582123d5456a68c88372"
+  },
+  "frontend/src/pages/measurements.js": {
+    "mtime": 1791569157.785063,
+    "seen": 1791635541.6935215,
+    "ast_hash": "859a618c4d251bd3774836b4856426c7",
+    "semantic_hash": "859a618c4d251bd3774836b4856426c7"
+  },
+  "frontend/tailwind.config.js": {
+    "mtime": 1789071863.9297945,
+    "seen": 1791635541.6935234,
+    "ast_hash": "38fd88d80ea1d28ba689a78abcb3c866",
+    "semantic_hash": "38fd88d80ea1d28ba689a78abcb3c866"
+  },
+  "frontend/vite.config.js": {
+    "mtime": 1789065929.0687318,
+    "seen": 1791635541.6935258,
+    "ast_hash": "84b8c1bb39efd0b18c48cedff82594e8",
+    "semantic_hash": "84b8c1bb39efd0b18c48cedff82594e8"
+  }
+}
