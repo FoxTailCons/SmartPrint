@@ -5,6 +5,7 @@ import { api, fmt } from '../api';
 import Modal from '../components/Modal.jsx';
 import MeasureCalculator from '../components/MeasureCalculator.jsx';
 import { calculateAreaPerPiece } from './measurements.js';
+import { splitInstallmentAmounts } from './installmentMath.js';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
 const emptyCatalogMeasure = {
@@ -31,6 +32,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [clientId, setClientId] = useState('');
   const [items, setItems] = useState([{ ...emptyItem }]);
   const [discount, setDiscount] = useState(0);
+  const [downPayment, setDownPayment] = useState(0);
+  const [orderStatus, setOrderStatus] = useState('pendente');
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [observations, setObservations] = useState('');
@@ -50,6 +53,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         setClientId(o.client?._id || o.client);
         setItems(o.items?.length ? o.items : [{ ...emptyItem }]);
         setDiscount(o.discount || 0);
+        setDownPayment(o.downPayment || 0);
+        setOrderStatus(o.status || 'pendente');
         setPaymentMethod(o.paymentMethod || 'pix');
         setDeliveryDate(o.deliveryDate ? new Date(o.deliveryDate).toISOString().slice(0, 10) : '');
         setObservations(o.observations || '');
@@ -136,14 +141,14 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   };
 
   const generateInstallments = () => {
-    const n = Math.max(1, Number(instCount) || 1);
-    const each = finalValue / n;
+    const n = Math.min(12, Math.max(1, Number(instCount) || 1));
+    const amounts = splitInstallmentAmounts(finalValue - Number(downPayment || 0), n);
     const start = firstDue ? new Date(firstDue) : new Date();
     const arr = [];
     for (let i = 0; i < n; i++) {
       const d = new Date(start);
       d.setMonth(d.getMonth() + i);
-      arr.push({ dueDate: d.toISOString().slice(0, 10), amount: Number(each.toFixed(2)) });
+      arr.push({ dueDate: d.toISOString().slice(0, 10), amount: amounts[i] });
     }
     setInstallments(arr);
   };
@@ -165,6 +170,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
             }
             : item),
         discount: Number(discount) || 0,
+        downPayment: Number(downPayment) || 0,
         paymentMethod,
         deliveryDate: deliveryDate || undefined,
         observations,
@@ -393,6 +399,20 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
             </select>
           </div>
           <div className="flex flex-wrap gap-2 items-end">
+            <div>
+              <label className="text-xs text-slate-500">Entrada (R$)</label>
+              <input
+                type="number"
+                min="0"
+                max={finalValue}
+                step="0.01"
+                value={downPayment}
+                onChange={(e) => setDownPayment(e.target.value)}
+                disabled={orderStatus !== 'pendente'}
+                className="block w-32 px-3 py-2 border rounded-lg text-sm disabled:bg-slate-100"
+              />
+              <p className="text-xs text-slate-400 mt-1">Será registrada como recebida ao aprovar o pedido.</p>
+            </div>
             <div>
               <label className="text-xs text-slate-500">Nº de parcelas</label>
               <input type="number" min="1" max="12" value={instCount} onChange={(e) => setInstCount(e.target.value)} className="block w-24 px-3 py-2 border rounded-lg text-sm" />

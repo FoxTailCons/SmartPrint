@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  Play, Pause, RotateCcw, CheckCircle2, ThumbsUp, Banknote, Pencil, Trash2,
+  Play, Pause, RotateCcw, CheckCircle2, ThumbsUp, Banknote, Pencil, Trash2, MessageCircle,
 } from 'lucide-react';
 import { api, fmt, fmtDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
 import Modal from '../components/Modal.jsx';
+import { createPaymentReceipt } from './paymentReceipt.js';
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -181,6 +182,35 @@ export default function OrderDetail() {
             Entrega prevista: <strong>{fmtDate(order.deliveryDate)}</strong>
           </div>
         </div>
+      </div>
+
+      {/* Pagamentos recebidos */}
+      <div className="bg-white rounded-xl border shadow-sm p-5">
+        <h2 className="font-semibold mb-3">Pagamentos recebidos</h2>
+        {!order.payments?.length ? (
+          <p className="text-sm text-slate-400">Nenhum pagamento recebido.</p>
+        ) : (
+          <div className="space-y-2">
+            {order.payments.map((payment, index) => {
+              const receipt = createPaymentReceipt(order, index);
+              return (
+                <div key={`${payment.paidAt}-${index}`} className="flex flex-wrap items-center justify-between gap-3 border rounded-lg px-3 py-2 text-sm">
+                  <div>
+                    <div className="font-medium">{payment.type === 'entrada' ? 'Entrada' : 'Pagamento'} · {fmt(payment.amount)}</div>
+                    <div className="text-xs text-slate-500">{payment.method} · {fmtDate(payment.paidAt)}</div>
+                  </div>
+                  {receipt ? (
+                    <a href={receipt.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-white hover:bg-emerald-600">
+                      <MessageCircle size={15} /> Enviar recibo
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-500">Cadastre o WhatsApp do cliente para enviar o recibo.</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Histórico */}

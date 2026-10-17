@@ -36,6 +36,7 @@ const installmentSchema = new mongoose.Schema({
 const paymentSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   method: { type: String, default: 'pix' },
+  type: { type: String, enum: ['entrada', 'pagamento'], default: 'pagamento' },
   paidAt: { type: Date, default: Date.now },
 });
 
@@ -56,6 +57,7 @@ const orderSchema = new mongoose.Schema(
     totalValue: { type: Number, default: 0 },
     discount: { type: Number, default: 0, min: 0 },
     finalValue: { type: Number, default: 0 },
+    downPayment: { type: Number, default: 0, min: 0 },
     amountPaid: { type: Number, default: 0, min: 0 },
     payments: [paymentSchema],
     paymentMethod: {
@@ -112,6 +114,9 @@ orderSchema.pre('validate', async function (next) {
   const itemsTotal = this.items.reduce((s, i) => s + i.total, 0);
   this.totalValue = itemsTotal;
   this.finalValue = Math.max(0, itemsTotal - (this.discount || 0));
+  if (this.downPayment > this.finalValue) {
+    this.invalidate('downPayment', 'Entrada não pode ser maior que o total do pedido');
+  }
   next();
 });
 

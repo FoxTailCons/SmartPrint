@@ -4,7 +4,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildOrderPdfBuffer } from '../routes/orders.js';
+import { buildOrderDocumentLabel, buildOrderPdfBuffer } from '../routes/orders.js';
+
+test('paid orders keep the Pedido title instead of becoming receipts', () => {
+  assert.equal(buildOrderDocumentLabel({ amountPaid: 25 }), 'Pedido');
+});
+
+test('unpaid orders keep the Orçamento title', () => {
+  assert.equal(buildOrderDocumentLabel({ amountPaid: 0 }), 'Orçamento');
+});
 
 test('buildOrderPdfBuffer should return a PDF buffer for a valid order', async () => {
   const order = {

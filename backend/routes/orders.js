@@ -5,6 +5,7 @@ import Order from '../models/Order.js';
 import Client from '../models/Client.js';
 import Product from '../models/Product.js';
 import { buildCatalogOrderItem } from '../services/orderItemPricing.js';
+import { receiveDownPayment } from '../services/orderInstallments.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
@@ -17,6 +18,10 @@ const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('pt-BR') : 'a combinar';
 
 const orderItemError = (message) => Object.assign(new Error(message), { statusCode: 400 });
+
+export const buildOrderDocumentLabel = (order) => (
+  Number(order.amountPaid || 0) > 0 ? 'Pedido' : 'Orçamento'
+);
 
 export const buildOrderItems = async (items, existingItems = []) => Promise.all(items.map(async (item) => {
   if (!item?.productId) return item;
@@ -78,7 +83,7 @@ export const buildOrderPdfBuffer = async (order) => {
     const subtotal = Number(order.totalValue || tableRows.reduce((sum, item) => sum + Number(item.total || 0), 0));
     const discount = Number(order.discount || 0);
     const finalValue = Number(order.finalValue ?? Math.max(0, subtotal - discount));
-    const documentLabel = Number(order.amountPaid || 0) > 0 ? 'Recibo' : 'Orçamento';
+    const documentLabel = buildOrderDocumentLabel(order);
     const paymentLabel = {
       pix: 'PIX', dinheiro: 'DINHEIRO', debito: 'DÉBITO', credito: 'CRÉDITO', parcelado: 'PARCELADO',
     }[order.paymentMethod] || String(order.paymentMethod || 'A COMBINAR').toUpperCase();
@@ -191,7 +196,7 @@ const buildWhatsappText = (order, client) => {
   const subtotal = Number(order.totalValue || (order.items || []).reduce((sum, item) => sum + Number(item.total || 0), 0));
   const discount = Number(order.discount || 0);
   const finalValue = Number(order.finalValue ?? Math.max(0, subtotal - discount));
-  const documentLabel = Number(order.amountPaid || 0) > 0 ? 'RECIBO' : 'ORÇAMENTO';
+  const documentLabel = buildOrderDocumentLabel(order).toUpperCase();
   lines.push('*SMART PRINT*');
   lines.push('gráfica e comunicação visual');
   lines.push(`*${documentLabel} Nº ${order.number}*`);
@@ -249,7 +254,7 @@ router.post('/', async (req, res) => {
     if (!Array.isArray(req.body?.items) || !req.body.items.some((item) => item?.productId || item?.description?.trim())) {
       return res.status(400).json({ message: 'Informe pelo menos um item do pedido' });
     }
-    const fields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
+    const fields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
     const payload = Object.fromEntries(fields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
     if (payload.client === '') payload.client = null;
     payload.items = await buildOrderItems(payload.items);
@@ -318,7 +323,7 @@ router.post('/merge', adminOnly, async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const editableFields = ['client', 'items', 'discount', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
+    const editableFields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
     const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
     if (changes.client === '') changes.client = null;
     if (changes.client && (!mongoose.isValidObjectId(changes.client) || !await Client.exists({ _id: changes.client }))) {
@@ -326,6 +331,10 @@ router.put('/:id', async (req, res) => {
     }
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+    if (order.status !== 'pendente' && 'downPayment' in changes
+      && Number(changes.downPayment) !== Number(order.downPayment || 0)) {
+      return res.status(400).json({ message: 'A entrada não pode ser alterada após a aprovação do pedido' });
+    }
     if ('items' in changes) {
       if (!Array.isArray(changes.items)) return res.status(400).json({ message: 'Lista de itens inválida' });
       changes.items = await buildOrderItems(changes.items, order.items);
@@ -356,6 +365,19 @@ router.post('/:id/approve', async (req, res) => {
     if (order.status !== 'pendente') return res.status(400).json({ message: 'Somente pedidos pendentes podem ser aprovados' });
     order.status = 'aprovado';
     order.history.push({ action: 'aprovado', by: req.user.name, note: req.body?.note || '' });
+    const downPayment = Number(order.downPayment) || 0;
+    if (downPayment > 0) {
+      receiveDownPayment(order);
+      order.history.push({
+        action: 'pagamento',
+        by: req.user.name,
+        paymentMethod: order.paymentMethod,
+        note: `Entrada recebida no valor de ${fmtMoney(downPayment)} via ${order.paymentMethod}`,
+      });
+    }
+    if (order.amountPaid >= order.finalValue - 0.01) order.paymentStatus = 'quitado';
+    else if (order.amountPaid > 0) order.paymentStatus = 'parcial';
+    else order.paymentStatus = 'aberto';
     await order.save();
     res.json(order);
   } catch (err) {
