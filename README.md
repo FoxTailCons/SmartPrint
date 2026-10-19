@@ -14,6 +14,7 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - Produção: **iniciar / pausar / retomar / concluir** (com histórico e timestamps)
 - **3 usuários** (Admin, Atendente, Produção) — todos podem operar pedidos
 - **Envio do pedido/orçamento via WhatsApp** (wa.me com mensagem formatada) — disponível no Dashboard, Pedidos, Clientes e Contas a Receber
+- **Recibos de pagamento** — impressão individual pelo diálogo do navegador ou envio via WhatsApp na tela do pedido
 - **Agrupar pedidos por cliente** (tela de Clientes, expansível)
 - **Desdobramento de pagamento em parcelas** (vencimentos individuais, baixa automática ou por parcela)
 - **Contas a pagar** (consumo/insumos/aluguel etc.) com **aviso visual no Dashboard** (vencidas em vermelho, vencendo em até 3 dias em amarelo)

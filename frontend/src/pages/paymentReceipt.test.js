@@ -33,3 +33,16 @@ test('creates receipts with the running balance for each payment', () => {
   assert.match(receipt.text, /Total recebido: R\$\s?150,00/);
   assert.match(receipt.text, /Saldo após o recebimento: R\$\s?150,00/);
 });
+
+test('creates a printable receipt even when the client has no phone number', () => {
+  const receipt = createPaymentReceipt({
+    number: '00042',
+    client: { name: 'Maria Silva' },
+    finalValue: 300,
+    payments: [{ amount: 50, method: 'pix', type: 'entrada' }],
+  }, 0);
+
+  assert.match(receipt.text, /RECIBO DE PAGAMENTO/);
+  assert.match(receipt.text, /Cliente: Maria Silva/);
+  assert.equal(receipt.link, null);
+});

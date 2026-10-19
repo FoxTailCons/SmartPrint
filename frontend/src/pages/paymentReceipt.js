@@ -14,7 +14,7 @@ const formatMoney = (amount) => Number(amount || 0).toLocaleString('pt-BR', {
 export const createPaymentReceipt = (order, paymentIndex) => {
   const payment = order.payments?.[paymentIndex];
   const phone = String(order.client?.phone || '').replace(/\D/g, '');
-  if (!payment || !phone) return null;
+  if (!payment) return null;
 
   const received = order.payments
     .slice(0, paymentIndex + 1)
@@ -25,7 +25,7 @@ export const createPaymentReceipt = (order, paymentIndex) => {
     '*SMART PRINT*',
     '*RECIBO DE PAGAMENTO*',
     `Pedido: #${order.number}`,
-    `Cliente: ${order.client.name}`,
+    `Cliente: ${order.client?.name || '—'}`,
     `${title}: ${formatMoney(payment.amount)}`,
     `Forma de pagamento: ${paymentMethods[payment.method] || payment.method || '—'}`,
     `Data: ${paidAt}`,
@@ -36,6 +36,6 @@ export const createPaymentReceipt = (order, paymentIndex) => {
 
   return {
     text,
-    link: `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`,
+    link: phone ? `https://wa.me/55${phone}?text=${encodeURIComponent(text)}` : null,
   };
 };

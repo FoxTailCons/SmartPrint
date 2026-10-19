@@ -7,6 +7,7 @@ import { api, fmt, fmtDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
+import PaymentReceiptPrintButton from '../components/PaymentReceiptPrintButton.jsx';
 import Modal from '../components/Modal.jsx';
 import { createPaymentReceipt } from './paymentReceipt.js';
 
@@ -199,12 +200,17 @@ export default function OrderDetail() {
                     <div className="font-medium">{payment.type === 'entrada' ? 'Entrada' : 'Pagamento'} · {fmt(payment.amount)}</div>
                     <div className="text-xs text-slate-500">{payment.method} · {fmtDate(payment.paidAt)}</div>
                   </div>
-                  {receipt ? (
-                    <a href={receipt.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-white hover:bg-emerald-600">
-                      <MessageCircle size={15} /> Enviar recibo
-                    </a>
-                  ) : (
-                    <span className="text-xs text-slate-500">Cadastre o WhatsApp do cliente para enviar o recibo.</span>
+                  {receipt && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <PaymentReceiptPrintButton text={receipt.text} />
+                      {receipt.link ? (
+                        <a href={receipt.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-white hover:bg-emerald-600">
+                          <MessageCircle size={15} /> Enviar recibo
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-500">Cadastre o WhatsApp do cliente para enviar o recibo.</span>
+                      )}
+                    </div>
                   )}
                 </div>
               );
