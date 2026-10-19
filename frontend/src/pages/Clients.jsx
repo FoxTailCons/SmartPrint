@@ -6,6 +6,7 @@ import Modal from '../components/Modal.jsx';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
+import { getOrderDocumentLabel } from './orderPresentation.js';
 
 export default function Clients() {
   const [clients, setClients] = useState([]);
@@ -44,7 +45,7 @@ export default function Clients() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Clientes</h1>
-          <p className="text-sm text-slate-500">{clients.length} cliente(s) · pedidos agrupados por cliente</p>
+          <p className="text-sm text-slate-500">{clients.length} cliente(s) · pedidos e orçamentos agrupados por cliente</p>
         </div>
         <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
           <UserPlus size={16} /> Novo Cliente
@@ -79,12 +80,12 @@ export default function Clients() {
             </button>
             {expanded === c._id && detail?.[c._id] && (
               <div className="bg-slate-50 px-5 py-4 border-t">
-                <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Pedidos do cliente (agrupados)</div>
+                <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Pedidos e orçamentos do cliente</div>
                 {detail[c._id].orders.length === 0 && <p className="text-sm text-slate-400">Sem pedidos.</p>}
                 <div className="space-y-2">
                   {detail[c._id].orders.map((o) => (
                     <div key={o._id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 text-sm border">
-                      <span className="font-mono font-semibold">#{o.number}</span>
+                      <span><span className="block text-xs text-slate-500">{getOrderDocumentLabel(o)}</span><span className="font-mono font-semibold">#{o.number}</span></span>
                       <StatusBadge value={o.status} />
                       <StatusBadge value={o.paymentStatus} />
                       <span className="flex-1 text-right font-medium">{fmt(o.finalValue)}</span>

@@ -10,6 +10,7 @@ import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
 import Modal from '../components/Modal.jsx';
 import OrderForm from './OrderForm.jsx';
+import { getOrderDocumentLabel } from './orderPresentation.js';
 
 function Card({ icon: Icon, label, value, color, sub, open, onClick }) {
   return (
@@ -69,7 +70,7 @@ function DetailList({ detail, selectedIds, onToggle }) {
         <div key={order._id} className="px-5 py-3 flex items-center gap-3 text-sm hover:bg-slate-50">
           {onToggle && <input type="checkbox" checked={selectedIds.includes(order._id)} onChange={() => onToggle(order._id)} className="h-4 w-4 accent-brand-600" aria-label={`Selecionar pedido ${order.number}`} />}
           <Link to={`/pedidos/${order._id}`} className="flex-1 flex items-center justify-between gap-4">
-            <div><div className="font-medium text-slate-700">Pedido #{order.number} · {order.client?.name || 'Cliente não informado'}</div><div className="text-xs text-slate-500"><StatusBadge value={order.status} /> <StatusBadge value={order.production} /></div></div>
+            <div><div className="font-medium text-slate-700">{getOrderDocumentLabel(order)} #{order.number} · {order.client?.name || 'Cliente não informado'}</div><div className="text-xs text-slate-500"><StatusBadge value={order.status} /> <StatusBadge value={order.production} /></div></div>
             <span className="font-semibold text-slate-700">{fmt(order.finalValue)}</span>
           </Link>
         </div>
@@ -102,7 +103,7 @@ export default function Dashboard() {
   const { counts, finance, warnings, recentOrders, details } = data;
   const cards = [
     { key: 'orders', icon: ClipboardList, label: 'Total de Pedidos', value: counts.orders, color: 'bg-cyan-50 text-cyan-700', items: details.orders, title: 'Todos os pedidos', kind: 'order' },
-    { key: 'pending', icon: Clock, label: 'Pendentes', value: counts.pending, color: 'bg-yellow-50 text-yellow-700', items: details.pending, title: 'Pedidos pendentes', kind: 'order' },
+    { key: 'pending', icon: Clock, label: 'Orçamentos', value: counts.pending, color: 'bg-yellow-50 text-yellow-700', items: details.pending, title: 'Orçamentos pendentes', kind: 'order' },
     { key: 'inProduction', icon: Play, label: 'Em Produção', value: counts.inProduction + counts.paused, color: 'bg-slate-100 text-slate-700', sub: `Ativos: ${counts.inProduction} · Pausados: ${counts.paused}`, items: [...details.inProduction, ...details.paused], title: 'Pedidos em produção e pausados', kind: 'order' },
     { key: 'concluded', icon: CheckCircle2, label: 'Concluídos', value: counts.concluded, color: 'bg-emerald-50 text-emerald-700', items: details.concluded, title: 'Pedidos concluídos', kind: 'order' },
     { key: 'toReceive', icon: Wallet, label: 'A Receber', value: fmt(finance.toReceive), color: 'bg-orange-50 text-orange-700', sub: `Recebido: ${fmt(finance.totalReceived)}`, items: details.toReceive, title: 'Pedidos com saldo a receber', kind: 'order' },

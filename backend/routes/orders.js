@@ -6,6 +6,7 @@ import Client from '../models/Client.js';
 import Product from '../models/Product.js';
 import { buildCatalogOrderItem } from '../services/orderItemPricing.js';
 import { receiveDownPayment } from '../services/orderInstallments.js';
+import { isConfirmedOrder } from '../services/orderStatus.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
@@ -19,9 +20,9 @@ const fmtDate = (d) =>
 
 const orderItemError = (message) => Object.assign(new Error(message), { statusCode: 400 });
 
-export const buildOrderDocumentLabel = (order) => (
-  Number(order.amountPaid || 0) > 0 ? 'Pedido' : 'Orçamento'
-);
+export const buildOrderDocumentLabel = (order) => (isConfirmedOrder(order) ? 'Pedido' : 'Orçamento');
+
+export const canReceivePayments = (order) => order.status !== 'pendente';
 
 export const buildOrderItems = async (items, existingItems = []) => Promise.all(items.map(async (item) => {
   if (!item?.productId) return item;
@@ -448,6 +449,9 @@ router.post('/:id/payments', async (req, res) => {
   const methods = ['pix', 'dinheiro', 'debito', 'credito', 'parcelado'];
   if (!methods.includes(paymentMethod)) return res.status(400).json({ message: 'Forma de pagamento inválida' });
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+  if (!canReceivePayments(order)) {
+    return res.status(400).json({ message: 'Aprove o orçamento antes de registrar pagamentos' });
+  }
   const balanceBefore = Math.max(0, (order.finalValue || 0) - (order.amountPaid || 0));
   if (pay > balanceBefore + 0.01) return res.status(400).json({ message: `O pagamento não pode exceder o saldo de ${fmtMoney(balanceBefore)}` });
   if (installmentIndex !== undefined && !order.installments[installmentIndex]) {
@@ -506,6 +510,7 @@ router.get('/:id/whatsapp', async (req, res) => {
     res.json({
       text,
       phone,
+      documentLabel: buildOrderDocumentLabel(order),
       link: `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`,
     });
   } catch (err) {
@@ -523,7 +528,7 @@ router.get('/:id/pdf', async (req, res) => {
 
     const pdfBuffer = await buildOrderPdfBuffer(order.toObject());
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="pedido-${order.number}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${buildOrderDocumentLabel(order).toLowerCase()}-${order.number}.pdf"`);
     res.send(pdfBuffer);
   } catch (err) {
     res.status(400).json({ message: err.message });

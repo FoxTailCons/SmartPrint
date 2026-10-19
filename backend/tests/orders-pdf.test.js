@@ -4,14 +4,28 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildOrderDocumentLabel, buildOrderPdfBuffer } from '../routes/orders.js';
+import { buildOrderDocumentLabel, buildOrderPdfBuffer, canReceivePayments } from '../routes/orders.js';
 
 test('paid orders keep the Pedido title instead of becoming receipts', () => {
   assert.equal(buildOrderDocumentLabel({ amountPaid: 25 }), 'Pedido');
 });
 
-test('unpaid orders keep the Orçamento title', () => {
-  assert.equal(buildOrderDocumentLabel({ amountPaid: 0 }), 'Orçamento');
+test('approved orders are labeled Pedido before their first payment', () => {
+  assert.equal(buildOrderDocumentLabel({ status: 'aprovado', amountPaid: 0 }), 'Pedido');
+});
+
+test('pending unpaid orders keep the Orçamento title', () => {
+  assert.equal(buildOrderDocumentLabel({ status: 'pendente', amountPaid: 0 }), 'Orçamento');
+});
+
+test('legacy pending orders with payments keep the Pedido title', () => {
+  assert.equal(buildOrderDocumentLabel({ status: 'pendente', amountPaid: 25 }), 'Pedido');
+});
+
+test('new payments are only allowed after order approval', () => {
+  assert.equal(canReceivePayments({ status: 'pendente' }), false);
+  assert.equal(canReceivePayments({ status: 'aprovado' }), true);
+  assert.equal(canReceivePayments({ status: 'concluido' }), true);
 });
 
 test('buildOrderPdfBuffer should return a PDF buffer for a valid order', async () => {

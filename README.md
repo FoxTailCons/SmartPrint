@@ -9,16 +9,16 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - **Deploy sugerido:** GitHub + Render (Web Service p/ API, Static Site p/ front) + MongoDB Atlas
 
 ## Funcionalidades
-- Orçamento / Pedidos com status: **pendente → aprovado → concluído**
+- Fluxo comercial: **orçamento pendente → pedido aprovado → pedido concluído**; imprimir ou preparar envio do orçamento não o aprova
 - Controle de pagamento: **aberto / parcial / pago / quitado** (recebimento parcial)
 - Produção: **iniciar / pausar / retomar / concluir** (com histórico e timestamps)
 - **3 usuários** (Admin, Atendente, Produção) — todos podem operar pedidos
 - **Envio do pedido/orçamento via WhatsApp** (wa.me com mensagem formatada) — disponível no Dashboard, Pedidos, Clientes e Contas a Receber
-- **Recibos de pagamento** — impressão individual pelo diálogo do navegador ou envio via WhatsApp na tela do pedido
+- **Recibos de pagamento** — cada recebimento registrado gera um recibo individual para impressão ou envio via WhatsApp na tela do pedido
 - **Agrupar pedidos por cliente** (tela de Clientes, expansível)
 - **Desdobramento de pagamento em parcelas** (vencimentos individuais, baixa automática ou por parcela)
 - **Contas a pagar** (consumo/insumos/aluguel etc.) com **aviso visual no Dashboard** (vencidas em vermelho, vencendo em até 3 dias em amarelo)
-- **Contas a receber** com saldo devedor e próximos vencimentos
+- **Contas a receber** com saldo devedor e próximos vencimentos dos pedidos aprovados; orçamentos pendentes não entram nos saldos financeiros
 - Dashboard com KPIs e feed de pedidos recentes
 - Catálogo de produtos por unidade, metro linear ou metro quadrado, com cadastro restrito a administradores
 - Venda de itens do catálogo em pedidos com preço validado no backend e snapshot histórico de preço e medidas

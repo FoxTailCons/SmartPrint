@@ -10,6 +10,7 @@ import PrintButton from '../components/PrintButton.jsx';
 import PaymentReceiptPrintButton from '../components/PaymentReceiptPrintButton.jsx';
 import Modal from '../components/Modal.jsx';
 import { createPaymentReceipt } from './paymentReceipt.js';
+import { getOrderDocumentLabel } from './orderPresentation.js';
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -71,8 +72,10 @@ export default function OrderDetail() {
     <div className="space-y-5 max-w-5xl">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <Link to="/pedidos" className="text-sm text-slate-500 hover:underline">← Pedidos</Link>
-          <h1 className="text-2xl font-bold mt-1">Pedido #{order.number}</h1>
+          <Link to="/pedidos" className="text-sm text-slate-500 hover:underline">← Pedidos / Orçamentos</Link>
+          <h1 className="text-2xl font-bold mt-1">
+            {getOrderDocumentLabel(order)} #{order.number}
+          </h1>
           <p className="text-sm text-slate-500">{order.client?.name || 'Cliente não cadastrado'} · Criado em {fmtDate(order.createdAt)}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -133,7 +136,7 @@ export default function OrderDetail() {
               <CheckCircle2 size={16} /> Concluir pedido
             </button>
           )}
-          {balance > 0 && (
+          {balance > 0 && order.status !== 'pendente' && (
             <button onClick={() => setPayOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-900">
               <Banknote size={16} /> Receber pagamento
             </button>

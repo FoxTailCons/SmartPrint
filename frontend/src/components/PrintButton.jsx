@@ -14,7 +14,7 @@ export default function PrintButton({ orderId, className = '' }) {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || 'Não foi possível gerar o PDF do pedido.');
+        throw new Error(data.message || 'Não foi possível gerar o PDF do documento.');
       }
 
       const blob = await response.blob();

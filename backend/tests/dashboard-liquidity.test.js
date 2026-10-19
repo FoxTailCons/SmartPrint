@@ -11,8 +11,8 @@ import {
 
 test('buildCashflowSummary calculates net cash from receivables and payables', () => {
   const orders = [
-    { finalValue: 1000, amountPaid: 400 },
-    { finalValue: 600, amountPaid: 600 },
+    { status: 'aprovado', finalValue: 1000, amountPaid: 400 },
+    { status: 'concluido', finalValue: 600, amountPaid: 600 },
   ];
   const payables = [
     { value: 250, paid: false },
@@ -26,11 +26,22 @@ test('buildCashflowSummary calculates net cash from receivables and payables', (
   assert.equal(summary.netCash, 350);
 });
 
+test('buildCashflowSummary excludes unapproved quotes but preserves legacy received orders', () => {
+  const summary = buildCashflowSummary([
+    { status: 'pendente', finalValue: 500, amountPaid: 0 },
+    { status: 'aprovado', finalValue: 200, amountPaid: 50 },
+    { status: 'pendente', finalValue: 100, amountPaid: 30 },
+  ]);
+
+  assert.equal(summary.receivables, 220);
+});
+
 test('buildClientPerformance groups revenue by customer and keeps no-client orders', () => {
   const orders = [
-    { client: { name: 'Maria' }, finalValue: 1000, amountPaid: 400 },
-    { client: { name: 'Maria' }, finalValue: 300, amountPaid: 100 },
-    { client: null, finalValue: 500, amountPaid: 0 },
+    { status: 'aprovado', client: { name: 'Maria' }, finalValue: 1000, amountPaid: 400 },
+    { status: 'concluido', client: { name: 'Maria' }, finalValue: 300, amountPaid: 100 },
+    { status: 'aprovado', client: null, finalValue: 500, amountPaid: 0 },
+    { status: 'pendente', client: { name: 'Pedro' }, finalValue: 900, amountPaid: 0 },
   ];
 
   const clients = buildClientPerformance(orders);
@@ -41,8 +52,9 @@ test('buildClientPerformance groups revenue by customer and keeps no-client orde
 
 test('buildServicePerformance groups item totals by service type', () => {
   const orders = [
-    { items: [{ description: 'Banner grande formato', total: 900 }, { description: 'Adesivo para vidro', total: 300 }] },
-    { items: [{ description: 'Papel fotográfico A4', total: 250 }] },
+    { status: 'aprovado', items: [{ description: 'Banner grande formato', total: 900 }, { description: 'Adesivo para vidro', total: 300 }] },
+    { status: 'concluido', items: [{ description: 'Papel fotográfico A4', total: 250 }] },
+    { status: 'pendente', items: [{ description: 'Banner aguardando aprovação', total: 1200 }] },
   ];
 
   const services = buildServicePerformance(orders);
@@ -76,9 +88,10 @@ test('buildMonthlyComparison sums revenue and receipts by month for the last six
   const olderMonth = new Date(now.getFullYear(), now.getMonth() - 2, 15);
 
   const orders = [
-    { createdAt: currentMonth, finalValue: 250, amountPaid: 200 },
-    { createdAt: previousMonth, finalValue: 400, amountPaid: 150 },
-    { createdAt: olderMonth, finalValue: 500, amountPaid: 500 },
+    { status: 'aprovado', createdAt: currentMonth, finalValue: 250, amountPaid: 200 },
+    { status: 'aprovado', createdAt: previousMonth, finalValue: 400, amountPaid: 150 },
+    { status: 'concluido', createdAt: olderMonth, finalValue: 500, amountPaid: 500 },
+    { status: 'pendente', createdAt: currentMonth, finalValue: 1000, amountPaid: 0 },
   ];
 
   const comparison = buildMonthlyComparison(orders);

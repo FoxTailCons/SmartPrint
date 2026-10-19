@@ -6,6 +6,7 @@ import Modal from '../components/Modal.jsx';
 import MeasureCalculator from '../components/MeasureCalculator.jsx';
 import { calculateAreaPerPiece } from './measurements.js';
 import { splitInstallmentAmounts } from './installmentMath.js';
+import { getOrderDocumentLabel } from './orderPresentation.js';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
 const emptyCatalogMeasure = {
@@ -34,6 +35,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [discount, setDiscount] = useState(0);
   const [downPayment, setDownPayment] = useState(0);
   const [orderStatus, setOrderStatus] = useState('pendente');
+  const [amountPaid, setAmountPaid] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [observations, setObservations] = useState('');
@@ -55,6 +57,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         setDiscount(o.discount || 0);
         setDownPayment(o.downPayment || 0);
         setOrderStatus(o.status || 'pendente');
+        setAmountPaid(o.amountPaid || 0);
         setPaymentMethod(o.paymentMethod || 'pix');
         setDeliveryDate(o.deliveryDate ? new Date(o.deliveryDate).toISOString().slice(0, 10) : '');
         setObservations(o.observations || '');
@@ -204,7 +207,11 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
     <div className="space-y-5 max-w-4xl">
       {!modal && <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{isEdit ? 'Editar Pedido' : 'Novo Orçamento / Pedido'}</h1>
+          <h1 className="text-2xl font-bold">
+            {isEdit
+              ? `Editar ${getOrderDocumentLabel({ status: orderStatus, amountPaid })}`
+              : 'Novo Orçamento'}
+          </h1>
           <p className="text-sm text-slate-500">Grandes formatos · Adesivagem · SmartPrint Lindóia</p>
         </div>
         <Link to="/pedidos" className="text-sm text-slate-500 hover:underline">← Voltar</Link>
@@ -452,7 +459,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         <div className="flex justify-end gap-3 pb-6">
           <button type="button" onClick={onCancel || (() => navigate(-1))} className="px-5 py-2.5 border rounded-lg hover:bg-slate-50">Cancelar</button>
           <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium disabled:opacity-50">
-            <Save size={16} /> {saving ? 'Salvando...' : 'Salvar Pedido'}
+            <Save size={16} /> {saving ? 'Salvando...' : orderStatus === 'pendente' ? 'Salvar Orçamento' : 'Salvar Pedido'}
           </button>
         </div>
       </form>
@@ -473,5 +480,16 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
     </div>
   );
 
-  return modal ? <Modal open={open} onClose={onCancel} title={isEdit ? 'Editar Pedido' : 'Novo Orçamento / Pedido'} wide>{content}</Modal> : content;
+  return modal ? (
+    <Modal
+      open={open}
+      onClose={onCancel}
+      title={isEdit
+        ? `Editar ${getOrderDocumentLabel({ status: orderStatus, amountPaid })}`
+        : 'Novo Orçamento'}
+      wide
+    >
+      {content}
+    </Modal>
+  ) : content;
 }

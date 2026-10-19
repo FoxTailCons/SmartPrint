@@ -6,9 +6,10 @@ import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
 import OrderForm from './OrderForm.jsx';
+import { getOrderDocumentLabel } from './orderPresentation.js';
 
 const filters = [
-  { key: 'status', label: 'Status', options: ['', 'pendente', 'aprovado', 'concluido'], labels: ['Todos', 'Pendente', 'Aprovado', 'Concluído'] },
+  { key: 'status', label: 'Status', options: ['', 'pendente', 'aprovado', 'concluido'], labels: ['Todos', 'Orçamento pendente', 'Pedido aprovado', 'Pedido concluído'] },
   { key: 'paymentStatus', label: 'Pagamento', options: ['', 'aberto', 'parcial', 'pago', 'quitado'], labels: ['Todos', 'Aberto', 'Parcial', 'Pago', 'Quitado'] },
   { key: 'production', label: 'Produção', options: ['', 'nao_iniciado', 'em_producao', 'pausado', 'concluido'], labels: ['Todos', 'Não iniciado', 'Em produção', 'Pausado', 'Concluído'] },
 ];
@@ -32,7 +33,7 @@ export default function Orders() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Pedidos / Orçamentos</h1>
-          <p className="text-sm text-slate-500">{orders.length} pedido(s) encontrado(s)</p>
+          <p className="text-sm text-slate-500">{orders.length} pedido(s)/orçamento(s) encontrado(s)</p>
         </div>
         <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
           <Plus size={16} /> Novo Orçamento
@@ -78,11 +79,14 @@ export default function Orders() {
             </thead>
             <tbody>
               {orders.length === 0 && (
-                <tr><td colSpan="8" className="text-center py-10 text-slate-400">Nenhum pedido encontrado.</td></tr>
+                <tr><td colSpan="8" className="text-center py-10 text-slate-400">Nenhum pedido ou orçamento encontrado.</td></tr>
               )}
               {orders.map((o) => (
                 <tr key={o._id} className="border-t hover:bg-slate-50">
-                  <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
+                  <td className="px-5 py-3">
+                    <div className="text-xs text-slate-500">{getOrderDocumentLabel(o)}</div>
+                    <div className="font-mono font-semibold">#{o.number}</div>
+                  </td>
                   <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
                   <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
                   <td className="px-5 py-3"><StatusBadge value={o.production} /></td>

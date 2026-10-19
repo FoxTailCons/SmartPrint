@@ -4,6 +4,7 @@ import { api, fmt, fmtDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
+import { isConfirmedOrder } from './orderPresentation.js';
 
 export default function Receivables() {
   const [orders, setOrders] = useState([]);
@@ -13,7 +14,8 @@ export default function Receivables() {
     api('/api/orders').then(setOrders);
   }, []);
 
-  const withBalance = orders
+  const confirmedOrders = orders.filter(isConfirmedOrder);
+  const withBalance = confirmedOrders
     .map((o) => ({ ...o, balance: (o.finalValue || 0) - (o.amountPaid || 0) }))
     .filter((o) => {
       if (filter === 'open') return o.balance > 0.01;
@@ -22,11 +24,11 @@ export default function Receivables() {
     });
 
   const totalOpen = withBalance.filter((o) => o.balance > 0.01).reduce((s, o) => s + o.balance, 0);
-  const totalReceived = orders.reduce((s, o) => s + (o.amountPaid || 0), 0);
+  const totalReceived = confirmedOrders.reduce((s, o) => s + (o.amountPaid || 0), 0);
 
   // Próximos vencimentos das parcelas em aberto
   const upcoming = [];
-  orders.forEach((o) => {
+  confirmedOrders.forEach((o) => {
     (o.installments || []).forEach((p, i) => {
       if (!p.paid) upcoming.push({ order: o, parcela: i + 1, dueDate: p.dueDate, amount: p.amount });
     });

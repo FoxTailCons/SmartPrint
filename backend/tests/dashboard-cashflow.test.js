@@ -7,12 +7,14 @@ test('buildCashflowTrend groups payment entries by day and month', () => {
   const today = new Date();
   const orders = [
     {
+      status: 'aprovado',
       payments: [
         { amount: 200, paidAt: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9) },
         { amount: 150, paidAt: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 10) },
       ],
     },
     {
+      status: 'concluido',
       history: [
         { action: 'pagamento', at: new Date(today.getFullYear(), today.getMonth() - 1, 10, 9), note: 'Recebido R$ 300,00 via pix' },
       ],

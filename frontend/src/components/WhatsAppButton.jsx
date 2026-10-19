@@ -35,12 +35,12 @@ export default function WhatsAppButton({ orderId, className = '' }) {
       const response = await fetch(`${base}/api/orders/${orderId}/pdf`, {
         headers: tokenValue ? { Authorization: `Bearer ${tokenValue}` } : {},
       });
-      if (!response.ok) throw new Error('Não foi possível gerar o PDF do pedido.');
+      if (!response.ok) throw new Error('Não foi possível gerar o PDF do documento.');
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `orcamento-${orderId}.pdf`;
+      link.download = `${data?.documentLabel?.toLowerCase() || 'documento'}-${orderId}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -57,7 +57,7 @@ export default function WhatsAppButton({ orderId, className = '' }) {
       >
         <MessageCircle size={16} /> {loading ? 'Gerando...' : 'WhatsApp'}
       </button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Enviar pedido via WhatsApp" wide>
+      <Modal open={open} onClose={() => setOpen(false)} title={`Enviar ${data?.documentLabel?.toLowerCase() || 'documento'} via WhatsApp`} wide>
         {data && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 text-sm">
@@ -87,7 +87,7 @@ export default function WhatsAppButton({ orderId, className = '' }) {
                 onClick={downloadPdf}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-slate-50 font-medium"
               >
-                <Download size={16} /> Baixar PDF
+                <Download size={16} /> Baixar {data.documentLabel?.toLowerCase() || 'documento'} em PDF
               </button>
             </div>
             <p className="text-xs text-slate-500">

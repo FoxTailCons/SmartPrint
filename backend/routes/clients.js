@@ -2,6 +2,7 @@ import { Router } from 'express';
 import Client from '../models/Client.js';
 import Order from '../models/Order.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+import { isConfirmedOrder } from '../services/orderStatus.js';
 
 const router = Router();
 router.use(protect);
@@ -19,9 +20,10 @@ router.get('/', async (req, res) => {
   const withStats = await Promise.all(
     clients.map(async (c) => {
       const orders = await Order.find({ client: c._id });
-      const total = orders.reduce((s, o) => s + (o.finalValue || 0), 0);
-      const open = orders.filter((o) => !['pago', 'quitado'].includes(o.paymentStatus)).length;
-      return { ...c.toObject(), ordersCount: orders.length, totalSpent: total, openOrders: open };
+      const confirmedOrders = orders.filter(isConfirmedOrder);
+      const total = confirmedOrders.reduce((s, o) => s + (o.finalValue || 0), 0);
+      const open = confirmedOrders.filter((o) => (o.finalValue || 0) > (o.amountPaid || 0)).length;
+      return { ...c.toObject(), ordersCount: confirmedOrders.length, totalSpent: total, openOrders: open };
     })
   );
   res.json(withStats);
