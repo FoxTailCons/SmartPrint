@@ -21,7 +21,7 @@ Listas potencialmente extensas usarão paginação server-side, aplicando busca 
 
 Clientes terão busca, totais e ordenação calculados sobre o conjunto filtrado completo, mas somente a página atual será buscada e exibida. O carregamento de detalhes de pedidos de um cliente continuará sob demanda e separado da paginação da lista de clientes.
 
-Pedidos, Produtos, Contas a Receber e Contas a Pagar passam a solicitar páginas ao servidor. Pedidos mantêm os filtros atuais e a busca por número/cliente; Produtos mantêm busca e filtro de inativos com autorização; Contas a Pagar mantêm o filtro de status. Contas a Receber preserva o comportamento dos totais para o conjunto completo filtrado, sem limitar métricas à página visível.
+Pedidos, Produtos e Contas a Pagar passam a solicitar páginas ao servidor. Pedidos mantêm os filtros atuais e a busca por número/cliente; Produtos mantêm busca e filtro de inativos com autorização; Contas a Pagar mantém o filtro de status. Contas a Receber usará uma consulta paginada dedicada que retorna os registros da página e um resumo calculado no servidor (totais e próximos vencimentos) para o conjunto completo filtrado, sem limitar métricas à página visível.
 
 O Dashboard preservará integralmente seu contrato de métricas, contagens, análises e exportação implícita. Suas listas de detalhes usarão paginação local, sem alterar totais, seleção de pedidos entre páginas ou a quantidade de pedidos recentes. A lista de clientes e pagáveis do Dashboard continua derivada do payload existente. Se o payload crescer excessivamente, uma API dedicada poderá ser considerada separadamente, mas não faz parte desta mudança.
 
