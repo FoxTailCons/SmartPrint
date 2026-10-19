@@ -57,7 +57,7 @@ function createApp() {
     }
 
     static find(filter) {
-      const matching = records.filter((entry) =>
+      let matching = records.filter((entry) =>
         (!('active' in filter) || entry.active === filter.active)
         && (!filter.$or || filter.$or.some((condition) => {
           const [field, expression] = Object.entries(condition)[0];
@@ -65,8 +65,25 @@ function createApp() {
         }))
       );
       return {
-        sort: async () => matching.sort((left, right) => left.name.localeCompare(right.name)),
+        sort(order) {
+          const [[field, direction]] = Object.entries(order);
+          matching.sort((left, right) => left[field].localeCompare(right[field]) * direction);
+          return this;
+        },
+        skip(value) { matching = matching.slice(value); return this; },
+        limit(value) { matching = matching.slice(0, value); return this; },
+        then(resolve, reject) { return Promise.resolve(matching).then(resolve, reject); },
       };
+    }
+
+    static countDocuments(filter) {
+      return Promise.resolve(this.find(filter).length ?? records.filter((entry) =>
+        (!('active' in filter) || entry.active === filter.active)
+        && (!filter.$or || filter.$or.some((condition) => {
+          const [field, expression] = Object.entries(condition)[0];
+          return String(entry[field] || '').toLowerCase().includes(expression.$regex.toLowerCase());
+        }))
+      ).length);
     }
 
     static findById(id) {
@@ -114,6 +131,29 @@ test('product routes require authentication and hide inactive products from regu
 
     const admin = await fetch(`${url}?includeInactive=true`, { headers: { 'x-test-role': 'admin' } });
     assert.deepEqual((await admin.json()).map((product) => product.name), ['Ativo', 'Inativo']);
+  });
+
+  test('product route filters before pagination and rejects invalid page values', async (t) => {
+    await withApi(t, async (url, records) => {
+      records.push(
+        { _id: '1', name: 'Adesivo', code: undefined, saleUnit: 'unit', price: 5, active: true },
+        { _id: '2', name: 'Banner', code: undefined, saleUnit: 'unit', price: 5, active: true },
+        { _id: '3', name: 'Caderno', code: undefined, saleUnit: 'unit', price: 5, active: true }
+      );
+      const headers = { 'x-test-role': 'admin' };
+
+      const paginated = await fetch(`${url}?q=o&page=2&pageSize=1`, { headers });
+      assert.equal(paginated.status, 200);
+      assert.deepEqual(await paginated.json(), {
+        items: [{ _id: '3', name: 'Caderno', saleUnit: 'unit', price: 5, active: true }],
+        page: 2,
+        pageSize: 1,
+        total: 2,
+      });
+
+      const invalid = await fetch(`${url}?page=1.5`, { headers });
+      assert.equal(invalid.status, 400);
+    });
   });
 });
 

@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Edit2, Package, Plus, Search, X } from 'lucide-react';
 import { api, fmt } from '../api';
 import Modal from '../components/Modal.jsx';
+import ListSkeleton from '../components/ListSkeleton.jsx';
+import Pagination from '../components/Pagination.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { getListState } from '../hooks/listState.js';
+import { useServerPagination } from '../hooks/useServerPagination.js';
 
 const saleUnits = [
   { value: 'unit', label: 'Unidade' },
@@ -10,44 +14,27 @@ const saleUnits = [
   { value: 'square_meter', label: 'Metro quadrado (m²)' },
 ];
 const emptyForm = { name: '', code: '', saleUnit: 'unit', price: '', active: true };
+const PAGE_SIZE = 20;
 const unitLabel = (value) => saleUnits.find((unit) => unit.value === value)?.label || value;
 
 export default function Products() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const [products, setProducts] = useState([]);
   const [queryInput, setQueryInput] = useState('');
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const requestId = useRef(0);
-
-  useEffect(() => {
-    const currentRequest = ++requestId.current;
-    setLoading(true);
-    setError('');
-    const params = new URLSearchParams();
-    if (query) params.set('q', query);
-    if (isAdmin && includeInactive) params.set('includeInactive', 'true');
-    api(`/api/products${params.size ? `?${params}` : ''}`)
-      .then((result) => {
-        if (requestId.current === currentRequest) setProducts(result);
-      })
-      .catch((loadError) => {
-        if (requestId.current === currentRequest) setError(loadError.message);
-      })
-      .finally(() => {
-        if (requestId.current === currentRequest) setLoading(false);
-      });
-    return () => {
-      if (requestId.current === currentRequest) requestId.current += 1;
-    };
-  }, [query, includeInactive, isAdmin]);
+  const params = new URLSearchParams();
+  if (query) params.set('q', query);
+  if (isAdmin && includeInactive) params.set('includeInactive', 'true');
+  const list = useServerPagination('/api/products', params.toString(), page, PAGE_SIZE);
+  const { items: products, total, loading, error: listError, retry } = list;
+  const listState = getListState({ loading, error: listError, items: products });
 
   const closeForm = () => {
     setFormOpen(false);
@@ -78,10 +65,7 @@ export default function Products() {
         body,
       });
       closeForm();
-      const params = new URLSearchParams();
-      if (query) params.set('q', query);
-      if (includeInactive) params.set('includeInactive', 'true');
-      setProducts(await api(`/api/products${params.size ? `?${params}` : ''}`));
+      retry();
     } catch (saveError) {
       setError(saveError.message);
     } finally {
@@ -106,10 +90,7 @@ export default function Products() {
           },
         });
       }
-      const params = new URLSearchParams();
-      if (query) params.set('q', query);
-      if (includeInactive) params.set('includeInactive', 'true');
-      setProducts(await api(`/api/products${params.size ? `?${params}` : ''}`));
+      retry();
     } catch (updateError) {
       setError(updateError.message);
     }
@@ -134,7 +115,7 @@ export default function Products() {
       </div>
 
       <form
-        onSubmit={(event) => { event.preventDefault(); setQuery(queryInput.trim()); }}
+        onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}
         className="flex max-w-2xl flex-wrap items-center gap-3"
       >
         <div className="relative min-w-56 flex-1">
@@ -149,18 +130,26 @@ export default function Products() {
         <button type="submit" className="rounded-lg border bg-white px-4 py-2 text-sm hover:bg-slate-50">Buscar</button>
         {isAdmin && (
           <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" checked={includeInactive} onChange={(event) => setIncludeInactive(event.target.checked)} />
+            <input type="checkbox" checked={includeInactive} onChange={(event) => { setPage(1); setIncludeInactive(event.target.checked); }} />
             Incluir inativos
           </label>
         )}
       </form>
 
-      {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {(error || listError) && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {error || listError}
+        {listError && <button type="button" onClick={retry} className="ml-3 underline">Tentar novamente</button>}
+      </div>}
 
       <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
-        {loading ? (
-          <div className="p-8 text-center text-sm text-slate-500">Carregando produtos...</div>
-        ) : products.length === 0 ? (
+        {listState === 'loading' ? (
+          <ListSkeleton variant="list" rows={6} />
+        ) : listState === 'error' ? (
+          <div className="p-8 text-center text-sm text-red-700">
+            <p>{listError || error}</p>
+            <button type="button" onClick={retry} className="mt-2 rounded-lg border px-3 py-1.5 hover:bg-red-50">Tentar novamente</button>
+          </div>
+        ) : listState === 'empty' ? (
           <div className="p-8 text-center text-sm text-slate-400">Nenhum produto encontrado.</div>
         ) : (
           <div className="divide-y">
@@ -187,6 +176,7 @@ export default function Products() {
                     </button>
                   </div>
                 )}
+                <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
               </div>
             ))}
           </div>

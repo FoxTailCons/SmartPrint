@@ -2,6 +2,7 @@ import { Router } from 'express';
 import Product from '../models/Product.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { saleUnits } from '../models/Product.js';
+import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 
 const normalizeInput = (body, { allowActive = false } = {}) => {
   const name = typeof body?.name === 'string' ? body.name.trim() : '';
@@ -47,6 +48,11 @@ export function createProductsRouter({
   router.use(protectMiddleware);
 
   router.get('/', async (req, res, next) => {
+    const pagination = parsePagination(req.query);
+    if (pagination?.error) {
+      return res.status(400).json({ message: pagination.error });
+    }
+
     const includeInactive = req.query.includeInactive === 'true';
     if (includeInactive && req.user?.role !== 'admin') {
       return res.status(403).json({ message: 'Acesso restrito ao administrador' });
@@ -63,8 +69,18 @@ export function createProductsRouter({
     }
 
     try {
-      const products = await ProductModel.find(filter).sort({ name: 1 });
-      return res.json(products);
+      if (!pagination) {
+        const products = await ProductModel.find(filter).sort({ name: 1 });
+        return res.json(products);
+      }
+
+      const total = await ProductModel.countDocuments(filter);
+      const page = getEffectivePage(pagination.page, pagination.pageSize, total);
+      const products = await ProductModel.find(filter)
+        .sort({ name: 1 })
+        .skip((page - 1) * pagination.pageSize)
+        .limit(pagination.pageSize);
+      return res.json(buildPage(products, page, pagination.pageSize, total));
     } catch (error) {
       return next(error);
     }

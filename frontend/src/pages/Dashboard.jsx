@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ClipboardList, Clock, CheckCircle2, Play, Pause, Wallet, TrendingDown,
@@ -9,8 +9,15 @@ import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
 import Modal from '../components/Modal.jsx';
+import ListSkeleton from '../components/ListSkeleton.jsx';
+import Pagination from '../components/Pagination.jsx';
+import { getListState } from '../hooks/listState.js';
+import { usePagination } from '../hooks/usePagination.js';
 import OrderForm from './OrderForm.jsx';
+import { toggleSelectedOrder } from './listPagination.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
+
+const DETAIL_PAGE_SIZE = 10;
 
 function Card({ icon: Icon, label, value, color, sub, open, onClick }) {
   return (
@@ -34,14 +41,16 @@ function Card({ icon: Icon, label, value, color, sub, open, onClick }) {
 }
 
 function DetailList({ detail, selectedIds, onToggle }) {
+  const { items, page, pageSize, total, setPage } = usePagination(detail.items, DETAIL_PAGE_SIZE);
   if (!detail.items.length) {
     return <div className="px-5 py-8 text-center text-sm text-slate-400">Nenhum registro encontrado.</div>;
   }
 
+  let content;
   if (detail.kind === 'client') {
-    return (
+    content = (
       <div className="divide-y">
-        {detail.items.map((client) => (
+        {items.map((client) => (
           <div key={client._id} className="px-5 py-3 flex items-center justify-between gap-4 text-sm">
             <span className="font-medium text-slate-700">{client.name}</span>
             <span className="text-slate-500">{client.phone || client.email || 'Sem contato'}</span>
@@ -50,11 +59,10 @@ function DetailList({ detail, selectedIds, onToggle }) {
       </div>
     );
   }
-
-  if (detail.kind === 'payable') {
-    return (
+  else if (detail.kind === 'payable') {
+    content = (
       <div className="divide-y">
-        {detail.items.map((payable) => (
+        {items.map((payable) => (
           <div key={payable._id} className="px-5 py-3 flex items-center justify-between gap-4 text-sm">
             <div><div className="font-medium text-slate-700">{payable.description}</div><div className="text-xs text-slate-500">Vencimento: {fmtDate(payable.dueDate)}</div></div>
             <span className="font-semibold text-red-600">{fmt(payable.value)}</span>
@@ -62,25 +70,36 @@ function DetailList({ detail, selectedIds, onToggle }) {
         ))}
       </div>
     );
-  }
-
-  return (
-    <div className="divide-y">
-      {detail.items.map((order) => (
+  } else {
+    content = (
+      <div className="divide-y">
+        {items.map((order) => (
         <div key={order._id} className="px-5 py-3 flex items-center gap-3 text-sm hover:bg-slate-50">
-          {onToggle && <input type="checkbox" checked={selectedIds.includes(order._id)} onChange={() => onToggle(order._id)} className="h-4 w-4 accent-brand-600" aria-label={`Selecionar pedido ${order.number}`} />}
+          {onToggle && <input type="checkbox" checked={(selectedIds || []).includes(order._id)} onChange={() => onToggle(order._id)} className="h-4 w-4 accent-brand-600" aria-label={`Selecionar pedido ${order.number}`} />}
           <Link to={`/pedidos/${order._id}`} className="flex-1 flex items-center justify-between gap-4">
             <div><div className="font-medium text-slate-700">{getOrderDocumentLabel(order)} #{order.number} · {order.client?.name || 'Cliente não informado'}</div><div className="text-xs text-slate-500"><StatusBadge value={order.status} /> <StatusBadge value={order.production} /></div></div>
             <span className="font-semibold text-slate-700">{fmt(order.finalValue)}</span>
           </Link>
         </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {content}
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
+    </>
   );
 }
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+  const requestId = useRef(0);
   const [activeDetail, setActiveDetail] = useState(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [merging, setMerging] = useState(false);
@@ -88,17 +107,41 @@ export default function Dashboard() {
   const [selectedClientId, setSelectedClientId] = useState('all');
   const [selectedPeriod, setSelectedPeriod] = useState('all');
 
-  const load = () => {
+  useEffect(() => {
+    const currentRequestId = ++requestId.current;
     const query = new URLSearchParams();
     if (selectedClientId && selectedClientId !== 'all') query.set('clientId', selectedClientId);
     if (selectedPeriod && selectedPeriod !== 'all') query.set('period', selectedPeriod);
-    return api(`/api/dashboard${query.toString() ? `?${query.toString()}` : ''}`)
-      .then(setData)
-      .catch((e) => alert(e.message));
-  };
-  useEffect(() => { load(); }, [selectedClientId, selectedPeriod]);
+    setLoading(true);
+    setError('');
+    api(`/api/dashboard${query.toString() ? `?${query.toString()}` : ''}`)
+      .then((result) => {
+        if (requestId.current === currentRequestId) setData(result);
+      })
+      .catch((requestError) => {
+        if (requestId.current === currentRequestId) setError(requestError.message);
+      })
+      .finally(() => {
+        if (requestId.current === currentRequestId) setLoading(false);
+      });
+    return () => {
+      if (requestId.current === currentRequestId) requestId.current += 1;
+    };
+  }, [selectedClientId, selectedPeriod, reloadKey]);
 
-  if (!data) return <div className="p-8 text-center text-slate-500">Carregando dashboard...</div>;
+  const initialListState = getListState({
+    loading: loading && !data,
+    error: !data ? error : '',
+    items: data ? [data] : [],
+  });
+  if (initialListState === 'loading') return <div className="rounded-xl border bg-white"><ListSkeleton variant="list" rows={6} /></div>;
+  if (initialListState === 'error') {
+    return <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-8 text-center text-sm text-red-700">
+      <p>Não foi possível carregar o dashboard: {error}</p>
+      <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="mt-3 rounded-lg border px-3 py-1.5 hover:bg-red-100">Tentar novamente</button>
+    </div>;
+  }
+  if (initialListState === 'empty') return null;
 
   const { counts, finance, warnings, recentOrders, details } = data;
   const cards = [
@@ -113,7 +156,7 @@ export default function Dashboard() {
   ];
   const percent = (value) => `${Number(value || 0).toFixed(1)}%`;
   const selectedDetail = cards.find((card) => card.key === activeDetail);
-  const toggleOrder = (id) => setSelectedOrderIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  const toggleOrder = (id) => setSelectedOrderIds((current) => toggleSelectedOrder(current, id));
   const mergeOrders = async () => {
     if (selectedOrderIds.length < 2) return;
     if (!confirm('Agregar os pedidos selecionados em um único pedido? Os pedidos originais serão removidos.')) return;
@@ -122,7 +165,7 @@ export default function Dashboard() {
       await api('/api/orders/merge', { method: 'POST', body: { orderIds: selectedOrderIds } });
       setSelectedOrderIds([]);
       setActiveDetail(null);
-      await load();
+      setReloadKey((value) => value + 1);
       alert('Pedidos agregados com sucesso.');
     } catch (e) {
       alert(e.message);
@@ -133,6 +176,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        Não foi possível atualizar o dashboard: {error}
+        <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="ml-3 underline">Tentar novamente</button>
+      </div>}
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="border-l-4 border-brand-500 pl-4">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
@@ -451,7 +498,7 @@ export default function Dashboard() {
             <div><h2 className="font-semibold">{selectedDetail.title}</h2><p className="text-xs text-slate-500 mt-1">{selectedDetail.items.length} registro(s)</p></div>
             <button type="button" onClick={() => setActiveDetail(null)} className="text-sm text-slate-500 hover:text-slate-800">Fechar</button>
           </div>
-          <DetailList detail={selectedDetail} />
+          <DetailList key={selectedDetail.key} detail={selectedDetail} />
         </div>
       )}
 
@@ -465,7 +512,7 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="border rounded-lg overflow-hidden">
-              <DetailList detail={selectedDetail} selectedIds={selectedOrderIds} onToggle={toggleOrder} />
+              <DetailList key={selectedDetail.key} detail={selectedDetail} selectedIds={selectedOrderIds} onToggle={toggleOrder} />
             </div>
             <p className="text-xs text-slate-500">Os pedidos precisam pertencer ao mesmo cliente. O novo pedido soma os valores e desconta os pagamentos já realizados.</p>
           </div>

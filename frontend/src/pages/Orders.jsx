@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
-import { api, fmt } from '../api';
+import { fmt } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
+import ListSkeleton from '../components/ListSkeleton.jsx';
+import Pagination from '../components/Pagination.jsx';
+import { getListState } from '../hooks/listState.js';
+import { useServerPagination } from '../hooks/useServerPagination.js';
 import OrderForm from './OrderForm.jsx';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 
+const PAGE_SIZE = 20;
 const filters = [
   { key: 'status', label: 'Status', options: ['', 'pendente', 'aprovado', 'concluido'], labels: ['Todos', 'Orçamento pendente', 'Pedido aprovado', 'Pedido concluído'] },
   { key: 'paymentStatus', label: 'Pagamento', options: ['', 'aberto', 'parcial', 'pago', 'quitado'], labels: ['Todos', 'Aberto', 'Parcial', 'Pago', 'Quitado'] },
@@ -15,25 +20,28 @@ const filters = [
 ];
 
 export default function Orders() {
-  const [orders, setOrders] = useState([]);
   const [query, setQuery] = useState('');
   const [f, setF] = useState({ status: '', paymentStatus: '', production: '' });
   const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const params = new URLSearchParams();
+  Object.entries(f).forEach(([key, value]) => value && params.set(key, value));
+  if (query) params.set('q', query);
+  const list = useServerPagination('/api/orders', params.toString(), page, PAGE_SIZE);
+  const { items: orders, total, loading, error, retry } = list;
+  const listState = getListState({ loading, error, items: orders });
 
-  const load = () => {
-    const params = new URLSearchParams();
-    Object.entries(f).forEach(([k, v]) => v && params.set(k, v));
-    if (query) params.set('q', query);
-    api(`/api/orders?${params}`).then(setOrders);
+  const updateFilter = (key, value) => {
+    setPage(1);
+    setF((current) => ({ ...current, [key]: value }));
   };
-  useEffect(() => { load(); }, [f, query]);
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Pedidos / Orçamentos</h1>
-          <p className="text-sm text-slate-500">{orders.length} pedido(s)/orçamento(s) encontrado(s)</p>
+          <p className="text-sm text-slate-500">{total} pedido(s)/orçamento(s) encontrado(s)</p>
         </div>
         <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
           <Plus size={16} /> Novo Orçamento
@@ -45,7 +53,7 @@ export default function Orders() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setPage(1); setQuery(e.target.value); }}
             placeholder="Buscar por número ou cliente..."
             className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-500"
           />
@@ -54,7 +62,7 @@ export default function Orders() {
           <select
             key={flt.key}
             value={f[flt.key]}
-            onChange={(e) => setF({ ...f, [flt.key]: e.target.value })}
+            onChange={(e) => updateFilter(flt.key, e.target.value)}
             className="px-3 py-2 border rounded-lg text-sm bg-white"
           >
             {flt.options.map((o, i) => <option key={o} value={o}>{flt.label}: {flt.labels[i]}</option>)}
@@ -78,10 +86,19 @@ export default function Orders() {
               </tr>
             </thead>
             <tbody>
-              {orders.length === 0 && (
+              {listState === 'loading' && (
+                <tr><td colSpan="8"><ListSkeleton variant="table" rows={6} /></td></tr>
+              )}
+              {listState === 'error' && (
+                <tr><td colSpan="8" className="py-8 text-center text-sm text-red-700">
+                  <div role="alert">{error}</div>
+                  <button type="button" onClick={retry} className="mt-2 rounded-lg border px-3 py-1.5 hover:bg-red-50">Tentar novamente</button>
+                </td></tr>
+              )}
+              {listState === 'empty' && (
                 <tr><td colSpan="8" className="text-center py-10 text-slate-400">Nenhum pedido ou orçamento encontrado.</td></tr>
               )}
-              {orders.map((o) => (
+              {listState === 'ready' && orders.map((o) => (
                 <tr key={o._id} className="border-t hover:bg-slate-50">
                   <td className="px-5 py-3">
                     <div className="text-xs text-slate-500">{getOrderDocumentLabel(o)}</div>
@@ -105,9 +122,10 @@ export default function Orders() {
             </tbody>
           </table>
         </div>
+        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
       </div>
 
-      <OrderForm modal open={newOrderOpen} onCancel={() => setNewOrderOpen(false)} onSaved={() => { setNewOrderOpen(false); load(); }} />
+      <OrderForm modal open={newOrderOpen} onCancel={() => setNewOrderOpen(false)} onSaved={() => { setNewOrderOpen(false); retry(); }} />
     </div>
   );
 }

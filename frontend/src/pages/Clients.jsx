@@ -1,26 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, UserPlus, Phone, Mail, ChevronDown, ChevronUp } from 'lucide-react';
 import { api, fmt } from '../api';
 import Modal from '../components/Modal.jsx';
+import ListSkeleton from '../components/ListSkeleton.jsx';
+import Pagination from '../components/Pagination.jsx';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
+import { getListState } from '../hooks/listState.js';
+import { useServerPagination } from '../hooks/useServerPagination.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 
+const PAGE_SIZE = 20;
+
 export default function Clients() {
-  const [clients, setClients] = useState([]);
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState(null);
   const [detail, setDetail] = useState(null);
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '', email: '', document: '', address: '' });
-
-  const load = () => {
-    const params = query ? `?q=${encodeURIComponent(query)}` : '';
-    api(`/api/clients${params}`).then(setClients);
-  };
-  useEffect(() => { load(); }, [query]);
+  const list = useServerPagination('/api/clients', query ? `q=${encodeURIComponent(query)}` : '', page, PAGE_SIZE);
+  const { items: clients, total, loading, error, retry } = list;
+  const listState = getListState({ loading, error, items: clients });
 
   const toggle = async (c) => {
     if (expanded === c._id) return setExpanded(null);
@@ -36,7 +39,7 @@ export default function Clients() {
       await api('/api/clients', { method: 'POST', body: { ...form, name: form.name.trim(), phone: form.phone.trim() } });
       setShowNew(false);
       setForm({ name: '', phone: '', email: '', document: '', address: '' });
-      load();
+      retry();
     } catch (e) { alert(e.message); }
   };
 
@@ -45,7 +48,7 @@ export default function Clients() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Clientes</h1>
-          <p className="text-sm text-slate-500">{clients.length} cliente(s) · pedidos e orçamentos agrupados por cliente</p>
+          <p className="text-sm text-slate-500">{total} cliente(s) · pedidos e orçamentos agrupados por cliente</p>
         </div>
         <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
           <UserPlus size={16} /> Novo Cliente
@@ -54,12 +57,17 @@ export default function Clients() {
 
       <div className="relative max-w-md">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar cliente..." className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-brand-500" />
+        <input value={query} onChange={(e) => { setPage(1); setQuery(e.target.value); }} placeholder="Buscar cliente..." className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-brand-500" />
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm divide-y">
-        {clients.length === 0 && <div className="p-8 text-center text-slate-400">Nenhum cliente encontrado.</div>}
-        {clients.map((c) => (
+        {listState === 'loading' && <ListSkeleton variant="list" rows={6} />}
+        {listState === 'error' && <div role="alert" className="p-8 text-center text-sm text-red-700">
+          <p>{error}</p>
+          <button type="button" onClick={retry} className="mt-2 rounded-lg border px-3 py-1.5 hover:bg-red-50">Tentar novamente</button>
+        </div>}
+        {listState === 'empty' && <div className="p-8 text-center text-slate-400">Nenhum cliente encontrado.</div>}
+        {listState === 'ready' && clients.map((c) => (
           <div key={c._id}>
             <button onClick={() => toggle(c)} className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 text-left">
               <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold shrink-0">
@@ -97,6 +105,7 @@ export default function Clients() {
                     </div>
                   ))}
                 </div>
+                <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
               </div>
             )}
           </div>

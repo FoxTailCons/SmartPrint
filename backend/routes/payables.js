@@ -2,17 +2,70 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import Payable from '../models/Payable.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 
 const router = Router();
 router.use(protect);
 
-router.get('/', async (req, res) => {
+export const createPayableListHandler = ({ PayableModel = Payable } = {}) => async (req, res) => {
+  const pagination = parsePagination(req.query);
+  if (pagination?.error) return res.status(400).json({ message: pagination.error });
+
   const { paid } = req.query;
   const filter = {};
   if (paid !== undefined) filter.paid = paid === 'true';
-  const items = await Payable.find(filter).sort({ dueDate: 1 });
-  res.json(items);
-});
+  if (!pagination) return res.json(await PayableModel.find(filter).sort({ dueDate: 1 }));
+
+  const total = await PayableModel.countDocuments(filter);
+  const page = getEffectivePage(pagination.page, pagination.pageSize, total);
+  const today = new Date();
+  const in3days = new Date(today.getTime() + 3 * 86400000);
+  const isPaidExpression = { $ifNull: ['$paid', false] };
+  const [items, summaryRows] = await Promise.all([
+    PayableModel.find(filter)
+      .sort({ dueDate: 1 })
+      .skip((page - 1) * pagination.pageSize)
+      .limit(pagination.pageSize),
+    PayableModel.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          totalOpen: { $sum: { $cond: [{ $eq: [isPaidExpression, false] }, '$value', 0] } },
+          totalPaid: { $sum: { $cond: [{ $eq: [isPaidExpression, true] }, '$value', 0] } },
+          totalOverdue: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: [isPaidExpression, false] }, { $lt: ['$dueDate', today] }] },
+                '$value',
+                0,
+              ],
+            },
+          },
+          totalDueSoon: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: [isPaidExpression, false] },
+                    { $gte: ['$dueDate', today] },
+                    { $lte: ['$dueDate', in3days] },
+                  ],
+                },
+                '$value',
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]),
+  ]);
+  const summary = summaryRows[0] || { totalOpen: 0, totalPaid: 0, totalOverdue: 0, totalDueSoon: 0 };
+  return res.json({ ...buildPage(items, page, pagination.pageSize, total), summary });
+};
+
+router.get('/', createPayableListHandler());
 
 router.post('/', async (req, res) => {
   try {

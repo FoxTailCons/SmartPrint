@@ -1,22 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, CheckCircle2, AlertTriangle, Bell } from 'lucide-react';
 import { api, fmt, fmtDate } from '../api';
 import Modal from '../components/Modal.jsx';
+import ListSkeleton from '../components/ListSkeleton.jsx';
+import Pagination from '../components/Pagination.jsx';
+import { getListState } from '../hooks/listState.js';
+import { useServerPagination } from '../hooks/useServerPagination.js';
 
 const categories = ['consumo', 'insumo', 'aluguel', 'funcionario', 'imposto', 'outro'];
+const PAGE_SIZE = 20;
 const catLabel = { consumo: 'Conta de consumo', insumo: 'Insumo/Material', aluguel: 'Aluguel', funcionario: 'Funcionário', imposto: 'Imposto', outro: 'Outro' };
 
 export default function Payables() {
-  const [items, setItems] = useState([]);
   const [showNew, setShowNew] = useState(false);
   const [filter, setFilter] = useState('open');
+  const [page, setPage] = useState(1);
+  const [actionError, setActionError] = useState('');
   const [form, setForm] = useState({ description: '', category: 'consumo', value: '', dueDate: '', recurring: false, notes: '' });
-
-  const load = () => {
-    const q = filter === 'all' ? '' : filter === 'open' ? '?paid=false' : '?paid=true';
-    api(`/api/payables${q}`).then(setItems);
-  };
-  useEffect(() => { load(); }, [filter]);
+  const filters = filter === 'all' ? '' : `paid=${filter === 'paid'}`;
+  const list = useServerPagination('/api/payables', filters, page, PAGE_SIZE);
+  const { items, total, summary, loading, error, retry } = list;
+  const listState = getListState({ loading, error, items });
 
   const today = new Date();
   const in3 = new Date(today.getTime() + 3 * 86400000);
@@ -30,37 +34,52 @@ export default function Payables() {
 
   const create = async () => {
     if (!form.description || !form.value || !form.dueDate) return alert('Preencha descrição, valor e vencimento');
-    await api('/api/payables', { method: 'POST', body: { ...form, value: Number(form.value), dueDate: new Date(form.dueDate) } });
-    setShowNew(false);
-    setForm({ description: '', category: 'consumo', value: '', dueDate: '', recurring: false, notes: '' });
-    load();
+    try {
+      await api('/api/payables', { method: 'POST', body: { ...form, value: Number(form.value), dueDate: new Date(form.dueDate) } });
+      setShowNew(false);
+      setForm({ description: '', category: 'consumo', value: '', dueDate: '', recurring: false, notes: '' });
+      setActionError('');
+      retry();
+    } catch (error) {
+      setActionError(error.message);
+    }
   };
 
   const pay = async (id) => {
-    await api(`/api/payables/${id}/pay`, { method: 'POST' });
-    load();
+    try {
+      await api(`/api/payables/${id}/pay`, { method: 'POST' });
+      setActionError('');
+      retry();
+    } catch (error) {
+      setActionError(error.message);
+    }
   };
 
   const remove = async (id) => {
     if (!confirm('Excluir esta conta?')) return;
-    await api(`/api/payables/${id}`, { method: 'DELETE' });
-    load();
+    try {
+      await api(`/api/payables/${id}`, { method: 'DELETE' });
+      setActionError('');
+      retry();
+    } catch (error) {
+      setActionError(error.message);
+    }
   };
 
-  const totalOpen = items.filter((p) => !p.paid).reduce((s, p) => s + p.value, 0);
-  const totalPaid = items.filter((p) => p.paid).reduce((s, p) => s + p.value, 0);
-  const totalOverdue = items.filter((p) => !p.paid && new Date(p.dueDate) < today).reduce((s, p) => s + p.value, 0);
-  const totalDueSoon = items.filter((p) => !p.paid && new Date(p.dueDate) >= today && new Date(p.dueDate) <= in3).reduce((s, p) => s + p.value, 0);
+  const totalOpen = summary?.totalOpen || 0;
+  const totalPaid = summary?.totalPaid || 0;
+  const totalOverdue = summary?.totalOverdue || 0;
+  const totalDueSoon = summary?.totalDueSoon || 0;
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Contas a Pagar</h1>
-          <p className="text-sm text-slate-500">Em aberto: <strong className="text-red-600">{fmt(totalOpen)}</strong></p>
+          <p className="text-sm text-slate-500">{total} conta(s) · Em aberto: <strong className="text-red-600">{fmt(totalOpen)}</strong></p>
         </div>
         <div className="flex gap-2">
-          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="px-3 py-2 border rounded-lg text-sm bg-white">
+          <select value={filter} onChange={(e) => { setPage(1); setFilter(e.target.value); }} className="px-3 py-2 border rounded-lg text-sm bg-white">
             <option value="open">Em aberto</option>
             <option value="paid">Pagas</option>
             <option value="all">Todas</option>
@@ -96,6 +115,8 @@ export default function Payables() {
         <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 size={12} /> Paga</span>
       </div>
 
+      {actionError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>}
+
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -109,8 +130,13 @@ export default function Payables() {
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 && <tr><td colSpan="6" className="text-center py-10 text-slate-400">Nenhuma conta cadastrada.</td></tr>}
-            {items.map((p) => (
+            {listState === 'loading' && <tr><td colSpan="6"><ListSkeleton variant="table" rows={6} /></td></tr>}
+            {listState === 'error' && <tr><td colSpan="6" className="py-8 text-center text-sm text-red-700">
+              <div role="alert">{error}</div>
+              <button type="button" onClick={retry} className="mt-2 rounded-lg border px-3 py-1.5 hover:bg-red-50">Tentar novamente</button>
+            </td></tr>}
+            {listState === 'empty' && <tr><td colSpan="6" className="text-center py-10 text-slate-400">Nenhuma conta cadastrada.</td></tr>}
+            {listState === 'ready' && items.map((p) => (
               <tr key={p._id} className={`border-t ${rowStyle(p)}`}>
                 <td className="px-5 py-3">
                   {p.description}
@@ -136,6 +162,7 @@ export default function Payables() {
             ))}
           </tbody>
         </table>
+        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
       </div>
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="Cadastrar conta a pagar">

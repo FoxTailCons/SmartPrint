@@ -7,6 +7,7 @@ import Product from '../models/Product.js';
 import { buildCatalogOrderItem } from '../services/orderItemPricing.js';
 import { receiveDownPayment } from '../services/orderInstallments.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
+import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
@@ -221,8 +222,10 @@ const buildWhatsappText = (order, client) => {
   return lines.join('\n');
 };
 
-// Listar pedidos com filtros
-router.get('/', async (req, res) => {
+export const createOrderListHandler = ({ OrderModel = Order, ClientModel = Client } = {}) => async (req, res) => {
+  const pagination = parsePagination(req.query);
+  if (pagination?.error) return res.status(400).json({ message: pagination.error });
+
   const { status, paymentStatus, production, client, q } = req.query;
   const filter = {};
   if (status) filter.status = status;
@@ -230,15 +233,135 @@ router.get('/', async (req, res) => {
   if (production) filter.production = production;
   if (client) filter.client = client;
   if (q) {
-    const clients = await Client.find({ name: { $regex: q, $options: 'i' } }).select('_id');
+    const clients = await ClientModel.find({ name: { $regex: q, $options: 'i' } }).select('_id');
     filter.$or = [{ number: { $regex: q, $options: 'i' } }, { client: { $in: clients.map((c) => c._id) } }];
   }
-  const orders = await Order.find(filter)
+
+  if (!pagination) {
+    const orders = await OrderModel.find(filter)
+      .populate('client', 'name phone')
+      .sort({ createdAt: -1 })
+      .limit(500);
+    return res.json(orders);
+  }
+
+  const total = await OrderModel.countDocuments(filter);
+  const page = getEffectivePage(pagination.page, pagination.pageSize, total);
+  const items = await OrderModel.find(filter)
     .populate('client', 'name phone')
     .sort({ createdAt: -1 })
-    .limit(500);
-  res.json(orders);
-});
+    .skip((page - 1) * pagination.pageSize)
+    .limit(pagination.pageSize);
+  return res.json(buildPage(items, page, pagination.pageSize, total));
+};
+
+router.get('/', createOrderListHandler());
+
+const confirmedOrdersFilter = {
+  $or: [
+    { status: { $in: ['aprovado', 'concluido'] } },
+    { amountPaid: { $gt: 0 } },
+  ],
+};
+
+const receivableBalanceExpression = {
+  $subtract: [
+    { $ifNull: ['$finalValue', 0] },
+    { $ifNull: ['$amountPaid', 0] },
+  ],
+};
+
+const buildReceivablesFilter = (filter) => {
+  if (filter === 'all') return confirmedOrdersFilter;
+
+  return {
+    $and: [
+      confirmedOrdersFilter,
+      {
+        $expr: filter === 'paid'
+          ? { $lte: [receivableBalanceExpression, 0.01] }
+          : { $gt: [receivableBalanceExpression, 0.01] },
+      },
+    ],
+  };
+};
+
+export const createReceivablesListHandler = ({ OrderModel = Order } = {}) => async (req, res) => {
+  const pagination = parsePagination(req.query);
+  if (pagination?.error) return res.status(400).json({ message: pagination.error });
+
+  const filter = req.query.filter || 'open';
+  if (!['open', 'paid', 'all'].includes(filter)) {
+    return res.status(400).json({ message: 'Filtro de recebíveis inválido' });
+  }
+
+  const pageQuery = pagination || parsePagination({ page: '1' });
+  const queryFilter = buildReceivablesFilter(filter);
+  const [total, summaryRows, upcoming,] = await Promise.all([
+    OrderModel.countDocuments(queryFilter),
+    OrderModel.aggregate([
+      { $match: confirmedOrdersFilter },
+      {
+        $group: {
+          _id: null,
+          totalOpen: {
+            $sum: {
+              $cond: [
+                { $gt: [receivableBalanceExpression, 0.01] },
+                receivableBalanceExpression,
+                0,
+              ],
+            },
+          },
+          totalReceived: { $sum: { $ifNull: ['$amountPaid', 0] } },
+        },
+      },
+    ]),
+    OrderModel.aggregate([
+      { $match: confirmedOrdersFilter },
+      { $unwind: { path: '$installments', includeArrayIndex: 'installmentIndex' } },
+      { $match: { 'installments.paid': { $ne: true } } },
+      { $sort: { 'installments.dueDate': 1 } },
+      { $limit: 8 },
+      {
+        $lookup: {
+          from: 'clients',
+          localField: 'client',
+          foreignField: '_id',
+          as: 'client',
+        },
+      },
+      { $unwind: { path: '$client', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          order: { number: '$number', client: { name: '$client.name' } },
+          parcela: { $add: ['$installmentIndex', 1] },
+          dueDate: '$installments.dueDate',
+          amount: '$installments.amount',
+        },
+      },
+    ]),
+  ]);
+  const page = getEffectivePage(pageQuery.page, pageQuery.pageSize, total);
+  const items = await OrderModel.find(queryFilter)
+    .populate('client', 'name phone')
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * pageQuery.pageSize)
+    .limit(pageQuery.pageSize);
+  const totals = summaryRows[0] || { totalOpen: 0, totalReceived: 0 };
+
+  return res.json({
+    ...buildPage(items, page, pageQuery.pageSize, total),
+    summary: {
+      totalOpen: filter === 'paid' ? 0 : totals.totalOpen,
+      totalReceived: totals.totalReceived,
+      upcoming,
+    },
+  });
+};
+
+router.get('/receivables', createReceivablesListHandler());
 
 router.get('/:id', async (req, res) => {
   const order = await Order.findById(req.params.id).populate('client');

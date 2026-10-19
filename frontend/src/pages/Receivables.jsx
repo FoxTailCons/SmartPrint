@@ -1,39 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, fmt, fmtDate } from '../api';
+import { fmt, fmtDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
-import { isConfirmedOrder } from './orderPresentation.js';
+import ListSkeleton from '../components/ListSkeleton.jsx';
+import Pagination from '../components/Pagination.jsx';
+import { getListState } from '../hooks/listState.js';
+import { useServerPagination } from '../hooks/useServerPagination.js';
+
+const PAGE_SIZE = 20;
 
 export default function Receivables() {
-  const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('open');
+  const [page, setPage] = useState(1);
+  const list = useServerPagination('/api/orders/receivables', `filter=${filter}`, page, PAGE_SIZE);
+  const { items: orders, total, summary, loading, error, retry } = list;
+  const listState = getListState({ loading, error, items: orders });
 
-  useEffect(() => {
-    api('/api/orders').then(setOrders);
-  }, []);
-
-  const confirmedOrders = orders.filter(isConfirmedOrder);
-  const withBalance = confirmedOrders
-    .map((o) => ({ ...o, balance: (o.finalValue || 0) - (o.amountPaid || 0) }))
-    .filter((o) => {
-      if (filter === 'open') return o.balance > 0.01;
-      if (filter === 'paid') return o.balance <= 0.01;
-      return true;
-    });
-
-  const totalOpen = withBalance.filter((o) => o.balance > 0.01).reduce((s, o) => s + o.balance, 0);
-  const totalReceived = confirmedOrders.reduce((s, o) => s + (o.amountPaid || 0), 0);
-
-  // Próximos vencimentos das parcelas em aberto
-  const upcoming = [];
-  confirmedOrders.forEach((o) => {
-    (o.installments || []).forEach((p, i) => {
-      if (!p.paid) upcoming.push({ order: o, parcela: i + 1, dueDate: p.dueDate, amount: p.amount });
-    });
-  });
-  upcoming.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  const withBalance = orders.map((o) => ({ ...o, balance: (o.finalValue || 0) - (o.amountPaid || 0) }));
+  const totalOpen = summary?.totalOpen || 0;
+  const totalReceived = summary?.totalReceived || 0;
+  const upcoming = summary?.upcoming || [];
 
   return (
     <div className="space-y-5">
@@ -42,7 +30,7 @@ export default function Receivables() {
           <h1 className="text-2xl font-bold">Contas a Receber</h1>
           <p className="text-sm text-slate-500">A receber: <strong className="text-orange-600">{fmt(totalOpen)}</strong> · Já recebido: <strong className="text-emerald-600">{fmt(totalReceived)}</strong></p>
         </div>
-        <select value={filter} onChange={(e) => setFilter(e.target.value)} className="px-3 py-2 border rounded-lg text-sm bg-white">
+        <select value={filter} onChange={(e) => { setPage(1); setFilter(e.target.value); }} className="px-3 py-2 border rounded-lg text-sm bg-white">
           <option value="open">Em aberto</option>
           <option value="paid">Quitados</option>
           <option value="all">Todos</option>
@@ -77,8 +65,13 @@ export default function Receivables() {
             </tr>
           </thead>
           <tbody>
-            {withBalance.length === 0 && <tr><td colSpan="7" className="text-center py-10 text-slate-400">Nenhum título.</td></tr>}
-            {withBalance.map((o) => (
+            {listState === 'loading' && <tr><td colSpan="7"><ListSkeleton variant="table" rows={6} /></td></tr>}
+            {listState === 'error' && <tr><td colSpan="7" className="py-8 text-center text-sm text-red-700">
+              <div role="alert">{error}</div>
+              <button type="button" onClick={retry} className="mt-2 rounded-lg border px-3 py-1.5 hover:bg-red-50">Tentar novamente</button>
+            </td></tr>}
+            {listState === 'empty' && <tr><td colSpan="7" className="text-center py-10 text-slate-400">Nenhum título.</td></tr>}
+            {listState === 'ready' && withBalance.map((o) => (
               <tr key={o._id} className="border-t hover:bg-slate-50">
                 <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
                 <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
@@ -97,6 +90,7 @@ export default function Receivables() {
             ))}
           </tbody>
         </table>
+        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
       </div>
     </div>
   );

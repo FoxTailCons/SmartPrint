@@ -3,31 +3,47 @@ import Client from '../models/Client.js';
 import Order from '../models/Order.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
+import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 
 const router = Router();
 router.use(protect);
 
-// Listar clientes (com totais de pedidos)
-router.get('/', async (req, res) => {
+export const createClientListHandler = ({ ClientModel = Client, OrderModel = Order } = {}) => async (req, res) => {
+  const pagination = parsePagination(req.query);
+  if (pagination?.error) return res.status(400).json({ message: pagination.error });
+
   const q = req.query.q || '';
-  const clients = await Client.find({
+  const filter = {
     $or: [
       { name: { $regex: q, $options: 'i' } },
       { phone: { $regex: q, $options: 'i' } },
       { email: { $regex: q, $options: 'i' } },
     ],
-  }).sort({ name: 1 });
+  };
+  let clientsQuery = ClientModel.find(filter).sort({ name: 1 });
+  let total;
+  let page = pagination?.page || 1;
+  if (pagination) {
+    total = await ClientModel.countDocuments(filter);
+    page = getEffectivePage(page, pagination.pageSize, total);
+    clientsQuery = clientsQuery
+      .skip((page - 1) * pagination.pageSize)
+      .limit(pagination.pageSize);
+  }
+  const clients = await clientsQuery;
   const withStats = await Promise.all(
     clients.map(async (c) => {
-      const orders = await Order.find({ client: c._id });
+      const orders = await OrderModel.find({ client: c._id });
       const confirmedOrders = orders.filter(isConfirmedOrder);
       const total = confirmedOrders.reduce((s, o) => s + (o.finalValue || 0), 0);
       const open = confirmedOrders.filter((o) => (o.finalValue || 0) > (o.amountPaid || 0)).length;
       return { ...c.toObject(), ordersCount: confirmedOrders.length, totalSpent: total, openOrders: open };
     })
   );
-  res.json(withStats);
-});
+  return res.json(pagination ? buildPage(withStats, page, pagination.pageSize, total) : withStats);
+};
+
+router.get('/', createClientListHandler());
 
 router.get('/:id', async (req, res) => {
   const client = await Client.findById(req.params.id);
