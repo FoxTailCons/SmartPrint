@@ -96,13 +96,25 @@ O repositório já inclui o arquivo `render.yaml` com a definição dos dois ser
 - **Build Command:** `npm ci && npm run build`
 - **Publish Directory:** `dist`
 - **Environment Variable:** `VITE_API_URL` = URL da API do backend (ex: `https://smartprint-api.onrender.com`)
-- **Rewrite/Redirect rule:** adicione `/*` → `/index.html` (SPA fallback)
+- **Redirects/Rewrites:** adicione Source `/*`, Destination `/index.html`, Action **Rewrite** (SPA fallback). A ação deve ser Rewrite para preservar a URL usada pelo React Router.
+
+O `render.yaml` já declara essa regra para serviços gerenciados pelo Blueprint. Se o Static Site foi criado manualmente, editar o arquivo ou publicar um novo build não configura a regra no serviço existente: abra o Static Site **smartprintsite** no painel do Render, acesse **Redirects/Rewrites**, cadastre a regra acima e salve.
+
+Depois, confira acesso direto e refresh em `/pedidos`, `/clientes`, `/produtos` e `/pedidos/ID_DO_PEDIDO`. O servidor deve responder com `index.html` e HTTP 200, mantendo o caminho no navegador. Sem sessão, o aplicativo exibirá o login; com sessão, a rota solicitada será renderizada.
 
 Pronto: acesse a URL do static site, faça login com um dos usuários acima e comece a cadastrar clientes e orçamentos.
 
 ### Variáveis do frontend
 
 Em produção, `VITE_API_URL` deve ser a URL pública do backend, sem barra no final, por exemplo `https://smartprint-api.onrender.com`. O frontend usa o proxy do Vite apenas durante o desenvolvimento local.
+
+### Login por ambiente
+
+`npm run build` gera o frontend de produção: os campos de login iniciam vazios, e o acesso rápido e suas credenciais de demonstração são excluídos do bundle. A condição usa `import.meta.env.PROD`, do Vite, definida durante o build; configurar apenas o `NODE_ENV` da API não altera um frontend já publicado.
+
+`npm run dev` mantém os três atalhos de demonstração. Para homologação, use esse acesso apenas em ambiente restrito de desenvolvimento; builds estáticos, inclusive `--mode staging`, mantêm a proteção de produção. Não publique um build com `NODE_ENV=development`.
+
+Essa alteração não troca as senhas já salvas no MongoDB. Os usuários padrão existentes devem ter suas senhas alteradas antes do uso em produção; a inicialização da API ainda cria os usuários padrão ausentes.
 
 ---
 
