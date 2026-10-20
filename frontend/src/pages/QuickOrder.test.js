@@ -18,3 +18,16 @@ test('quick sale confirmation uses server total and existing payment receipt', a
     assert.match(html, /Nova venda/);
   } finally { await server.close(); }
 });
+
+test('quick order exposes a searchable product selector', async () => {
+  const server = await createServer({ server: { middlewareMode: true, ws: false } });
+  try {
+    const { default: QuickOrder } = await server.ssrLoadModule('/src/pages/QuickOrder.jsx');
+    const { AuthProvider } = await server.ssrLoadModule('/src/context/AuthContext.jsx');
+    const html = renderToStaticMarkup(React.createElement(StaticRouter, { location: '/pedido-rapido' },
+      React.createElement(AuthProvider, null, React.createElement(QuickOrder))));
+
+    assert.match(html, /aria-label="Buscar produto"/);
+    assert.match(html, /placeholder="Buscar por nome ou código\.\.\."/);
+  } finally { await server.close(); }
+});

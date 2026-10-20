@@ -15,7 +15,7 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - **Permissões por perfil:** Admin tem acesso total; Atendente opera pedidos, recebimentos e caixa; Produção consulta dados operacionais e avança etapas sem acesso a valores e custos
 - A lista de pedidos separa **Pendente aprovação**, **Pendente execução** e **Concluído** em abas; busca, filtros financeiros/de produção e paginação continuam disponíveis
 - **Envio do pedido/orçamento via WhatsApp** (wa.me com mensagem formatada) — disponível no Dashboard, Pedidos, Clientes e Contas a Receber
-- **Pedido rápido** já aprovado e sem cliente obrigatório, para serviços de balcão como fotocópias
+- **Pedido rápido** já aprovado e sem cliente obrigatório, para serviços de balcão como fotocópias; seletor de produtos por unidade com busca por nome ou código
 - Totais finais fracionários são arredondados para cima ao próximo real; quantidades e medidas permanecem fracionárias
 - **Recibos de pagamento** — cada recebimento registrado gera um recibo individual para impressão ou envio via WhatsApp na tela do pedido
 - **Agrupar pedidos por cliente** (tela de Clientes, expansível)
@@ -178,7 +178,7 @@ Pedido rápido/venda de balcão continua isento da exigência de cliente, mesmo 
 
 ## Atendimento e produção da gráfica
 
-- **Pedido rápido (`/pedido-rapido`, F2):** escolha um produto por unidade, informe quantidade e pagamento e confirme. Cliente é opcional. A API calcula o preço, registra o recebimento integral e entrega o serviço; a confirmação permite imprimir o recibo. Esse fluxo não entra na fila de produção.
+- **Pedido rápido (`/pedido-rapido`, F2):** busque por nome ou código, escolha um produto por unidade, informe quantidade e pagamento e confirme. Cliente é opcional. A API calcula o preço, registra o recebimento integral e entrega o serviço; a confirmação permite imprimir o recibo. Esse fluxo não entra na fila de produção.
 - **Falha de conexão no balcão:** use “Tentar a mesma venda novamente”. A tentativa fica salva na sessão do navegador por usuário, inclusive após refresh ou navegar para outra tela, para consultar o mesmo pedido sem novo recebimento. Não limpe o armazenamento nem feche a aba enquanto uma venda estiver pendente. Uma rejeição explícita de dados libera a correção do formulário.
 - **Faixas no produto:** administradores cadastram mínimos inclusivos e preços em Produtos. Para “acima de 20 un”, informe mínimo **21**; para “acima de 300 un”, mínimo **301**. O maior mínimo atingido define o preço unitário. Não há conversão automática dos SKUs antigos nem preços comerciais inventados: cadastre a tabela real no produto escolhido. Pedidos salvos mantêm a tabela de preço histórica; legados sem tabela mantêm o preço unitário salvo.
 - **Calculadora:** em um orçamento, use “Calcular por dimensão”: largura × altura em metros ou centímetros, peças, material m² do catálogo e instalação/deslocamento opcionais. Os acréscimos são cobrados uma vez por item. O resultado preenche o item com serviço, medidas e material; itens livres continuam disponíveis.
