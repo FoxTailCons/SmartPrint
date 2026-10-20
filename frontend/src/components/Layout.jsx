@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package, Zap, Columns3, Banknote,
+  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package, Zap, Columns3, Banknote, Menu, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import BrandMark from './BrandMark.jsx';
-import { canAccess } from '../roleAccess.js';
+import { getVisibleMenu } from '../roleAccess.js';
 
 const menu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, permission: 'dashboard' },
@@ -24,6 +24,7 @@ const roleLabel = { admin: 'Administrador', atendente: 'Atendente', producao: 'P
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const shortcut = (event) => {
@@ -37,16 +38,26 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="w-full lg:w-64 bg-brand-900 text-white flex flex-col shrink-0">
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          aria-label="Fechar menu"
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 z-30 bg-slate-950/50 lg:hidden"
+        />
+      )}
+      <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col bg-brand-900 text-white transition-transform lg:static lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-5 border-b border-white/10">
           <BrandMark dark />
         </div>
-        <nav className="flex-1 p-3 space-y-1 overflow-x-auto">
-          {menu.filter((m) => canAccess(user?.role, m.permission)).map((m) => (
+        <nav className="flex-1 overflow-y-auto p-3">
+          <div className="space-y-1">
+          {getVisibleMenu(menu, user?.role).map((m) => (
             <NavLink
               key={m.to}
               to={m.to}
               end={m.end}
+              onClick={() => setMobileMenuOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${
                   isActive ? 'bg-brand-500 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
@@ -57,6 +68,7 @@ export default function Layout({ children }) {
               {m.label}
             </NavLink>
           ))}
+          </div>
         </nav>
         <div className="p-3 border-t border-white/10">
           <div className="px-2 py-2 text-xs text-white/60">
@@ -71,9 +83,23 @@ export default function Layout({ children }) {
           </button>
         </div>
       </aside>
-      <main className="flex-1 min-w-0 overflow-x-hidden">
-        <div className="p-4 sm:p-6 max-w-7xl mx-auto">{children}</div>
-      </main>
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-white px-4 py-2 lg:hidden">
+          <BrandMark />
+          <button
+            type="button"
+            aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className="rounded-lg border p-2 text-slate-700"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </header>
+        <main className="min-w-0 overflow-x-hidden">
+          <div className="mx-auto max-w-7xl p-4 sm:p-6">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

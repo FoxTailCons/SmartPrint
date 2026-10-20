@@ -199,14 +199,14 @@ export default function OrderDetail() {
                   <span>{i + 1}ª · {fmtDate(p.dueDate)}</span>
                   <span className="font-medium">{fmt(p.amount)}</span>
                   <span className={`text-xs font-semibold ${p.paid ? 'text-emerald-600' : 'text-slate-400'}`}>{p.paid ? 'PAGA' : 'EM ABERTO'}</span>
-                </div>}
+                </div>
               ))}
             </div>
           )}
           <div className="mt-4 text-xs text-slate-500">
             Entrega prevista: <strong className={deadline.overdue ? 'text-red-700' : ''}>{deadline.label}</strong>
           </div>
-        </div>
+        </div>}
       </div>
 
       {order.attachments?.length > 0 && (
@@ -233,7 +233,7 @@ export default function OrderDetail() {
                     <div className="font-medium">{payment.type === 'entrada' ? 'Entrada' : 'Pagamento'} · {fmt(payment.amount)}</div>
                     <div className="text-xs text-slate-500">{paymentMethodLabels[payment.method] || payment.method} · {fmtDate(payment.paidAt)}</div>
                     {payment.receiptUrl && <a href={payment.receiptUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-brand-600 underline">Ver comprovante</a>}
-                  </div>}
+                  </div>
                   {receipt && (
                     <div className="flex flex-wrap items-center gap-2">
                       <PaymentReceiptPrintButton text={receipt.text} />
@@ -251,7 +251,7 @@ export default function OrderDetail() {
             })}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Histórico */}
       {!isProductionUser && <div className="bg-white rounded-xl border shadow-sm p-5">
@@ -261,10 +261,10 @@ export default function OrderDetail() {
             <div key={i} className="flex gap-3 text-slate-600">
               <span className="text-slate-400 shrink-0">{fmtDate(h.at)} {new Date(h.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
               <span><strong>{h.action}</strong>{h.by ? ` por ${h.by}` : ''}{h.note ? ` — ${h.note}` : ''}</span>
-            </div>}
+            </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Modal de recebimento */}
       {!isProductionUser && <Modal open={payOpen} onClose={() => setPayOpen(false)} title="Receber pagamento (parcial ou total)">

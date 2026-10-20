@@ -16,3 +16,23 @@ test('page access follows administrator, attendant and production responsibiliti
   assert.equal(access.canAccess('producao', 'products'), false);
   assert.equal(access.canAccess(undefined, 'orders'), false);
 });
+
+test('menu links use the same role permissions as direct routes', () => {
+  assert.equal(typeof access.getVisibleMenu, 'function');
+  const menu = [
+    { to: '/', permission: 'dashboard' },
+    { to: '/pedidos', permission: 'orders' },
+    { to: '/producao', permission: 'production' },
+    { to: '/produtos', permission: 'products' },
+    { to: '/caixa', permission: 'cash' },
+  ];
+  assert.deepEqual(access.getVisibleMenu(menu, 'atendente').map(({ to }) => to), ['/pedidos', '/producao', '/caixa']);
+  assert.deepEqual(access.getVisibleMenu(menu, 'producao').map(({ to }) => to), ['/producao']);
+});
+
+test('each profile lands on its first operational screen', () => {
+  assert.equal(typeof access.getHomePath, 'function');
+  assert.equal(access.getHomePath('admin'), '/');
+  assert.equal(access.getHomePath('atendente'), '/pedidos');
+  assert.equal(access.getHomePath('producao'), '/producao');
+});

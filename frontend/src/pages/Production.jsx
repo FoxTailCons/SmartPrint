@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import ProductionProgress from '../components/ProductionProgress.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { canAccess } from '../roleAccess.js';
 import { getDeadline, getProductionStage, priorityLabels, productionStages } from './printshop.js';
 
 export default function Production() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [deadline, setDeadline] = useState('all');
   const [priority, setPriority] = useState('');
@@ -55,7 +58,11 @@ export default function Production() {
                   <p className="text-xs text-slate-600">{order.items?.map((item) => item.description).join(' · ')}</p>
                   <div className={`text-xs ${due.overdue ? 'font-semibold text-red-700' : 'text-slate-600'}`}>{due.label}</div>
                   <div className={`text-xs ${order.priority === 'urgente' ? 'font-bold text-red-700' : 'text-slate-600'}`}>Prioridade: {priorityLabels[order.priority || 'normal']}</div>
-                  <ProductionProgress order={order} onChanged={() => setRevision((value) => value + 1)} />
+                  <ProductionProgress
+                    order={order}
+                    readOnly={!canAccess(user?.role, 'productionActions')}
+                    onChanged={() => setRevision((value) => value + 1)}
+                  />
                 </article>;
               })}
             </section>;

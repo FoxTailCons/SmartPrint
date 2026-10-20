@@ -7,6 +7,7 @@ import payablesRouter from '../routes/payables.js';
 import dashboardRouter from '../routes/dashboard.js';
 import cashRouter from '../routes/cash.js';
 import productsRouter from '../routes/products.js';
+import exportsRouter from '../routes/exports.js';
 
 const response = () => ({
   statusCode: 200,
@@ -86,4 +87,6 @@ test('commercial, finance, catalog and production routes enforce the role matrix
   assertRouteRoles(productsRouter, 'get', '/', ['admin', 'atendente'], ['producao']);
   assertRouteRoles(productsRouter, 'post', '/', ['admin'], ['atendente', 'producao']);
   assertRouteRoles(productsRouter, 'patch', '/:id/deactivate', ['admin'], ['atendente', 'producao']);
+  assertRouteRoles(exportsRouter, 'get', '/orders', ['admin', 'atendente'], ['producao']);
+  assertRouteRoles(exportsRouter, 'get', '/finance', ['admin'], ['atendente', 'producao']);
 });

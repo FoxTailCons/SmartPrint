@@ -13,19 +13,17 @@ import Products from './pages/Products.jsx';
 import QuickOrder from './pages/QuickOrder.jsx';
 import Production from './pages/Production.jsx';
 import CashRegister from './pages/CashRegister.jsx';
-import { canAccess } from './roleAccess.js';
+import RoleGuard from './components/RoleGuard.jsx';
+import { getHomePath } from './roleAccess.js';
 
 function Protected({ children, permission }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (permission === 'dashboard' && user.role !== 'admin') return <Navigate to={getHomePath(user.role)} replace />;
   return (
     <Layout>
-      {canAccess(user.role, permission) ? children : (
-        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
-          Seu perfil não tem permissão para acessar esta tela.
-        </div>
-      )}
+      <RoleGuard role={user.role} permission={permission}>{children}</RoleGuard>
     </Layout>
   );
 }

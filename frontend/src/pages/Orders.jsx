@@ -12,20 +12,27 @@ import { useServerPagination } from '../hooks/useServerPagination.js';
 import OrderForm from './OrderForm.jsx';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 import { getDeadline, getProductionStage, productionStages } from './printshop.js';
+import PeriodExport from '../components/PeriodExport.jsx';
 
 const PAGE_SIZE = 20;
+const orderTabs = [
+  { status: 'pendente', label: 'Pendente aprovação' },
+  { status: 'aprovado', label: 'Pendente execução' },
+  { status: 'concluido', label: 'Concluído' },
+];
 const filters = [
-  { key: 'status', label: 'Status', options: ['', 'pendente', 'aprovado', 'concluido'], labels: ['Todos', 'Orçamento pendente', 'Pedido aprovado', 'Pedido concluído'] },
   { key: 'paymentStatus', label: 'Pagamento', options: ['', 'aberto', 'parcial', 'pago', 'quitado'], labels: ['Todos', 'Aberto', 'Parcial', 'Pago', 'Quitado'] },
   { key: 'production', label: 'Produção', options: ['', 'nao_iniciado', 'em_producao', 'pausado', 'concluido'], labels: ['Todos', 'Não iniciado', 'Em produção', 'Pausado', 'Concluído'] },
 ];
 
 export default function Orders() {
   const [query, setQuery] = useState('');
-  const [f, setF] = useState({ status: '', paymentStatus: '', production: '' });
+  const [f, setF] = useState({ paymentStatus: '', production: '' });
+  const [activeTab, setActiveTab] = useState('pendente');
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [page, setPage] = useState(1);
   const params = new URLSearchParams();
+  params.set('status', activeTab);
   Object.entries(f).forEach(([key, value]) => value && params.set(key, value));
   if (query) params.set('q', query);
   const list = useServerPagination('/api/orders', params.toString(), page, PAGE_SIZE);
@@ -42,14 +49,32 @@ export default function Orders() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Pedidos / Orçamentos</h1>
-          <p className="text-sm text-slate-500">{total} pedido(s)/orçamento(s) encontrado(s)</p>
+          <p className="text-sm text-slate-500">{total} pedido(s)/orçamento(s) nesta aba</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-        <Link to="/pedido-rapido" className="rounded-lg border bg-white px-4 py-2 text-sm font-medium">Pedido rápido · F2</Link>
-        <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-          <Plus size={16} /> Novo Orçamento
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodExport type="orders" label="Exportar pedidos CSV" />
+          <Link to="/pedido-rapido" className="rounded-lg border bg-white px-4 py-2 text-sm font-medium">Pedido rápido · F2</Link>
+          <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <Plus size={16} /> Novo Orçamento
+          </button>
         </div>
+      </div>
+
+      <div role="tablist" aria-label="Etapa dos pedidos" className="flex gap-1 overflow-x-auto rounded-xl border bg-white p-1">
+        {orderTabs.map((tab) => (
+          <button
+            key={tab.status}
+            type="button"
+            id={`order-tab-${tab.status}`}
+            role="tab"
+            aria-selected={activeTab === tab.status}
+            aria-controls="orders-panel"
+            onClick={() => { setPage(1); setActiveTab(tab.status); }}
+            className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-medium transition ${activeTab === tab.status ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-4 flex flex-wrap gap-3 items-center">
@@ -74,7 +99,7 @@ export default function Orders() {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div id="orders-panel" role="tabpanel" aria-labelledby={`order-tab-${activeTab}`} tabIndex={0} className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">

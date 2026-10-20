@@ -6,6 +6,7 @@ import ListSkeleton from '../components/ListSkeleton.jsx';
 import Pagination from '../components/Pagination.jsx';
 import { getListState } from '../hooks/listState.js';
 import { useServerPagination } from '../hooks/useServerPagination.js';
+import PeriodExport from '../components/PeriodExport.jsx';
 
 const categories = ['consumo', 'insumo', 'aluguel', 'funcionario', 'imposto', 'outro'];
 const PAGE_SIZE = 20;
@@ -78,7 +79,8 @@ export default function Payables() {
           <h1 className="text-2xl font-bold">Contas a Pagar</h1>
           <p className="text-sm text-slate-500">{total} conta(s) · Em aberto: <strong className="text-red-600">{fmt(totalOpen)}</strong></p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <PeriodExport type="finance" label="Exportar financeiro CSV" />
           <select value={filter} onChange={(e) => { setPage(1); setFilter(e.target.value); }} className="px-3 py-2 border rounded-lg text-sm bg-white">
             <option value="open">Em aberto</option>
             <option value="paid">Pagas</option>
@@ -118,6 +120,7 @@ export default function Payables() {
       {actionError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>}
 
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
@@ -162,6 +165,7 @@ export default function Payables() {
             ))}
           </tbody>
         </table>
+        </div>
         <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
       </div>
 

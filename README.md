@@ -12,7 +12,8 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - Fluxo comercial: **orçamento pendente → pedido aprovado → pedido concluído**; imprimir ou preparar envio do orçamento não o aprova
 - Controle de pagamento: **aberto / parcial / pago / quitado** (recebimento parcial)
 - Produção: **iniciar / pausar / retomar / concluir** (com histórico e timestamps)
-- **3 usuários** (Admin, Atendente, Produção) — todos podem operar pedidos
+- **Permissões por perfil:** Admin tem acesso total; Atendente opera pedidos, recebimentos e caixa; Produção consulta dados operacionais e avança etapas sem acesso a valores e custos
+- A lista de pedidos separa **Pendente aprovação**, **Pendente execução** e **Concluído** em abas; busca, filtros financeiros/de produção e paginação continuam disponíveis
 - **Envio do pedido/orçamento via WhatsApp** (wa.me com mensagem formatada) — disponível no Dashboard, Pedidos, Clientes e Contas a Receber
 - **Pedido rápido** já aprovado e sem cliente obrigatório, para serviços de balcão como fotocópias
 - Totais finais fracionários são arredondados para cima ao próximo real; quantidades e medidas permanecem fracionárias
@@ -33,6 +34,8 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - Orçamento exige cliente cadastrado com nome e telefone acima do limite configurado ou para Fachada/Veículos; pedido rápido permanece sem cadastro obrigatório
 - PDF e WhatsApp incluem validade do orçamento e dados comerciais configurados; links são preparados para revisão e envio manual
 - Venda de itens do catálogo em pedidos com preço validado no backend e snapshot histórico de preço e medidas
+- Exportação de pedidos (Admin/Atendente) e movimentações financeiras (Admin) em CSV compatível com Excel, com período filtrável
+- Interface adaptada para celular e tablet, com menu lateral recolhível e rolagem horizontal controlada nas tabelas; operação offline/PWA fica reservada para fase posterior
 
 ## Usuários iniciais (criados no primeiro acesso ao banco)
 | Perfil | E-mail | Senha |
