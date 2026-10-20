@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Search, UserPlus, Phone, Mail, ChevronDown, ChevronUp } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, Search, UserPlus, Phone, Mail, ChevronDown, ChevronUp, CopyPlus } from 'lucide-react';
 import { api, fmt } from '../api';
 import Modal from '../components/Modal.jsx';
 import ListSkeleton from '../components/ListSkeleton.jsx';
@@ -13,13 +13,16 @@ import { useServerPagination } from '../hooks/useServerPagination.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 
 const PAGE_SIZE = 20;
+const paymentMethodLabels = { pix: 'PIX', dinheiro: 'Dinheiro', debito: 'Cartão débito', credito: 'Cartão crédito', parcelado: 'Crédito parcelado' };
 
 export default function Clients() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState(null);
   const [detail, setDetail] = useState(null);
   const [showNew, setShowNew] = useState(false);
+  const [reordering, setReordering] = useState('');
   const [form, setForm] = useState({ name: '', phone: '', email: '', document: '', address: '' });
   const list = useServerPagination('/api/clients', query ? `q=${encodeURIComponent(query)}` : '', page, PAGE_SIZE);
   const { items: clients, total, loading, error, retry } = list;
@@ -41,6 +44,17 @@ export default function Clients() {
       setForm({ name: '', phone: '', email: '', document: '', address: '' });
       retry();
     } catch (e) { alert(e.message); }
+  };
+  const repeatOrder = async (clientId, orderId) => {
+    setReordering(orderId);
+    try {
+      const order = await api(`/api/clients/${clientId}/reorder/${orderId}`, { method: 'POST' });
+      navigate(`/pedidos/${order._id}`);
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setReordering('');
+    }
   };
 
   return (
@@ -82,13 +96,18 @@ export default function Clients() {
               </div>
               <div className="text-right text-sm shrink-0">
                 <div><strong>{c.ordersCount}</strong> pedido(s)</div>
-                <div className="text-xs text-slate-500">{c.openOrders} em aberto · {fmt(c.totalSpent)}</div>
+                <div className="text-xs text-slate-500">{c.openOrders} em aberto · saldo {fmt(c.openBalance)} · preferência {paymentMethodLabels[c.paymentPreference] || 'não identificada'}</div>
               </div>
               {expanded === c._id ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
             </button>
             {expanded === c._id && detail?.[c._id] && (
               <div className="bg-slate-50 px-5 py-4 border-t">
-                <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Pedidos e orçamentos do cliente</div>
+                <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <span>Saldo em aberto: <strong className="text-red-600">{fmt(detail[c._id].openBalance || 0)}</strong></span>
+                  <span>Preferência de pagamento: <strong>{paymentMethodLabels[detail[c._id].paymentPreference] || 'não identificada'}</strong></span>
+                </div>
+                <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Últimos pedidos e orçamentos</div>
+                {detail[c._id].orders.length >= 10 && <p className="mb-2 text-xs text-slate-500">Exibindo os 10 mais recentes.</p>}
                 {detail[c._id].orders.length === 0 && <p className="text-sm text-slate-400">Sem pedidos.</p>}
                 <div className="space-y-2">
                   {detail[c._id].orders.map((o) => (
@@ -100,6 +119,7 @@ export default function Clients() {
                       <div className="inline-flex gap-2">
                         <PrintButton orderId={o._id} className="!py-1 !px-2 text-xs" />
                         <WhatsAppButton orderId={o._id} className="!py-1 !px-2 text-xs" />
+                        {getOrderDocumentLabel(o) === 'Pedido' && <button type="button" disabled={reordering === o._id} onClick={() => repeatOrder(c._id, o._id)} className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-50"><CopyPlus size={13} /> {reordering === o._id ? 'Criando...' : 'Repetir'}</button>}
                       </div>
                       <Link to={`/pedidos/${o._id}`} className="px-2 py-1 border rounded text-xs hover:bg-slate-50">Abrir</Link>
                     </div>

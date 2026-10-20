@@ -4,6 +4,7 @@ import Payable from '../models/Payable.js';
 import Client from '../models/Client.js';
 import { protect } from '../middleware/auth.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
+import { productCategoryLabels } from '../models/Product.js';
 
 const router = Router();
 router.use(protect);
@@ -94,6 +95,37 @@ export const buildServicePerformance = (orders = []) => {
   });
 
   return [...map.values()].sort((a, b) => b.revenue - a.revenue);
+};
+
+export const buildServiceMargins = (orders = []) => {
+  const map = new Map();
+  orders.filter(isConfirmedOrder).forEach((order) => {
+    const items = order.items || [];
+    const grossTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const finalValue = Number(order.finalValue || 0);
+    items.forEach((item) => {
+      const category = item.category || 'sem_categoria';
+      const name = productCategoryLabels[category] || 'Sem categoria';
+      const row = map.get(category) || { category, name, revenue: 0, cost: 0, profit: 0, marginPct: null, items: 0, itemsWithoutCost: 0 };
+      const itemTotal = Number(item.total || 0);
+      const revenue = grossTotal > 0 ? finalValue * itemTotal / grossTotal : 0;
+      row.revenue += revenue;
+      row.items += 1;
+      if (typeof item.costUnitPrice === 'number' && Number.isFinite(item.costUnitPrice) && item.costUnitPrice >= 0) {
+        row.cost += item.costUnitPrice * Number(item.quantity || 0);
+      } else {
+        row.itemsWithoutCost += 1;
+      }
+      map.set(category, row);
+    });
+  });
+  return [...map.values()].map((row) => {
+    const pricedItems = row.items - row.itemsWithoutCost;
+    row.profit = row.revenue - row.cost;
+    row.marginPct = row.revenue > 0 && row.itemsWithoutCost === 0 ? (row.profit / row.revenue) * 100 : null;
+    row.costCoveragePct = row.items ? (pricedItems / row.items) * 100 : 0;
+    return row;
+  }).sort((a, b) => b.revenue - a.revenue);
 };
 
 export const buildMonthlyComparison = (orders = []) => {
@@ -260,6 +292,7 @@ router.get('/', async (req, res) => {
   const cashflowTrend = buildCashflowTrend(salesOrders);
   const clientPerformance = buildClientPerformance(salesOrders);
   const servicePerformance = buildServicePerformance(salesOrders);
+  const serviceMargins = req.user?.role === 'admin' ? buildServiceMargins(salesOrders) : undefined;
   const monthlyComparison = buildMonthlyComparison(salesOrders);
 
   // Últimos pedidos para o feed do dashboard
@@ -310,6 +343,7 @@ router.get('/', async (req, res) => {
     analytics: {
       clients: clientPerformance,
       services: servicePerformance,
+      ...(serviceMargins ? { serviceMargins } : {}),
       monthlyComparison,
     },
     warnings: {

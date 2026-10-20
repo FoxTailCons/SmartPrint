@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package, Zap, Columns3,
+  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package, Zap, Columns3, Banknote,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import BrandMark from './BrandMark.jsx';
@@ -14,6 +14,7 @@ const menu = [
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/produtos', label: 'Produtos', icon: Package, adminOnly: true },
   { to: '/contas-receber', label: 'Contas a Receber', icon: Wallet },
+  { to: '/caixa', label: 'Fechamento de caixa', icon: Banknote, cashierOnly: true },
   { to: '/contas-pagar', label: 'Contas a Pagar', icon: TrendingDown },
 ];
 
@@ -40,7 +41,7 @@ export default function Layout({ children }) {
           <BrandMark dark />
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-x-auto">
-          {menu.filter((m) => !m.adminOnly || user?.role === 'admin').map((m) => (
+          {menu.filter((m) => (!m.adminOnly || user?.role === 'admin') && (!m.cashierOnly || ['admin', 'atendente'].includes(user?.role))).map((m) => (
             <NavLink
               key={m.to}
               to={m.to}

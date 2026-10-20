@@ -71,7 +71,7 @@ test('client list paginates after search and returns full filtered total', async
 
   assert.ok(receivedFilter.$or.some((item) => item.name.$regex === 'bia'));
   assert.deepEqual(res.body, {
-    items: [{ _id: 'c2', name: 'Bia', ordersCount: 0, totalSpent: 0, openOrders: 0 }],
+    items: [{ _id: 'c2', name: 'Bia', ordersCount: 0, totalSpent: 0, openOrders: 0, openBalance: 0, paymentPreference: '' }],
     page: 2,
     pageSize: 1,
     total: 11,

@@ -8,6 +8,7 @@ import ListSkeleton from '../components/ListSkeleton.jsx';
 import Pagination from '../components/Pagination.jsx';
 import { getListState } from '../hooks/listState.js';
 import { useServerPagination } from '../hooks/useServerPagination.js';
+import { buildBalanceReminderUrl } from './printshop.js';
 
 const PAGE_SIZE = 20;
 
@@ -83,6 +84,7 @@ export default function Receivables() {
                   <div className="inline-flex gap-2">
                     <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
                     <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
+                    {buildBalanceReminderUrl(o) && <a href={buildBalanceReminderUrl(o)} target="_blank" rel="noreferrer" className="rounded border px-2.5 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50">Lembrar</a>}
                     <Link to={`/pedidos/${o._id}`} className="px-2.5 py-1.5 border rounded text-xs hover:bg-slate-50">Receber</Link>
                   </div>
                 </td>

@@ -14,6 +14,8 @@ import { getOrderDocumentLabel } from './orderPresentation.js';
 import { getDeadline, itemMetadata, priorityLabels } from './printshop.js';
 import ProductionProgress from '../components/ProductionProgress.jsx';
 
+const paymentMethodLabels = { pix: 'PIX', dinheiro: 'Dinheiro', debito: 'Cartão débito', credito: 'Cartão crédito', parcelado: 'Crédito parcelado' };
+
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -22,6 +24,7 @@ export default function OrderDetail() {
   const [payAmount, setPayAmount] = useState('');
   const [payInst, setPayInst] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('pix');
+  const [receiptUrl, setReceiptUrl] = useState('');
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseNote, setPauseNote] = useState('');
   const [loading, setLoading] = useState(true);
@@ -45,7 +48,7 @@ export default function OrderDetail() {
   const submitPayment = async () => {
     const amount = Number(payAmount);
     if (!amount || amount <= 0) return alert('Informe um valor válido');
-    const body = { amount, paymentMethod };
+    const body = { amount, paymentMethod, receiptUrl: receiptUrl.trim() };
     if (payInst !== '') body.installmentIndex = Number(payInst);
     try {
       const o = await api(`/api/orders/${id}/payments`, { method: 'POST', body });
@@ -54,6 +57,7 @@ export default function OrderDetail() {
       setPayAmount('');
       setPayInst('');
       setPaymentMethod('pix');
+      setReceiptUrl('');
     } catch (e) { alert(e.message); }
   };
 
@@ -198,6 +202,15 @@ export default function OrderDetail() {
         </div>
       </div>
 
+      {order.attachments?.length > 0 && (
+        <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <h2 className="mb-3 font-semibold">Fotos e anexos</h2>
+          <div className="flex flex-wrap gap-2">
+            {order.attachments.map((attachment) => <a key={`${attachment.label}-${attachment.url}`} href={attachment.url} target="_blank" rel="noreferrer" className="rounded-lg border px-3 py-2 text-sm text-brand-700 hover:bg-brand-50">{attachment.label}</a>)}
+          </div>
+        </section>
+      )}
+
       {/* Pagamentos recebidos */}
       <div className="bg-white rounded-xl border shadow-sm p-5">
         <h2 className="font-semibold mb-3">Pagamentos recebidos</h2>
@@ -211,7 +224,8 @@ export default function OrderDetail() {
                 <div key={`${payment.paidAt}-${index}`} className="flex flex-wrap items-center justify-between gap-3 border rounded-lg px-3 py-2 text-sm">
                   <div>
                     <div className="font-medium">{payment.type === 'entrada' ? 'Entrada' : 'Pagamento'} · {fmt(payment.amount)}</div>
-                    <div className="text-xs text-slate-500">{payment.method} · {fmtDate(payment.paidAt)}</div>
+                    <div className="text-xs text-slate-500">{paymentMethodLabels[payment.method] || payment.method} · {fmtDate(payment.paidAt)}</div>
+                    {payment.receiptUrl && <a href={payment.receiptUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-brand-600 underline">Ver comprovante</a>}
                   </div>
                   {receipt && (
                     <div className="flex flex-wrap items-center gap-2">
@@ -267,6 +281,10 @@ export default function OrderDetail() {
               <option value="credito">Cartão de crédito</option>
               <option value="parcelado">Crédito parcelado</option>
             </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Link do comprovante <span className="font-normal text-slate-500">(opcional)</span></label>
+            <input type="url" value={receiptUrl} onChange={(e) => setReceiptUrl(e.target.value)} placeholder="https://..." className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
           </div>
           {order.installments?.length > 0 && (
             <div>

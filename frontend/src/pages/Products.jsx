@@ -14,10 +14,17 @@ const saleUnits = [
   { value: 'unit', label: 'Unidade' },
   { value: 'linear_meter', label: 'Metro linear' },
   { value: 'square_meter', label: 'Metro quadrado (m²)' },
+  { value: 'kilometer', label: 'Quilômetro (km)' },
 ];
-const emptyForm = { name: '', code: '', saleUnit: 'unit', price: '', category: '', active: true, priceTiers: [] };
+const emptyForm = { name: '', code: '', saleUnit: 'unit', price: '', costPrice: '', category: '', imageUrl: '', active: true, priceTiers: [] };
 const PAGE_SIZE = 20;
 const unitLabel = (value) => saleUnits.find((unit) => unit.value === value)?.label || value;
+const suggestedServices = [
+  { name: 'Instalação de fachada', saleUnit: 'unit' },
+  { name: 'Envelopamento parcial', saleUnit: 'unit' },
+  { name: 'Envelopamento total', saleUnit: 'unit' },
+  { name: 'Deslocamento', saleUnit: 'kilometer' },
+];
 
 export default function Products() {
   const { user } = useAuth();
@@ -53,6 +60,8 @@ export default function Products() {
       code: product.code || '',
       saleUnit: product.saleUnit,
       price: String(product.price),
+      costPrice: product.costPrice ?? '',
+      imageUrl: product.imageUrl || '',
       category: product.category || '',
       active: product.active,
       priceTiers: (product.priceTiers || []).map((tier) => ({ minQuantity: String(tier.minQuantity), price: String(tier.price) })),
@@ -67,7 +76,9 @@ export default function Products() {
     try {
       const price = Number(form.price);
       if (form.price.trim() === '' || !Number.isFinite(price) || price < 0) throw new Error('Informe um preço válido, maior ou igual a zero.');
-      const body = { ...form, price, priceTiers: parsePriceTiers(form.priceTiers) };
+      const costPrice = form.costPrice === '' ? undefined : Number(form.costPrice);
+      if (costPrice !== undefined && (!Number.isFinite(costPrice) || costPrice < 0)) throw new Error('Informe um custo válido, maior ou igual a zero.');
+      const body = { ...form, price, costPrice: costPrice ?? null, priceTiers: parsePriceTiers(form.priceTiers) };
       await api(editingId ? `/api/products/${editingId}` : '/api/products', {
         method: editingId ? 'PUT' : 'POST',
         body,
@@ -94,6 +105,8 @@ export default function Products() {
             code: product.code || '',
             saleUnit: product.saleUnit,
             price: product.price,
+            costPrice: product.costPrice,
+            imageUrl: product.imageUrl || '',
             priceTiers: product.priceTiers || [],
             category: product.category || '',
             active: true,
@@ -171,7 +184,7 @@ export default function Products() {
             {products.map((product) => (
               <div key={product._id} className="flex flex-wrap items-center gap-3 px-5 py-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600">
-                  <Package size={18} />
+                  {product.imageUrl ? <img src={product.imageUrl} alt="" referrerPolicy="no-referrer" className="h-10 w-10 rounded-full object-cover" /> : <Package size={18} />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{product.name}</div>
@@ -183,7 +196,10 @@ export default function Products() {
                     {!product.active && <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-slate-500">Inativo</span>}
                   </div>
                 </div>
-                <div className="font-semibold">{fmt(product.price)} <span className="text-xs font-normal text-slate-500">/ {product.saleUnit === 'unit' ? 'un.' : product.saleUnit === 'linear_meter' ? 'm' : 'm²'}</span></div>
+                <div className="text-right">
+                  <div className="font-semibold">{fmt(product.price)} <span className="text-xs font-normal text-slate-500">/ {product.saleUnit === 'unit' ? 'un.' : product.saleUnit === 'linear_meter' ? 'm' : product.saleUnit === 'kilometer' ? 'km' : 'm²'}</span></div>
+                  {isAdmin && product.costPrice !== undefined && <div className="text-xs text-slate-500">Custo {fmt(product.costPrice)} · margem {product.price > 0 ? (((product.price - product.costPrice) / product.price) * 100).toFixed(1).replace('.', ',') : '—'}%</div>}
+                </div>
                 {isAdmin && (
                   <div className="flex gap-2">
                     <button type="button" onClick={() => edit(product)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs hover:bg-slate-50">
@@ -203,6 +219,15 @@ export default function Products() {
 
       <Modal open={formOpen} onClose={closeForm} title={editingId ? 'Editar produto' : 'Novo produto'}>
         <form onSubmit={save} className="space-y-4">
+          {!editingId && <label className="block text-sm font-medium">Sugestão de serviço
+            <select value={suggestedServices.some((item) => item.name === form.name) ? form.name : ''} onChange={(event) => {
+              const service = suggestedServices.find((item) => item.name === event.target.value);
+              if (service) setForm((current) => ({ ...current, ...service, category: 'servicos_instalacao' }));
+            }} className="mt-1 w-full rounded-lg border bg-white px-3 py-2">
+              <option value="">Produto personalizado</option>
+              {suggestedServices.map((service) => <option key={service.name} value={service.name}>{service.name}</option>)}
+            </select>
+          </label>}
           <div>
             <label className="mb-1 block text-sm font-medium">Nome</label>
             <input required autoFocus value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" />
@@ -225,8 +250,17 @@ export default function Products() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Preço por {form.saleUnit === 'unit' ? 'unidade' : form.saleUnit === 'linear_meter' ? 'metro linear' : 'metro quadrado (m²)'}</label>
+            <label className="mb-1 block text-sm font-medium">Preço por {form.saleUnit === 'unit' ? 'unidade' : form.saleUnit === 'linear_meter' ? 'metro linear' : form.saleUnit === 'kilometer' ? 'quilômetro' : 'metro quadrado (m²)'}</label>
             <input required type="number" min="0" step="any" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Custo por {form.saleUnit === 'unit' ? 'unidade' : form.saleUnit === 'linear_meter' ? 'metro linear' : form.saleUnit === 'kilometer' ? 'quilômetro' : 'metro quadrado (m²)'} <span className="font-normal text-slate-500">(opcional)</span></label>
+            <input type="number" min="0" step="any" value={form.costPrice} onChange={(event) => setForm({ ...form, costPrice: event.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" />
+            {form.costPrice !== '' && Number(form.price) > 0 && <p className="mt-1 text-xs text-slate-500">Margem bruta estimada: {(((Number(form.price) - Number(form.costPrice)) / Number(form.price)) * 100).toFixed(1).replace('.', ',')}%</p>}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Link da imagem de referência <span className="font-normal text-slate-500">(opcional)</span></label>
+            <input type="url" value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.target.value })} placeholder="https://..." className="w-full rounded-lg border px-3 py-2 text-sm" />
           </div>
           <fieldset className="space-y-3 rounded-lg border p-3">
             <legend className="px-1 text-sm font-medium">Preços por quantidade</legend>

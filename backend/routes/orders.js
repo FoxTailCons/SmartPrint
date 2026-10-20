@@ -14,9 +14,16 @@ import { protect, adminOnly } from '../middleware/auth.js';
 import { productCategories, productCategoryLabels } from '../models/Product.js';
 import { getOrderSettings } from '../config/orderSettings.js';
 import { calculateOrderFinalValue, registeredClientError, requiresRegisteredClient } from '../services/orderClientRequirement.js';
+import { hideOrderCosts } from '../services/orderCostVisibility.js';
 
 const router = Router();
 router.use(protect);
+router.use((req, res, next) => {
+  if (req.user?.role === 'admin') return next();
+  const sendJson = res.json.bind(res);
+  res.json = (body) => sendJson(hideOrderCosts(body));
+  return next();
+});
 
 const fmtMoney = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -25,6 +32,21 @@ const fmtDate = (d) =>
   d ? new Date(typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d}T12:00:00-03:00` : d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'a combinar';
 
 const orderItemError = (message) => Object.assign(new Error(message), { statusCode: 400 });
+export const normalizeOrderAttachments = (value) => {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 20) throw orderItemError('Lista de anexos inválida');
+  return value.map((attachment) => {
+    const label = typeof attachment?.label === 'string' ? attachment.label.trim() : '';
+    const url = typeof attachment?.url === 'string' ? attachment.url.trim() : '';
+    if (!label || label.length > 100 || url.length > 2048) throw orderItemError('Informe nome e link válido para cada anexo');
+    try {
+      if (!['http:', 'https:'].includes(new URL(url).protocol)) throw new Error();
+    } catch {
+      throw orderItemError('Links de anexos devem usar HTTP ou HTTPS');
+    }
+    return { label, url };
+  });
+};
 
 export const buildOrderDocumentLabel = (order) => (isConfirmedOrder(order) ? 'Pedido' : 'Orçamento');
 export const buildQuoteValidityDate = (order, validityDays) => {
@@ -78,7 +100,8 @@ export const buildOrderItems = async (items, existingItems = [], ProductModel = 
     if (!item || typeof item.description !== 'string' || !item.description.trim() || typeof item.quantity !== 'number' || !Number.isFinite(item.quantity) || item.quantity <= 0 || typeof item.unitPrice !== 'number' || !Number.isFinite(item.unitPrice) || item.unitPrice < 0) throw orderItemError('Item ou preço inválido');
     if (!Number.isFinite(item.quantity * item.unitPrice + (metadata.installationFee || 0) + (metadata.travelFee || 0))) throw orderItemError('Total do item inválido');
     if (item.category && !productCategories.includes(item.category)) throw orderItemError('Categoria do item inválida');
-    return { ...item, ...metadata, category: item.category || undefined, productId: undefined, pricingBasis: undefined };
+    const { costUnitPrice, ...freeItem } = item;
+    return { ...freeItem, ...metadata, category: item.category || undefined, productId: undefined, pricingBasis: undefined };
   }
   if (!mongoose.isValidObjectId(item.productId)) throw orderItemError('Produto inválido');
 
@@ -97,6 +120,7 @@ export const buildOrderItems = async (items, existingItems = [], ProductModel = 
       productName: previousItem.productName,
       saleUnit: previousItem.saleUnit,
       unitPrice: previousItem.unitPrice,
+      ...(typeof previousItem.costUnitPrice === 'number' ? { costUnitPrice: previousItem.costUnitPrice } : {}),
       pricingBasis: previousItem.pricingBasis?.basePrice !== undefined ? previousItem.pricingBasis.toObject?.() ?? previousItem.pricingBasis : undefined,
     }
     : undefined;
@@ -282,7 +306,9 @@ export const buildOrderPdfBuffer = async (order, settings = getOrderSettings()) 
     doc.font('Helvetica-Bold').fontSize(9).text('Observa\u00e7\u00f5es:', left + 42, currentY);
     currentY += 15;
     doc.font('Helvetica').fontSize(9);
-    const observationLines = order.observations ? wrapLines(order.observations, contentWidth - 55) : [];
+    const attachmentText = (order.attachments || []).map((item) => `${item.label}: ${item.url}`).join('\n');
+    const observationText = [order.observations, attachmentText].filter(Boolean).join('\n');
+    const observationLines = observationText ? wrapLines(observationText, contentWidth - 55) : [];
     const observationLineHeight = doc.currentLineHeight(true);
     for (const line of observationLines) {
       if (currentY + observationLineHeight > pageBottom) currentY = newPage(false);
@@ -353,6 +379,7 @@ export const buildWhatsappText = (order, client, settings = getOrderSettings()) 
   if (order.paymentMethod === 'pix' && settings.businessPixKey) lines.push(`PIX: ${settings.businessPixKey}`);
   if (order.amountPaid > 0) lines.push(`Pago: ${fmtMoney(order.amountPaid)} | Saldo: ${fmtMoney(finalValue - order.amountPaid)}`);
   if (order.observations) lines.push(`Observações: ${order.observations}`);
+  for (const attachment of order.attachments || []) lines.push(`Anexo — ${attachment.label}: ${attachment.url}`);
   lines.push('');
   lines.push('O PDF neste mesmo formato pode ser baixado pelo botão Imprimir antes do envio.');
   lines.push('Agradecemos a preferência!');
@@ -607,6 +634,7 @@ export function createOrderCreateHandler({
       }
       const fields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod', 'priority', 'skippedStages'];
       const payload = Object.fromEntries(fields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
+      if ('attachments' in req.body) payload.attachments = normalizeOrderAttachments(req.body.attachments);
       if (payload.client === '') payload.client = null;
       payload.items = await buildOrderItems(payload.items, [], ProductModel);
       const { clientRequiredThreshold } = settingsProvider();
@@ -692,6 +720,7 @@ export function createOrderUpdateHandler({
     try {
       const editableFields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod', 'priority', 'skippedStages'];
       const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
+      if ('attachments' in req.body) changes.attachments = normalizeOrderAttachments(req.body.attachments);
       if (changes.client === '') changes.client = null;
       if (changes.client && !mongoose.isValidObjectId(changes.client)) {
         return res.status(400).json({ message: 'Cliente inválido ou não encontrado' });
@@ -820,13 +849,21 @@ router.post('/:id/complete', async (req, res) => {
 
 // Registrar pagamento (parcial ou total) - desdobra nas parcelas
 router.post('/:id/payments', async (req, res) => {
-  const { amount, date, installmentIndex, paymentMethod = 'pix' } = req.body;
+  const { amount, date, installmentIndex, paymentMethod = 'pix', receiptUrl = '' } = req.body;
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
   const pay = Number(amount) || 0;
   if (pay <= 0) return res.status(400).json({ message: 'Valor inválido' });
   const methods = ['pix', 'dinheiro', 'debito', 'credito', 'parcelado'];
   if (!methods.includes(paymentMethod)) return res.status(400).json({ message: 'Forma de pagamento inválida' });
+  if (typeof receiptUrl !== 'string') return res.status(400).json({ message: 'Link do comprovante inválido' });
+  if (receiptUrl) {
+    try {
+      if (!['http:', 'https:'].includes(new URL(receiptUrl).protocol)) throw new Error();
+    } catch {
+      return res.status(400).json({ message: 'Link do comprovante deve usar HTTP ou HTTPS' });
+    }
+  }
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
   if (!canReceivePayments(order)) {
     return res.status(400).json({ message: 'Aprove o orçamento antes de registrar pagamentos' });
@@ -839,7 +876,7 @@ router.post('/:id/payments', async (req, res) => {
 
   order.amountPaid = (order.amountPaid || 0) + pay;
   order.paymentMethod = paymentMethod;
-  order.payments.push({ amount: pay, method: paymentMethod, paidAt: date || new Date() });
+  order.payments.push({ amount: pay, method: paymentMethod, paidAt: date || new Date(), receiptUrl });
 
   // Se houver parcela indicada, marca ela
   if (installmentIndex !== undefined) {

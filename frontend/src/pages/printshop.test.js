@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { itemTotal, getProductionStage, getDeadline, graphicDate, itemMetadata, serializeOrderItems, productCategories, getCategoryLabel, requiresQuoteClient } from './printshop.js';
+import { itemTotal, getProductionStage, getDeadline, graphicDate, itemMetadata, serializeOrderItems, productCategories, getCategoryLabel, requiresQuoteClient, buildBalanceReminderUrl } from './printshop.js';
 
 test('item totals charge installation and travel once per item', () => {
   assert.equal(itemTotal({ quantity: 2, unitPrice: 50, installationFee: 30, travelFee: 10 }), 140);
@@ -63,4 +63,14 @@ test('quote client requirement follows final total and special item categories',
   assert.equal(requiresQuoteClient(101, [], 100), true);
   assert.equal(requiresQuoteClient(1, [{ category: 'veiculos' }], 100), true);
   assert.equal(requiresQuoteClient(1, [{ category: 'adesivos' }], 100), false);
+});
+
+test('balance reminder uses client WhatsApp and real outstanding balance', () => {
+  const url = buildBalanceReminderUrl({
+    number: '00042', client: { name: 'Maria', phone: '(51) 99999-9999' }, finalValue: 100, amountPaid: 25,
+  });
+  assert.match(url, /^https:\/\/wa\.me\/5551999999999\?text=/);
+  assert.match(decodeURIComponent(url), /R\$\u00a075,00/);
+  assert.equal(buildBalanceReminderUrl({ finalValue: 100, amountPaid: 100, client: { phone: '51999999999' } }), '');
+  assert.equal(buildBalanceReminderUrl({ finalValue: 100, amountPaid: 25, client: { phone: '123' } }), '');
 });

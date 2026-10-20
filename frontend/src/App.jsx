@@ -12,6 +12,7 @@ import Receivables from './pages/Receivables.jsx';
 import Products from './pages/Products.jsx';
 import QuickOrder from './pages/QuickOrder.jsx';
 import Production from './pages/Production.jsx';
+import CashRegister from './pages/CashRegister.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ export default function App() {
       <Route path="/producao" element={<Protected><Production /></Protected>} />
       <Route path="/contas-pagar" element={<Protected><Payables /></Protected>} />
       <Route path="/contas-receber" element={<Protected><Receivables /></Protected>} />
+      <Route path="/caixa" element={<Protected><CashRegister /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

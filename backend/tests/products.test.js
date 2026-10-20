@@ -28,6 +28,14 @@ test('Product rejects unsupported sale units and invalid prices', async () => {
   }
 });
 
+test('Product accepts optional nonnegative finite costs and kilometer units', async () => {
+  await new Product({ name: 'Deslocamento', saleUnit: 'kilometer', price: 4.5, costPrice: 2 }).validate();
+  await new Product({ name: 'Cópia sem custo', saleUnit: 'unit', price: 1 }).validate();
+  for (const costPrice of [-1, Infinity, NaN]) {
+    await assert.rejects(new Product({ name: 'Inválido', saleUnit: 'unit', price: 1, costPrice }).validate());
+  }
+});
+
 test('Product declares sparse uniqueness for optional product codes', () => {
   const codeIndex = Product.schema.indexes().find(([fields]) => fields.code === 1);
 
@@ -121,7 +129,7 @@ async function withApi(t, callback) {
 
 test('product routes require authentication and hide inactive products from regular users', async (t) => {
   await withApi(t, async (url, records) => {
-    records.push({ _id: '1', name: 'Ativo', code: undefined, saleUnit: 'unit', price: 5, active: true });
+    records.push({ _id: '1', name: 'Ativo', code: undefined, saleUnit: 'unit', price: 5, costPrice: 2, active: true });
     records.push({ _id: '2', name: 'Inativo', code: undefined, saleUnit: 'unit', price: 5, active: false });
 
     const unauthenticated = await fetch(url);
@@ -130,9 +138,14 @@ test('product routes require authentication and hide inactive products from regu
     const regular = await fetch(url, { headers: { 'x-test-role': 'atendente' } });
     assert.equal(regular.status, 200);
     assert.deepEqual((await regular.json()).map((product) => product.name), ['Ativo']);
+    assert.equal((await (await fetch(url, { headers: { 'x-test-role': 'atendente' } })).json())[0].costPrice, undefined);
 
     const admin = await fetch(`${url}?includeInactive=true`, { headers: { 'x-test-role': 'admin' } });
-    assert.deepEqual((await admin.json()).map((product) => product.name), ['Ativo', 'Inativo']);
+    const adminProducts = await admin.json();
+    assert.deepEqual(adminProducts.map((product) => product.name), ['Ativo', 'Inativo']);
+    assert.equal(adminProducts[0].costPrice, 2);
+    const paginatedRegular = await fetch(`${url}?page=1&pageSize=1`, { headers: { 'x-test-role': 'atendente' } });
+    assert.equal((await paginatedRegular.json()).items[0].costPrice, undefined);
   });
 
   test('product route filters before pagination and rejects invalid page values', async (t) => {
@@ -185,7 +198,7 @@ test('product routes filter by category while keeping uncategorized legacy produ
 
 test('product routes create and update products only for administrators', async (t) => {
   await withApi(t, async (url) => {
-    const payload = { name: '  Banner  ', code: 'BNR-1', saleUnit: 'square_meter', price: 95, category: 'grande_formato' };
+    const payload = { name: '  Banner  ', code: 'BNR-1', saleUnit: 'square_meter', price: 95, costPrice: 40, imageUrl: 'https://example.test/material.jpg', category: 'grande_formato' };
     const forbidden = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-test-role': 'atendente' },
@@ -202,6 +215,8 @@ test('product routes create and update products only for administrators', async 
     const product = await created.json();
     assert.equal(product.name, 'Banner');
     assert.equal(product.price, 95);
+    assert.equal(product.costPrice, 40);
+    assert.equal(product.imageUrl, 'https://example.test/material.jpg');
     assert.equal(product.category, 'grande_formato');
 
     const updated = await fetch(`${url}/${product._id}`, {
@@ -211,6 +226,15 @@ test('product routes create and update products only for administrators', async 
     });
     assert.equal(updated.status, 200);
     assert.equal((await updated.json()).price, 105);
+    assert.equal((await fetch(`${url}/${product._id}`, { headers: { 'x-test-role': 'admin' } }).then((response) => response.json())).costPrice, 40);
+
+    const clearedCost = await fetch(`${url}/${product._id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'x-test-role': 'admin' },
+      body: JSON.stringify({ ...payload, costPrice: null, imageUrl: '', name: 'Banner atualizado', price: 105 }),
+    });
+    assert.equal(clearedCost.status, 200);
+    assert.equal((await clearedCost.json()).costPrice, undefined);
 
     const uncategorized = await fetch(`${url}/${product._id}`, {
       method: 'PUT',

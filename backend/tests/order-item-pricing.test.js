@@ -29,6 +29,19 @@ test('catalog linear-meter item converts multiple fractional lengths to total me
     lengthPerPiece: 1.25,
   });
 
+  test('catalog kilometer items accept fractional distances and snapshot cost', () => {
+    const item = buildCatalogOrderItem({
+      product: { ...product('kilometer', 4), costPrice: 1.5 },
+      quantity: 2.5,
+    });
+
+    assert.equal(item.quantity, 2.5);
+    assert.equal(item.unitPrice, 4);
+    assert.equal(item.costUnitPrice, 1.5);
+    assert.equal(item.total, 10);
+    assert.equal(item.description, 'Banner - 2.5 km');
+  });
+
   assert.equal(item.quantity, 2.5);
   assert.equal(item.unitPrice, 12);
   assert.equal(item.total, 30);
@@ -80,6 +93,21 @@ test('editing a catalog item retains its saved name, sale unit, and price snapsh
     pricingSnapshot: { productName: 'Original name', saleUnit: 'linear_meter', unitPrice: 12 },
     pieceCount: 2,
     lengthPerPiece: 1.5,
+  });
+
+  test('catalog edits preserve saved costs and do not backfill costs into legacy items', async (t) => {
+    const productId = '507f1f77bcf86cd799439011';
+    const savedId = '507f191e810c19729de860ea';
+    t.mock.method(Product, 'findById', async () => ({ ...product('unit', 100), costPrice: 20 }));
+    const existingItems = {
+      id: () => ({ _id: savedId, productId, productName: 'Banner', saleUnit: 'unit', unitPrice: 7, costUnitPrice: 2 }),
+    };
+    const [saved] = await buildOrderItems([{ _id: savedId, productId, quantity: 2 }], existingItems);
+    assert.equal(saved.costUnitPrice, 2);
+
+    const legacyItems = { id: () => ({ _id: savedId, productId, productName: 'Banner', saleUnit: 'unit', unitPrice: 7 }) };
+    const [legacy] = await buildOrderItems([{ _id: savedId, productId, quantity: 2 }], legacyItems);
+    assert.equal(legacy.costUnitPrice, undefined);
   });
 
   assert.equal(item.productName, 'Original name');

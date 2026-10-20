@@ -13,6 +13,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import productRoutes from './routes/products.js';
 import User from './models/User.js';
 import { getOrderSettings } from './config/orderSettings.js';
+import cashRoutes from './routes/cash.js';
 
 getOrderSettings();
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/payables', payableRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/cash', cashRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

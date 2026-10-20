@@ -1,4 +1,4 @@
-const saleUnits = ['unit', 'linear_meter', 'square_meter'];
+const saleUnits = ['unit', 'linear_meter', 'square_meter', 'kilometer'];
 const dimensionUnits = ['cm', 'm'];
 
 const positiveFinite = (value, label) => {
@@ -31,6 +31,7 @@ export function buildCatalogOrderItem({
   const productName = String(pricingSnapshot?.productName ?? product?.name ?? '').trim();
   const saleUnit = pricingSnapshot?.saleUnit ?? product?.saleUnit;
   let unitPrice = pricingSnapshot?.unitPrice ?? product?.price;
+  const costUnitPrice = pricingSnapshot ? pricingSnapshot.costUnitPrice : product?.costPrice;
   const pricingBasis = pricingSnapshot ? pricingSnapshot.pricingBasis : { basePrice: product?.price, priceTiers: normalizePriceTiers(product?.priceTiers) };
   const metadata = normalizeItemMetadata(metadataInput);
   const productId = product?._id;
@@ -54,6 +55,10 @@ export function buildCatalogOrderItem({
     itemQuantity = count * length;
     measurements = { pieceCount: count, lengthPerPiece: length };
     description = `${productName} - ${length} m x ${count} peça(s)`;
+  } else if (saleUnit === 'kilometer') {
+    itemQuantity = positiveFinite(quantity, 'Quantidade em km');
+    measurements = { distanceKm: itemQuantity };
+    description = `${productName} - ${itemQuantity} km`;
   } else {
     const count = positiveInteger(pieceCount, 'Quantidade de peças');
     const measuredWidth = positiveFinite(width, 'Largura');
@@ -92,6 +97,7 @@ export function buildCatalogOrderItem({
   return {
     ...metadata,
     ...(pricingBasis ? { pricingBasis } : {}),
+    ...(typeof costUnitPrice === 'number' ? { costUnitPrice } : {}),
     productId,
     category: product?.category,
     productName,

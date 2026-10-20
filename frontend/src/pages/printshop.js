@@ -21,6 +21,16 @@ export function requiresQuoteClient(finalValue, items, threshold = 100) {
   return finalValue > threshold || items.some((item) => ['fachada', 'veiculos'].includes(item.category));
 }
 
+export function buildBalanceReminderUrl(order) {
+  const phone = String(order?.client?.phone || '').replace(/\D/g, '');
+  const internationalPhone = /^55\d{10,11}$/.test(phone) ? phone : /^\d{10,11}$/.test(phone) ? `55${phone}` : '';
+  const balance = Math.max(0, Number(order?.finalValue || 0) - Number(order?.amountPaid || 0));
+  if (!internationalPhone || !Number.isFinite(balance) || balance <= 0) return '';
+  const amount = balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const message = `Olá, ${order.client.name || 'tudo bem'}! Passando para lembrar que o pedido #${order.number} tem saldo em aberto de ${amount}. Em caso de pagamento já realizado, por favor desconsidere. Obrigado!`;
+  return `https://wa.me/${internationalPhone}?text=${encodeURIComponent(message)}`;
+}
+
 export function itemTotal(item) {
   return Number(item.quantity || 0) * Number(item.unitPrice || 0)
     + Number(item.installationFee || 0) + Number(item.travelFee || 0);

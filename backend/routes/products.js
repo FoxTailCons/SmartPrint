@@ -12,11 +12,30 @@ const normalizeInput = (body, { allowActive = false } = {}) => {
   const price = typeof rawPrice === 'number' ? rawPrice : Number(String(rawPrice ?? '').trim());
   const code = typeof body?.code === 'string' ? body.code.trim() : '';
   const category = body?.category;
+  const hasCostPrice = Object.prototype.hasOwnProperty.call(body || {}, 'costPrice');
+  const rawCostPrice = body?.costPrice;
+  const costPrice = rawCostPrice === undefined || rawCostPrice === null || rawCostPrice === '' ? undefined
+    : typeof rawCostPrice === 'number' ? rawCostPrice : Number(String(rawCostPrice).trim());
+  if (body?.imageUrl !== undefined && typeof body.imageUrl !== 'string') {
+    return { error: 'Link da imagem inválido' };
+  }
+  const imageUrl = typeof body?.imageUrl === 'string' ? body.imageUrl.trim() : '';
 
   if (!name) return { error: 'Nome do produto é obrigatório' };
   if (!saleUnits.includes(saleUnit)) return { error: 'Unidade de venda inválida' };
   if (!Number.isFinite(price) || price < 0 || String(rawPrice ?? '').trim() === '') {
     return { error: 'Informe um preço válido, maior ou igual a zero' };
+  }
+  if (costPrice !== undefined && (!Number.isFinite(costPrice) || costPrice < 0)) {
+    return { error: 'Informe um custo válido, maior ou igual a zero' };
+  }
+  if (imageUrl.length > 2048) return { error: 'Link da imagem muito longo' };
+  if (imageUrl) {
+    try {
+      if (!['http:', 'https:'].includes(new URL(imageUrl).protocol)) throw new Error();
+    } catch {
+      return { error: 'Link da imagem deve usar HTTP ou HTTPS' };
+    }
   }
   if (allowActive && body.active !== undefined && typeof body.active !== 'boolean') {
     return { error: 'Status do produto inválido' };
@@ -33,6 +52,8 @@ const normalizeInput = (body, { allowActive = false } = {}) => {
       code: code || undefined,
       saleUnit,
       price,
+      ...(hasCostPrice ? { costPrice } : {}),
+      ...(Object.prototype.hasOwnProperty.call(body || {}, 'imageUrl') ? { imageUrl } : {}),
       priceTiers,
       category: category || undefined,
       ...(allowActive && body.active !== undefined ? { active: body.active } : {}),
@@ -47,6 +68,15 @@ const duplicateCode = async (ProductModel, code, currentId) => {
 };
 
 const isDuplicateKeyError = (error) => error?.code === 11000;
+const hideCost = (product, user) => {
+  if (user?.role === 'admin') return product;
+  const sanitize = (value) => {
+    if (!value) return value;
+    const { costPrice, ...visible } = value.toObject ? value.toObject() : value;
+    return visible;
+  };
+  return Array.isArray(product) ? product.map(sanitize) : sanitize(product);
+};
 
 export function createProductsRouter({
   ProductModel = Product,
@@ -89,7 +119,7 @@ export function createProductsRouter({
     try {
       if (!pagination) {
         const products = await ProductModel.find(filter).sort({ name: 1 });
-        return res.json(products);
+        return res.json(hideCost(products, req.user));
       }
 
       const total = await ProductModel.countDocuments(filter);
@@ -98,7 +128,7 @@ export function createProductsRouter({
         .sort({ name: 1 })
         .skip((page - 1) * pagination.pageSize)
         .limit(pagination.pageSize);
-      return res.json(buildPage(products, page, pagination.pageSize, total));
+      return res.json({ ...buildPage(products, page, pagination.pageSize, total), items: hideCost(products, req.user) });
     } catch (error) {
       return next(error);
     }
@@ -110,7 +140,7 @@ export function createProductsRouter({
       if (!product || (!product.active && req.user?.role !== 'admin')) {
         return res.status(404).json({ message: 'Produto não encontrado' });
       }
-      return res.json(product);
+      return res.json(hideCost(product, req.user));
     } catch (error) {
       return next(error);
     }

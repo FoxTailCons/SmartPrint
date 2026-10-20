@@ -11,6 +11,7 @@ const measurementsSchema = new mongoose.Schema(
     dimensionUnit: { type: String, enum: ['cm', 'm'] },
     moldEnabled: { type: Boolean },
     moldFactor: { type: Number, min: 0 },
+    distanceKm: { type: Number, min: 0 },
   },
   { _id: false }
 );
@@ -20,11 +21,12 @@ const itemSchema = new mongoose.Schema({
   description: { type: String, required: true, trim: true },
   quantity: { type: Number, default: 1, min: 0 },
   unitPrice: { type: Number, default: 0, min: 0 },
+  costUnitPrice: { type: Number, min: 0, validate: Number.isFinite },
   total: { type: Number, default: 0 },
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
   category: { type: String, enum: productCategories },
   productName: { type: String },
-  saleUnit: { type: String, enum: ['unit', 'linear_meter', 'square_meter'] },
+  saleUnit: { type: String, enum: ['unit', 'linear_meter', 'square_meter', 'kilometer'] },
   measurements: { type: measurementsSchema },
   pricingBasis: { basePrice: Number, priceTiers: [{ minQuantity: Number, price: Number, _id: false }] },
   serviceName: String, material: String, finishing: String, applicationLocation: String,
@@ -46,7 +48,12 @@ const paymentSchema = new mongoose.Schema({
   method: { type: String, default: 'pix' },
   type: { type: String, enum: ['entrada', 'pagamento'], default: 'pagamento' },
   paidAt: { type: Date, default: Date.now },
+  receiptUrl: { type: String, default: '' },
 });
+const attachmentSchema = new mongoose.Schema({
+  label: { type: String, trim: true, maxlength: 100, required: true },
+  url: { type: String, trim: true, maxlength: 2048, required: true },
+}, { _id: false });
 
 // Histórico de produção e status
 const historySchema = new mongoose.Schema({
@@ -105,6 +112,7 @@ const orderSchema = new mongoose.Schema(
     history: [historySchema],
     deliveryDate: { type: Date },
     observations: { type: String, default: '' },
+    attachments: { type: [attachmentSchema], default: [] },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     whatsappSentAt: { type: Date },
   },

@@ -414,6 +414,42 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {data.analytics?.serviceMargins && (
+        <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+          <div className="border-b px-5 py-4">
+            <h3 className="text-lg font-bold text-slate-800">Margem por linha de serviço</h3>
+            <p className="mt-1 text-xs text-slate-500">Calculada com o custo salvo em cada item; pedidos antigos sem snapshot não recebem custo retroativo.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-5 py-3 text-left">Categoria</th>
+                  <th className="px-5 py-3 text-right">Receita</th>
+                  <th className="px-5 py-3 text-right">Custo</th>
+                  <th className="px-5 py-3 text-right">Lucro bruto</th>
+                  <th className="px-5 py-3 text-right">Margem</th>
+                  <th className="px-5 py-3 text-right">Cobertura</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.analytics.serviceMargins.map((row) => (
+                  <tr key={row.category} className="border-t">
+                    <td className="px-5 py-3 font-medium">{row.name}</td>
+                    <td className="px-5 py-3 text-right">{fmt(row.revenue)}</td>
+                    <td className="px-5 py-3 text-right">{fmt(row.cost)}</td>
+                    <td className="px-5 py-3 text-right">{fmt(row.profit)}</td>
+                    <td className="px-5 py-3 text-right">{row.marginPct === null ? 'Incompleta' : `${row.marginPct.toFixed(1).replace('.', ',')}%`}</td>
+                    <td className="px-5 py-3 text-right">{row.costCoveragePct.toFixed(0)}% ({row.itemsWithoutCost} sem custo)</td>
+                  </tr>
+                ))}
+                {!data.analytics.serviceMargins.length && <tr><td colSpan="6" className="px-5 py-8 text-center text-slate-400">Sem itens de pedidos confirmados para o período.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-4">
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 text-white rounded-2xl shadow-sm border border-slate-700 p-5">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">

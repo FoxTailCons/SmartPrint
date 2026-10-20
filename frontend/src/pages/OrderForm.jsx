@@ -17,11 +17,12 @@ const emptyCatalogMeasure = {
   lengthPerPiece: '',
   width: '',
   height: '',
+  distanceKm: '',
   dimensionUnit: 'm',
   moldEnabled: false,
   moldFactor: '1',
 };
-const saleUnitLabels = { unit: 'un.', linear_meter: 'm', square_meter: 'm²' };
+const saleUnitLabels = { unit: 'un.', linear_meter: 'm', square_meter: 'm²', kilometer: 'km' };
 
 export default function OrderForm({ modal = false, open = true, onSaved, onCancel }) {
   const { id } = useParams();
@@ -43,6 +44,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [observations, setObservations] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const [priority, setPriority] = useState('normal');
   const [skippedStages, setSkippedStages] = useState(['instalacao']);
   const [installments, setInstallments] = useState([]); // {dueDate, amount}
@@ -73,6 +75,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         setPaymentMethod(o.paymentMethod || 'pix');
         setDeliveryDate(o.deliveryDate ? new Date(o.deliveryDate).toISOString().slice(0, 10) : '');
         setObservations(o.observations || '');
+        setAttachments(o.attachments || []);
         setPriority(o.priority || 'normal');
         setSkippedStages(o.skippedStages || []);
         setInstallments(o.installments?.map((p) => ({ dueDate: new Date(p.dueDate).toISOString().slice(0, 10), amount: p.amount })) || []);
@@ -100,6 +103,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const lengthPerPiece = Number(catalogMeasure.lengthPerPiece);
   const width = Number(catalogMeasure.width);
   const height = Number(catalogMeasure.height);
+  const distanceKm = Number(catalogMeasure.distanceKm);
   let catalogQuantity = 0;
   let catalogValid = false;
 
@@ -109,6 +113,9 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   } else if (selectedProduct?.saleUnit === 'linear_meter') {
     catalogQuantity = pieceCount * lengthPerPiece;
     catalogValid = Number.isInteger(pieceCount) && pieceCount > 0 && Number.isFinite(lengthPerPiece) && lengthPerPiece > 0;
+  } else if (selectedProduct?.saleUnit === 'kilometer') {
+    catalogQuantity = distanceKm;
+    catalogValid = Number.isFinite(distanceKm) && distanceKm > 0;
   } else if (selectedProduct?.saleUnit === 'square_meter') {
     const moldFactor = Number(catalogMeasure.moldFactor);
     const moldValid = !catalogMeasure.moldEnabled || (Number.isFinite(moldFactor) && moldFactor > 0);
@@ -134,9 +141,11 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
     setItems((current) => current.map((item, index) => {
       if (index !== idx) return item;
       const next = { ...item, [field]: val };
-      if (field === 'quantity' && item.productId && item.saleUnit === 'unit' && Number(val) > 0 && Number.isFinite(Number(val))) {
+      if (field === 'quantity' && item.productId && ['unit', 'kilometer'].includes(item.saleUnit) && Number(val) > 0 && Number.isFinite(Number(val))) {
         next.unitPrice = getQuantityPrice(item, Number(val)).unitPrice;
-        next.measurements = { ...item.measurements, pieceCount: Number(val) };
+        next.measurements = item.saleUnit === 'unit'
+          ? { ...item.measurements, pieceCount: Number(val) }
+          : { ...item.measurements, distanceKm: Number(val) };
       }
       next.total = itemTotal(next);
       return next;
@@ -150,6 +159,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       ? { pieceCount: count }
       : selectedProduct.saleUnit === 'linear_meter'
         ? { pieceCount: count, lengthPerPiece }
+        : selectedProduct.saleUnit === 'kilometer'
+          ? { distanceKm }
         : {
           pieceCount: count,
           width,
@@ -162,6 +173,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       ? selectedProduct.name
       : selectedProduct.saleUnit === 'linear_meter'
         ? `${selectedProduct.name} - ${lengthPerPiece} m x ${count} peça(s)`
+        : selectedProduct.saleUnit === 'kilometer'
+          ? `${selectedProduct.name} - ${distanceKm} km`
         : `${selectedProduct.name} - ${width} x ${height} ${catalogMeasure.dimensionUnit} - ${count} peça(s)`;
     setItems((current) => [...current, {
       productId: selectedProduct._id,
@@ -206,6 +219,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         paymentMethod,
         deliveryDate: deliveryDate || undefined,
         observations,
+        attachments: attachments.filter((item) => item.label?.trim() || item.url?.trim()),
         priority,
         skippedStages,
         installments: installments.map((p) => ({ ...p, dueDate: new Date(p.dueDate) })),
@@ -335,6 +349,12 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                     </label>
                   </div>
                 )}
+                {selectedProduct.saleUnit === 'kilometer' && (
+                  <label className="block text-sm">
+                    Distância (km)
+                    <input type="number" min="0" step="any" value={catalogMeasure.distanceKm} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, distanceKm: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                  </label>
+                )}
                 {selectedProduct.saleUnit === 'square_meter' && (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -398,8 +418,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                         {' × '}{fmt(it.unitPrice)}{it.saleUnit ? `/${saleUnitLabels[it.saleUnit]}` : ''}
                         {' · '}{getCategoryLabel(it.category || products.find((product) => product._id === it.productId)?.category)}
                       </div>
-                      {it.saleUnit === 'unit' && <label className="mt-2 block text-xs">Quantidade
-                        <input type="number" min="1" step="1" value={it.quantity} onChange={(event) => updateItem(idx, 'quantity', event.target.value)} className="ml-2 w-24 rounded border bg-white px-2 py-1" />
+                      {['unit', 'kilometer'].includes(it.saleUnit) && <label className="mt-2 block text-xs">{it.saleUnit === 'kilometer' ? 'Distância (km)' : 'Quantidade'}
+                        <input type="number" min={it.saleUnit === 'unit' ? '1' : '0.01'} step={it.saleUnit === 'unit' ? '1' : 'any'} value={it.quantity} onChange={(event) => updateItem(idx, 'quantity', event.target.value)} className="ml-2 w-24 rounded border bg-white px-2 py-1" />
                       </label>}
                     </div>
                     <strong className="shrink-0 text-sm">{fmt(itemTotal(it))}</strong>
@@ -529,6 +549,18 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
             <label className="text-sm font-medium">Observações</label>
             <textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows="3" className="mt-1 w-full px-3 py-2 border rounded-lg text-sm" placeholder="Instruções de produção, material, acabamento..." />
           </div>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Fotos e anexos por link</legend>
+            <p className="text-xs text-slate-500">Links para foto do local/veículo ou arte aprovada. Os links aparecem no pedido, PDF e WhatsApp.</p>
+            {attachments.map((attachment, index) => (
+              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+                <input aria-label={`Nome do anexo ${index + 1}`} value={attachment.label || ''} onChange={(event) => setAttachments((current) => current.map((item, row) => row === index ? { ...item, label: event.target.value } : item))} placeholder="Ex.: Fachada atual" className="rounded-lg border px-3 py-2 text-sm" />
+                <input aria-label={`Link do anexo ${index + 1}`} type="url" value={attachment.url || ''} onChange={(event) => setAttachments((current) => current.map((item, row) => row === index ? { ...item, url: event.target.value } : item))} placeholder="https://..." className="rounded-lg border px-3 py-2 text-sm" />
+                <button type="button" aria-label={`Remover anexo ${index + 1}`} onClick={() => setAttachments((current) => current.filter((_, row) => row !== index))} className="rounded-lg border px-3 py-2 text-sm">Remover</button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setAttachments((current) => [...current, { label: '', url: '' }])} className="rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">Adicionar link</button>
+          </fieldset>
         </div>
 
         <div className="flex justify-end gap-3 pb-6">

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { buildOrderDocumentLabel, buildOrderPdfBuffer, canReceivePayments, initializeNewOrder } from '../routes/orders.js';
+import { normalizeOrderAttachments, buildWhatsappText } from '../routes/orders.js';
 
 test('paid orders keep the Pedido title instead of becoming receipts', () => {
   assert.equal(buildOrderDocumentLabel({ amountPaid: 25 }), 'Pedido');
@@ -137,4 +138,19 @@ test('single huge item and long observations paginate without losing their tails
   const streams = pdfStreams(buffer).join('\n').toLowerCase();
   for (const marker of ['FIMITEM', 'FIMOBS']) assert.ok(streams.includes(Buffer.from(marker).toString('hex')), marker);
   assert.ok(!/1 0 0 1 [\d.]+ -[\d.]+ tm/.test(streams));
+});
+
+test('order attachments validate links and appear in WhatsApp and PDF documents', async () => {
+  const attachments = normalizeOrderAttachments([{ label: 'Foto fachada', url: 'https://files.example/fachada.jpg' }]);
+  assert.deepEqual(attachments, [{ label: 'Foto fachada', url: 'https://files.example/fachada.jpg' }]);
+  assert.throws(() => normalizeOrderAttachments([{ label: 'Foto', url: 'javascript:alert(1)' }]), /HTTP ou HTTPS/);
+  const order = {
+    number: 'ATT-1', createdAt: '2026-10-20T15:00:00Z', status: 'pendente',
+    items: [{ description: 'Fachada', quantity: 1, unitPrice: 100, total: 100 }],
+    totalValue: 100, finalValue: 100, attachments,
+  };
+  assert.match(buildWhatsappText(order, {}), /Anexo — Foto fachada: https:\/\/files\.example\/fachada\.jpg/);
+  const text = pdfText(await buildOrderPdfBuffer(order));
+  assert.match(text, /Foto fachada/);
+  assert.match(text, /files\.example\/fachada\.jpg/);
 });

@@ -5,6 +5,7 @@ import {
   buildCashflowSummary,
   buildClientPerformance,
   buildServicePerformance,
+  buildServiceMargins,
   filterOrdersForDashboard,
   buildMonthlyComparison,
 } from '../routes/dashboard.js';
@@ -61,6 +62,36 @@ test('buildServicePerformance groups item totals by service type', () => {
 
   assert.deepEqual(services[0], { name: 'Banner / sinalização', revenue: 1200, orders: 1 });
   assert.deepEqual(services[1], { name: 'Impressão / papel', revenue: 250, orders: 1 });
+});
+
+test('buildServiceMargins uses saved item costs, allocates discounts, and flags missing costs', () => {
+  const margins = buildServiceMargins([
+    {
+      status: 'aprovado',
+      finalValue: 90,
+      items: [
+        { category: 'grande_formato', total: 100, quantity: 2, costUnitPrice: 20 },
+        { category: 'grande_formato', total: 50, quantity: 1 },
+      ],
+    },
+    {
+      status: 'pendente',
+      finalValue: 200,
+      items: [{ category: 'grande_formato', total: 200, quantity: 1, costUnitPrice: 50 }],
+    },
+  ]);
+
+  assert.deepEqual(margins, [{
+    category: 'grande_formato',
+    name: 'Grande formato',
+    revenue: 90,
+    cost: 40,
+    profit: 50,
+    marginPct: null,
+    items: 2,
+    itemsWithoutCost: 1,
+    costCoveragePct: 50,
+  }]);
 });
 
 test('filterOrdersForDashboard supports client and period filtering', () => {

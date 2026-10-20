@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { normalizePriceTiers } from '../services/orderItemPricing.js';
 
-const saleUnits = ['unit', 'linear_meter', 'square_meter'];
+const saleUnits = ['unit', 'linear_meter', 'square_meter', 'kilometer'];
 const productCategories = [
   'xerox_impressao',
   'adesivos',
@@ -39,6 +39,12 @@ const productSchema = new mongoose.Schema(
       min: 0,
       validate: { validator: Number.isFinite, message: 'O preço deve ser um número finito' },
     },
+    costPrice: {
+      type: Number,
+      min: 0,
+      validate: { validator: (value) => value === undefined || Number.isFinite(value), message: 'O custo deve ser um número finito' },
+    },
+    imageUrl: { type: String, trim: true, maxlength: 2048, default: '' },
     priceTiers: { type: [{ minQuantity: Number, price: Number, _id: false }], default: [], validate: { validator: (value) => { try { normalizePriceTiers(value); return true; } catch { return false; } }, message: 'Faixas de preço inválidas' } },
     category: { type: String, enum: productCategories },
     active: { type: Boolean, default: true },

@@ -23,6 +23,12 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - **Contas a receber** com saldo devedor e próximos vencimentos dos pedidos aprovados; orçamentos pendentes não entram nos saldos financeiros
 - Dashboard com KPIs e feed de pedidos recentes
 - Catálogo de produtos por unidade, metro linear ou metro quadrado, com cadastro restrito a administradores
+- Custos opcionais por unidade de venda, margem estimada no catálogo e snapshot histórico do custo por item; dados de custo e margens detalhadas só são expostos a administradores
+- Serviços de instalação e deslocamento podem ser cadastrados no catálogo como itens separados; deslocamento aceita quantidade fracionária em km
+- Histórico de clientes com dez pedidos recentes, saldo em aberto, forma de pagamento mais recente e ação para repetir pedido
+- Contas a receber registram forma de pagamento e link opcional para comprovante; lembretes de saldo são preparados para WhatsApp e enviados manualmente
+- Fechamento diário de caixa para administrador/atendente, com saldo inicial, entradas por forma de pagamento, sangrias, conferência e diferenças
+- Imagem de referência do produto e links para fotos/arte no pedido; anexos aparecem no detalhe, PDF e mensagem de WhatsApp
 - Catálogo categorizado por tipo de serviço, com filtros por categoria no catálogo e no orçamento
 - Orçamento exige cliente cadastrado com nome e telefone acima do limite configurado ou para Fachada/Veículos; pedido rápido permanece sem cadastro obrigatório
 - PDF e WhatsApp incluem validade do orçamento e dados comerciais configurados; links são preparados para revisão e envio manual
@@ -127,21 +133,25 @@ smartprint-pdv/
 ├── backend/
 │   ├── server.js            # entrada da API
 │   ├── config/              # conexão MongoDB + seed de usuários
-│   ├── models/              # User, Client, Product, Order, Payable
-│   ├── routes/              # auth, clients, products, orders, payables, dashboard
+│   ├── models/              # User, Client, Product, Order, Payable, CashSession
+│   ├── routes/              # auth, clients, products, orders, payables, dashboard, cash
 │   └── middleware/          # auth JWT
 └── frontend/
     └── src/
-        ├── pages/           # Login, Dashboard, Orders, OrderForm, OrderDetail, Clients, Products, Payables, Receivables
+        ├── pages/           # Login, Dashboard, Orders, OrderForm, OrderDetail, Clients, Products, Payables, Receivables, CashRegister
         ├── components/      # Layout, Badges, Modal, WhatsAppButton
         └── context/         # AuthContext
 ```
 
 ### Catálogo e preços por medida
 
-Administradores acessam **Produtos** no menu para cadastrar, editar, pesquisar e desativar produtos. Cada produto tem preço por unidade, metro linear ou metro quadrado; a desativação é lógica e mantém os registros existentes.
+Administradores acessam **Produtos** no menu para cadastrar, editar, pesquisar e desativar produtos. Cada produto tem preço por unidade, metro linear, metro quadrado ou quilômetro; a desativação é lógica e mantém os registros existentes. As sugestões de instalação/envelopamento/deslocamento preenchem somente nome, categoria e unidade: cadastre os preços e custos reais.
 
-No cadastro de um pedido, selecione um produto do catálogo e informe a quantidade ou as medidas correspondentes. O backend calcula o total usando o preço vigente no momento da inclusão e grava nome, unidade, preço e medidas no item do pedido. Alterações futuras no catálogo não modificam o histórico; itens livres continuam disponíveis.
+No cadastro de um pedido, selecione um produto do catálogo e informe a quantidade ou as medidas correspondentes. O backend calcula o total usando o preço vigente no momento da inclusão e grava nome, unidade, preço, custo e medidas no item do pedido. Alterações futuras no catálogo não modificam o histórico; pedidos legados sem custo não são preenchidos retroativamente, e itens livres continuam disponíveis.
+
+O Dashboard mostra a margem por categoria somente para administradores. Margens são sinalizadas como incompletas quando itens não têm snapshot de custo. O custo de catálogo é uma estimativa gravada ao montar o pedido, não uma apuração de consumo real da produção.
+
+O menu **Fechamento de caixa** está disponível para administrador e atendente. Entradas são apuradas pelos pagamentos registrados no dia (incluindo histórico legado), no fuso de São Paulo. O fechamento guarda os valores conferidos e diferenças; consulte datas anteriores pelo seletor. Comprovantes e fotos são registrados por link HTTP(S); upload direto de arquivos não está configurado.
 
 ## Configurações comerciais do backend
 
