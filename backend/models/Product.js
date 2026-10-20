@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { normalizePriceTiers } from '../services/orderItemPricing.js';
 
 const saleUnits = ['unit', 'linear_meter', 'square_meter'];
 
@@ -20,6 +21,7 @@ const productSchema = new mongoose.Schema(
       min: 0,
       validate: { validator: Number.isFinite, message: 'O preço deve ser um número finito' },
     },
+    priceTiers: { type: [{ minQuantity: Number, price: Number, _id: false }], default: [], validate: { validator: (value) => { try { normalizePriceTiers(value); return true; } catch { return false; } }, message: 'Faixas de preço inválidas' } },
     active: { type: Boolean, default: true },
   },
   { timestamps: true }

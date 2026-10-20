@@ -1,0 +1,50 @@
+export const productionStages = [
+  ['arte', 'Arte'], ['aprovacao_cliente', 'Aprovação do cliente'], ['impressao', 'Impressão'],
+  ['instalacao', 'Instalação'], ['entregue', 'Entregue'],
+];
+export const priorityLabels = { normal: 'Normal', alta: 'Alta', urgente: 'Urgente' };
+
+export function itemTotal(item) {
+  return Number(item.quantity || 0) * Number(item.unitPrice || 0)
+    + Number(item.installationFee || 0) + Number(item.travelFee || 0);
+}
+
+export function serializeOrderItems(items) {
+  return items.filter((item) => item.productId || item.description?.trim()).map((item) => {
+    const metadata = Object.fromEntries(['serviceName', 'material', 'finishing', 'applicationLocation', 'promisedDate', 'artworkUrl', 'installationNotes'].map((field) => [field, item[field]]));
+    const amounts = { quantity: Number(item.quantity), installationFee: Number(item.installationFee || 0), travelFee: Number(item.travelFee || 0) };
+    return item.productId
+      ? { ...(item._id ? { _id: item._id } : {}), productId: item.productId, measurements: item.measurements, ...metadata, ...amounts }
+      : { ...item, ...amounts, unitPrice: Number(item.unitPrice) };
+  });
+}
+
+export function getProductionStage(order) {
+  if (order.productionStage) return order.productionStage;
+  if (order.production === 'concluido' || order.status === 'concluido') return 'entregue';
+  return ['em_producao', 'pausado'].includes(order.production) ? 'impressao' : 'arte';
+}
+
+export function graphicDate(value) {
+  const date = String(value || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split('-').reverse().join('/') : 'Sem prazo';
+}
+
+export function getDeadline(order, now = new Date()) {
+  const date = String(order.deliveryDate || (order.items || []).map((item) => item.promisedDate).filter(Boolean).sort()[0] || '').slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const overdue = Boolean(date && date < today && getProductionStage(order) !== 'entregue');
+  return { date, today: date === today, overdue, label: date ? `${graphicDate(date)}${overdue ? ' · Atrasado' : date === today ? ' · Hoje' : ''}` : 'Sem prazo' };
+}
+
+export function itemMetadata(item) {
+  const fields = [
+    ['Material', item.material], ['Acabamento', item.finishing], ['Aplicação', item.applicationLocation],
+    ['Prazo combinado', item.promisedDate && graphicDate(item.promisedDate)],
+    ['Arte', item.artworkUrl], ['Instalação / observações', item.installationNotes],
+  ];
+  for (const [label, field] of [['Instalação', 'installationFee'], ['Deslocamento', 'travelFee']]) {
+    if (Number(item[field]) > 0) fields.push([label, Number(item[field]).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })]);
+  }
+  return fields.filter(([, value]) => value);
+}

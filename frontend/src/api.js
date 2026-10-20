@@ -17,7 +17,7 @@ export async function api(path, { method = 'GET', body } = {}) {
     throw new Error('Não foi possível conectar à API. Verifique se o backend está ativo no Render.');
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(data.message || `Erro ${res.status}`), { status: res.status });
   return data;
 }
 

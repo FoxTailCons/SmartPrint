@@ -7,6 +7,9 @@ import MeasureCalculator from '../components/MeasureCalculator.jsx';
 import { calculateAreaPerPiece } from './measurements.js';
 import { splitInstallmentAmounts } from './installmentMath.js';
 import { getOrderDocumentLabel, roundOrderTotalUp } from './orderPresentation.js';
+import { getQuantityPrice } from './catalogPricing.js';
+import { itemTotal, priorityLabels, productionStages, serializeOrderItems } from './printshop.js';
+import GraphicItemFields from '../components/GraphicItemFields.jsx';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
 const emptyCatalogMeasure = {
@@ -14,7 +17,7 @@ const emptyCatalogMeasure = {
   lengthPerPiece: '',
   width: '',
   height: '',
-  dimensionUnit: 'cm',
+  dimensionUnit: 'm',
   moldEnabled: false,
   moldFactor: '1',
 };
@@ -35,11 +38,12 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [discount, setDiscount] = useState(0);
   const [downPayment, setDownPayment] = useState(0);
   const [orderStatus, setOrderStatus] = useState('pendente');
-  const [quickOrder, setQuickOrder] = useState(false);
   const [amountPaid, setAmountPaid] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [observations, setObservations] = useState('');
+  const [priority, setPriority] = useState('normal');
+  const [skippedStages, setSkippedStages] = useState(['instalacao']);
   const [installments, setInstallments] = useState([]); // {dueDate, amount}
   const [instCount, setInstCount] = useState(1);
   const [firstDue, setFirstDue] = useState('');
@@ -62,12 +66,14 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         setPaymentMethod(o.paymentMethod || 'pix');
         setDeliveryDate(o.deliveryDate ? new Date(o.deliveryDate).toISOString().slice(0, 10) : '');
         setObservations(o.observations || '');
+        setPriority(o.priority || 'normal');
+        setSkippedStages(o.skippedStages || []);
         setInstallments(o.installments?.map((p) => ({ dueDate: new Date(p.dueDate).toISOString().slice(0, 10), amount: p.amount })) || []);
       });
     }
   }, [id]);
 
-  const itemsTotal = items.reduce((s, i) => s + (Number(i.quantity) * Number(i.unitPrice) || 0), 0);
+  const itemsTotal = items.reduce((sum, item) => sum + itemTotal(item), 0);
   const finalValue = roundOrderTotalUp(itemsTotal, discount);
   const selectedProduct = products.find((product) => product._id === catalogProductId);
   const pieceCount = Number(catalogMeasure.pieceCount);
@@ -100,14 +106,21 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       && moldValid
       && Number.isFinite(catalogQuantity);
   }
-  const catalogTotal = selectedProduct ? catalogQuantity * selectedProduct.price : 0;
+  const catalogPricing = selectedProduct && catalogValid ? getQuantityPrice(selectedProduct, catalogQuantity) : { unitPrice: selectedProduct?.price || 0, total: 0, minQuantity: null };
+  const catalogTotal = catalogPricing.total;
   catalogValid = catalogValid && Number.isFinite(catalogTotal);
 
   const updateItem = (idx, field, val) => {
-    const next = [...items];
-    next[idx][field] = val;
-    next[idx].total = Number(next[idx].quantity) * Number(next[idx].unitPrice) || 0;
-    setItems(next);
+    setItems((current) => current.map((item, index) => {
+      if (index !== idx) return item;
+      const next = { ...item, [field]: val };
+      if (field === 'quantity' && item.productId && item.saleUnit === 'unit' && Number(val) > 0 && Number.isFinite(Number(val))) {
+        next.unitPrice = getQuantityPrice(item, Number(val)).unitPrice;
+        next.measurements = { ...item.measurements, pieceCount: Number(val) };
+      }
+      next.total = itemTotal(next);
+      return next;
+    }));
   };
 
   const addCatalogItem = () => {
@@ -136,7 +149,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       saleUnit: selectedProduct.saleUnit,
       description,
       quantity: catalogQuantity,
-      unitPrice: selectedProduct.price,
+      unitPrice: catalogPricing.unitPrice,
+      pricingBasis: { basePrice: selectedProduct.price, priceTiers: selectedProduct.priceTiers || [] },
       total: catalogTotal,
       measurements,
     }]);
@@ -163,23 +177,15 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
     try {
       const body = {
         client: clientId || null,
-        items: items
-          .filter((i) => i.productId || i.description?.trim())
-          .map((item) => item.productId
-            ? {
-              ...(item._id ? { _id: item._id } : {}),
-              productId: item.productId,
-              quantity: item.quantity,
-              measurements: item.measurements,
-            }
-            : item),
+        items: serializeOrderItems(items),
         discount: Number(discount) || 0,
         downPayment: Number(downPayment) || 0,
         paymentMethod,
         deliveryDate: deliveryDate || undefined,
         observations,
+        priority,
+        skippedStages,
         installments: installments.map((p) => ({ ...p, dueDate: new Date(p.dueDate) })),
-        ...(!isEdit && quickOrder ? { quickOrder: true } : {}),
       };
       const saved = isEdit
         ? await api(`/api/orders/${id}`, { method: 'PUT', body })
@@ -212,7 +218,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
           <h1 className="text-2xl font-bold">
             {isEdit
               ? `Editar ${getOrderDocumentLabel({ status: orderStatus, amountPaid })}`
-              : quickOrder ? 'Novo Pedido rápido' : 'Novo Orçamento'}
+              : 'Novo Orçamento'}
           </h1>
           <p className="text-sm text-slate-500">Grandes formatos · Adesivagem · SmartPrint Lindóia</p>
         </div>
@@ -221,17 +227,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
 
       <form onSubmit={save} className="space-y-5">
         {!isEdit && (
-          <fieldset className="bg-white rounded-xl border shadow-sm p-5 space-y-3">
-            <legend className="font-semibold px-1">Tipo de registro</legend>
-            <label className="flex items-start gap-3 text-sm">
-              <input type="radio" name="orderType" checked={!quickOrder} onChange={() => setQuickOrder(false)} className="mt-0.5" />
-              <span><strong>Orçamento</strong><span className="block text-slate-500">Fica pendente até ser aprovado.</span></span>
-            </label>
-            <label className="flex items-start gap-3 text-sm">
-              <input type="radio" name="orderType" checked={quickOrder} onChange={() => setQuickOrder(true)} className="mt-0.5" />
-              <span><strong>Pedido rápido</strong><span className="block text-slate-500">Já aprovado, sem exigir cadastro de cliente (ex.: fotocópia).</span></span>
-            </label>
-          </fieldset>
+          <p className="rounded-lg border bg-white p-4 text-sm text-slate-600">Orçamentos ficam pendentes até aprovação. Para xerox e balcão, use <Link to="/pedido-rapido" className="font-medium text-brand-700 underline">Pedido rápido · F2</Link>.</p>
         )}
 
         {/* Cliente */}
@@ -344,7 +340,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
                   <span>
                     Quantidade calculada: <strong>{catalogValid ? catalogQuantity.toFixed(4).replace('.', ',') : '—'} {saleUnitLabels[selectedProduct.saleUnit]}</strong>
-                    {' · '}Preço: <strong>{fmt(selectedProduct.price)}</strong>
+                    {' · '}Preço: <strong>{fmt(catalogPricing.unitPrice)}</strong>
+                    {' · '}{catalogPricing.minQuantity ? `Faixa a partir de ${catalogPricing.minQuantity}` : 'Preço base'}
                     {' · '}Total: <strong className="text-brand-700">{catalogValid ? fmt(catalogTotal) : '—'}</strong>
                   </span>
                   <button type="button" disabled={!catalogValid} onClick={addCatalogItem} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
@@ -365,8 +362,11 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                         {Number(it.quantity).toFixed(4).replace('.', ',')} {saleUnitLabels[it.saleUnit] || ''}
                         {' × '}{fmt(it.unitPrice)}{it.saleUnit ? `/${saleUnitLabels[it.saleUnit]}` : ''}
                       </div>
+                      {it.saleUnit === 'unit' && <label className="mt-2 block text-xs">Quantidade
+                        <input type="number" min="1" step="1" value={it.quantity} onChange={(event) => updateItem(idx, 'quantity', event.target.value)} className="ml-2 w-24 rounded border bg-white px-2 py-1" />
+                      </label>}
                     </div>
-                    <strong className="shrink-0 text-sm">{fmt(Number(it.quantity) * Number(it.unitPrice))}</strong>
+                    <strong className="shrink-0 text-sm">{fmt(itemTotal(it))}</strong>
                   </div>
                 ) : (
                   <>
@@ -395,6 +395,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                 <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-1 text-red-500 hover:bg-red-50 p-2 rounded-lg">
                   <Trash2 size={16} />
                 </button>
+                <GraphicItemFields item={it} onChange={(field, value) => updateItem(idx, field, value)} />
               </div>
             ))}
           </div>
@@ -466,6 +467,19 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
             <label className="text-sm font-medium">Data de entrega prevista</label>
             <input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="mt-1 block px-3 py-2 border rounded-lg text-sm" />
           </div>
+          <label className="block text-sm font-medium">Prioridade
+            <select value={priority} onChange={(event) => setPriority(event.target.value)} className="mt-1 block rounded-lg border bg-white px-3 py-2 text-sm">
+              {Object.entries(priorityLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </label>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Etapas dispensadas neste serviço</legend>
+            <div className="flex flex-wrap gap-4">
+              {productionStages.filter(([key]) => !['entregue', 'impressao'].includes(key)).map(([key, label]) => <label key={key} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={skippedStages.includes(key)} onChange={(event) => setSkippedStages((current) => event.target.checked ? [...current, key] : current.filter((value) => value !== key))} />{label}
+              </label>)}
+            </div>
+          </fieldset>
           <div>
             <label className="text-sm font-medium">Observações</label>
             <textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows="3" className="mt-1 w-full px-3 py-2 border rounded-lg text-sm" placeholder="Instruções de produção, material, acabamento..." />
@@ -477,7 +491,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
           <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium disabled:opacity-50">
             <Save size={16} /> {saving ? 'Salvando...' : isEdit
               ? orderStatus === 'pendente' ? 'Salvar Orçamento' : 'Salvar Pedido'
-              : quickOrder ? 'Criar Pedido rápido' : 'Salvar Orçamento'}
+              : 'Salvar Orçamento'}
           </button>
         </div>
       </form>
@@ -491,6 +505,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         </div>
       </Modal>
       <MeasureCalculator
+        products={products}
         open={showMeasureCalculator}
         onClose={() => setShowMeasureCalculator(false)}
         onAddItem={(item) => setItems((current) => [...current, item])}
@@ -504,7 +519,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       onClose={onCancel}
       title={isEdit
         ? `Editar ${getOrderDocumentLabel({ status: orderStatus, amountPaid })}`
-        : quickOrder ? 'Novo Pedido rápido' : 'Novo Orçamento'}
+        : 'Novo Orçamento'}
       wide
     >
       {content}

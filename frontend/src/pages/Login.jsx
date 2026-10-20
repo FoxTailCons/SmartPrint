@@ -7,8 +7,8 @@ import BrandMark from '../components/BrandMark.jsx';
 export default function Login() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('admin@smartprint.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState(import.meta.env.PROD ? '' : 'admin@smartprint.com');
+  const [password, setPassword] = useState(import.meta.env.PROD ? '' : 'admin123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -65,14 +65,14 @@ export default function Login() {
               <LogIn size={18} /> {loading ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
-          <div className="mt-6 pt-4 border-t">
+          {!import.meta.env.PROD && <div className="mt-6 pt-4 border-t">
             <p className="text-xs text-slate-500 mb-2">Acesso rápido (3 usuários):</p>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <button onClick={() => quick('admin@smartprint.com', 'admin123')} className="px-2 py-1.5 border rounded hover:bg-slate-50">Admin</button>
               <button onClick={() => quick('atendente@smartprint.com', 'atend123')} className="px-2 py-1.5 border rounded hover:bg-slate-50">Atendente</button>
               <button onClick={() => quick('producao@smartprint.com', 'prod123')} className="px-2 py-1.5 border rounded hover:bg-slate-50">Produção</button>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

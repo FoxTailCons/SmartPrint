@@ -11,6 +11,8 @@ import PaymentReceiptPrintButton from '../components/PaymentReceiptPrintButton.j
 import Modal from '../components/Modal.jsx';
 import { createPaymentReceipt } from './paymentReceipt.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
+import { getDeadline, itemMetadata, priorityLabels } from './printshop.js';
+import ProductionProgress from '../components/ProductionProgress.jsx';
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -31,6 +33,7 @@ export default function OrderDetail() {
   if (!order) return <div className="p-8 text-center">Pedido não encontrado.</div>;
 
   const balance = (order.finalValue || 0) - (order.amountPaid || 0);
+  const deadline = getDeadline(order);
 
   const action = async (path, body) => {
     try {
@@ -81,12 +84,12 @@ export default function OrderDetail() {
         <div className="flex gap-2 flex-wrap">
           <PrintButton orderId={order._id} className="px-3 py-2" />
           <WhatsAppButton orderId={order._id} disabled={!order.client?.phone} />
-          <Link to={`/pedidos/${order._id}/editar`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-slate-50">
+          {!order.quickSaleKey && <Link to={`/pedidos/${order._id}/editar`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-slate-50">
             <Pencil size={16} /> Editar
-          </Link>
-          <button onClick={remove} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50">
+          </Link>}
+          {!order.quickSaleKey && <button onClick={remove} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50">
             <Trash2 size={16} /> Excluir
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -99,6 +102,8 @@ export default function OrderDetail() {
         <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-slate-500 uppercase">Produção</div>
           <div className="mt-2"><StatusBadge value={order.production} /></div>
+          <p className={`mt-2 text-xs ${deadline.overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{deadline.label}</p>
+          <p className="mt-1 text-xs text-slate-500">Prioridade: {priorityLabels[order.priority || 'normal']}</p>
         </div>
         <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-slate-500 uppercase">Pagamento</div>
@@ -110,13 +115,14 @@ export default function OrderDetail() {
       {/* Ações de fluxo */}
       <div className="bg-white rounded-xl border shadow-sm p-5">
         <h2 className="font-semibold mb-3">Fluxo do pedido</h2>
+        <div className="mb-4"><ProductionProgress order={order} onChanged={(changed) => setOrder((current) => ({ ...changed, client: current.client }))} /></div>
         <div className="flex flex-wrap gap-2">
           {order.status === 'pendente' && (
             <button onClick={() => action('approve')} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
               <ThumbsUp size={16} /> Aprovar orçamento
             </button>
           )}
-          {order.production === 'nao_iniciado' && order.status !== 'pendente' && (
+          {!order.productionStage && order.production === 'nao_iniciado' && order.status !== 'pendente' && (
             <button onClick={() => action('production/start')} className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
               <Play size={16} /> Iniciar produção
             </button>
@@ -131,7 +137,7 @@ export default function OrderDetail() {
               <RotateCcw size={16} /> Retomar produção
             </button>
           )}
-          {order.production !== 'concluido' && order.status !== 'pendente' && (
+          {!order.productionStage && order.production !== 'concluido' && order.status !== 'pendente' && (
             <button onClick={() => action('complete')} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">
               <CheckCircle2 size={16} /> Concluir pedido
             </button>
@@ -150,8 +156,12 @@ export default function OrderDetail() {
           <h2 className="font-semibold mb-3">Itens</h2>
           <div className="space-y-2 text-sm">
             {order.items?.map((it, i) => (
-              <div key={i} className="flex justify-between border-b pb-2">
-                <span>{it.description} <span className="text-slate-400">({it.quantity}x {fmt(it.unitPrice)})</span></span>
+              <div key={i} className="flex justify-between gap-3 border-b pb-2">
+                <div>{it.description} <span className="text-slate-400">({it.quantity}x {fmt(it.unitPrice)})</span>
+                  <dl className="mt-2 space-y-1 text-xs text-slate-500">
+                    {itemMetadata(it).map(([label, value]) => <div key={label} className="break-words"><dt className="inline font-medium">{label}: </dt><dd className="inline">{label === 'Arte' && /^https?:\/\//i.test(value) ? <a href={value} target="_blank" rel="noreferrer" className="text-brand-700 underline">Abrir arquivo de arte</a> : value}</dd></div>)}
+                  </dl>
+                </div>
                 <span className="font-medium">{fmt(it.total)}</span>
               </div>
             ))}
@@ -183,7 +193,7 @@ export default function OrderDetail() {
             </div>
           )}
           <div className="mt-4 text-xs text-slate-500">
-            Entrega prevista: <strong>{fmtDate(order.deliveryDate)}</strong>
+            Entrega prevista: <strong className={deadline.overdue ? 'text-red-700' : ''}>{deadline.label}</strong>
           </div>
         </div>
       </div>

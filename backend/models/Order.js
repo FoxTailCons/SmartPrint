@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { initialProductionStage } from '../services/productionWorkflow.js';
 
 const measurementsSchema = new mongoose.Schema(
   {
@@ -23,6 +24,11 @@ const itemSchema = new mongoose.Schema({
   productName: { type: String },
   saleUnit: { type: String, enum: ['unit', 'linear_meter', 'square_meter'] },
   measurements: { type: measurementsSchema },
+  pricingBasis: { basePrice: Number, priceTiers: [{ minQuantity: Number, price: Number, _id: false }] },
+  serviceName: String, material: String, finishing: String, applicationLocation: String,
+  promisedDate: String, artworkUrl: String, installationNotes: String,
+  installationFee: { type: Number, min: 0, validate: Number.isFinite, default: 0 },
+  travelFee: { type: Number, min: 0, validate: Number.isFinite, default: 0 },
 });
 
 // Parcelas / desdobramento de pagamento
@@ -47,6 +53,7 @@ const historySchema = new mongoose.Schema({
   at: { type: Date, default: Date.now },
   note: { type: String, default: '' },
   paymentMethod: { type: String, default: '' },
+  fromStage: String, toStage: String, skippedStages: [String],
 });
 
 const orderSchema = new mongoose.Schema(
@@ -85,6 +92,10 @@ const orderSchema = new mongoose.Schema(
       enum: ['nao_iniciado', 'em_producao', 'pausado', 'concluido'],
       default: 'nao_iniciado',
     },
+    productionStage: { type: String, enum: ['arte','aprovacao_cliente','impressao','instalacao','entregue'] },
+    skippedStages: { type: [String], enum: ['arte','aprovacao_cliente','impressao','instalacao'], default: [], validate: { validator: (value) => { try { initialProductionStage(value); return true; } catch { return false; } }, message: 'Mantenha pelo menos uma etapa de produção válida' } },
+    priority: { type: String, enum: ['normal','alta','urgente'], default: 'normal' },
+    quickSaleKey: { type: String },
     productionStartedAt: { type: Date },
     productionPausedAt: { type: Date },
     completedAt: { type: Date },
@@ -98,6 +109,8 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+orderSchema.index({ quickSaleKey: 1 }, { unique: true, sparse: true });
+
 orderSchema.pre('validate', async function (next) {
   if (!this.number) {
     const last = await mongoose.models.Order.findOne().sort({ createdAt: -1 });
@@ -109,7 +122,7 @@ orderSchema.pre('validate', async function (next) {
   this.items = (this.items || []).filter((item) => item.description?.trim());
   this.items.forEach((item) => {
     item.description = item.description.trim();
-    item.total = Number(item.quantity || 0) * Number(item.unitPrice || 0);
+    item.total = Number(item.quantity || 0) * Number(item.unitPrice || 0) + Number(item.installationFee || 0) + Number(item.travelFee || 0);
   });
   const itemsTotal = this.items.reduce((s, i) => s + i.total, 0);
   this.totalValue = itemsTotal;

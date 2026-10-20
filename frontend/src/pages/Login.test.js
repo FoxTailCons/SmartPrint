@@ -8,7 +8,7 @@ import { createServer } from 'vite';
 for (const production of [true, false]) {
   test(`login ${production ? 'hides' : 'offers'} demo access in ${production ? 'production' : 'development'}`, async () => {
     const server = await createServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, ws: false },
       define: { 'import.meta.env.PROD': JSON.stringify(production) },
     });
     try {

@@ -4,6 +4,8 @@ import PDFDocument from 'pdfkit';
 import Order from '../models/Order.js';
 import Client from '../models/Client.js';
 import Product from '../models/Product.js';
+import { calendarDate, nextProductionStage, boardOrders, mergeProductionWorkflow, initialProductionStage } from '../services/productionWorkflow.js';
+import { normalizeItemMetadata } from '../services/orderItemPricing.js';
 import { buildCatalogOrderItem } from '../services/orderItemPricing.js';
 import { receiveDownPayment } from '../services/orderInstallments.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
@@ -17,7 +19,7 @@ const fmtMoney = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const fmtDate = (d) =>
-  d ? new Date(d).toLocaleDateString('pt-BR') : 'a combinar';
+  d ? new Date(typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d}T12:00:00-03:00` : d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'a combinar';
 
 const orderItemError = (message) => Object.assign(new Error(message), { statusCode: 400 });
 
@@ -44,12 +46,17 @@ export const initializeNewOrder = (order, { quickOrder = false, userName = '' } 
 };
 
 export const buildOrderItems = async (items, existingItems = []) => Promise.all(items.map(async (item) => {
-  if (!item?.productId) return item;
-  if (!mongoose.isValidObjectId(item.productId)) throw orderItemError('Produto inválido');
-
-  const previousItem = item._id && typeof existingItems.id === 'function'
+  const previousItem = item?._id && typeof existingItems.id === 'function'
     ? existingItems.id(item._id)
     : null;
+  const metadata = normalizeItemMetadata({ ...(previousItem?.toObject?.() ?? previousItem), ...item });
+  if (!item?.productId) {
+    if (!item || typeof item.description !== 'string' || !item.description.trim() || typeof item.quantity !== 'number' || !Number.isFinite(item.quantity) || item.quantity <= 0 || typeof item.unitPrice !== 'number' || !Number.isFinite(item.unitPrice) || item.unitPrice < 0) throw orderItemError('Item ou preço inválido');
+    if (!Number.isFinite(item.quantity * item.unitPrice + (metadata.installationFee || 0) + (metadata.travelFee || 0))) throw orderItemError('Total do item inválido');
+    return { ...item, ...metadata, productId: undefined, pricingBasis: undefined };
+  }
+  if (!mongoose.isValidObjectId(item.productId)) throw orderItemError('Produto inválido');
+
   const hasMatchingSnapshot = previousItem
     && String(previousItem.productId) === String(item.productId)
     && previousItem.productName
@@ -65,6 +72,7 @@ export const buildOrderItems = async (items, existingItems = []) => Promise.all(
       productName: previousItem.productName,
       saleUnit: previousItem.saleUnit,
       unitPrice: previousItem.unitPrice,
+      pricingBasis: previousItem.pricingBasis?.basePrice !== undefined ? previousItem.pricingBasis.toObject?.() ?? previousItem.pricingBasis : undefined,
     }
     : undefined;
   const calculatedItem = buildCatalogOrderItem({
@@ -78,10 +86,18 @@ export const buildOrderItems = async (items, existingItems = []) => Promise.all(
     moldEnabled: item.measurements?.moldEnabled ?? item.moldEnabled ?? false,
     moldFactor: item.measurements?.moldFactor ?? item.moldFactor,
     pricingSnapshot,
+    ...metadata,
   });
 
   return { ...calculatedItem, ...(hasMatchingSnapshot ? { _id: previousItem._id } : {}) };
 }));
+
+export const itemDocumentDetails = (item) => {
+  const labels = {serviceName:'Serviço',material:'Material',finishing:'Acabamento',applicationLocation:'Local',promisedDate:'Prazo',artworkUrl:'Arte',installationNotes:'Instalação'};
+  const lines = Object.entries(labels).filter(([key])=>item[key]).map(([key,label])=>`${label}: ${key==='promisedDate'?fmtDate(item[key]):item[key]}`);
+  for (const [key,label] of [['installationFee','Instalação'],['travelFee','Deslocamento']]) if(item[key]) lines.push(`${label}: ${fmtMoney(item[key])}`);
+  return lines;
+};
 
 export const buildOrderPdfBuffer = async (order) => {
   const client = order?.client || {};
@@ -140,7 +156,7 @@ export const buildOrderPdfBuffer = async (order) => {
     doc.font('Helvetica').fontSize(10).fillColor('#111827').text('Orçamento aos cuidados do(a) Sr(a):', left, 133, { width: contentWidth, align: 'center' });
 
     labelValue('Data de Emissão', fmtDate(order.createdAt), left + 40, 153, 220);
-    labelValue('Prev. Entrega', fmtDate(order.deliveryDate), 350, 153, 190);
+    labelValue('Prev. Entrega', fmtDate(calendarDate(order.deliveryDate)), 350, 153, 190);
     labelValue('Cliente', client.name || 'Cliente não cadastrado', left + 48, 175, contentWidth - 96);
     labelValue('Endereço', client.address || '—', left + 48, 197, 230);
     labelValue('Bairro', client.neighborhood || '—', 355, 197, 180);
@@ -153,33 +169,71 @@ export const buildOrderPdfBuffer = async (order) => {
     labelValue('E-mail', client.email || '—', left + 48, 285, 230);
     labelValue('Contato', client.contact || '—', 355, 285, 180);
 
-    const tableY = 310;
     const cols = { code: left, description: left + 42, quantity: 320, unit: 385, discount: 450, total: 520 };
-    doc.rect(left, tableY, contentWidth, 22).fill('#000');
+    const pageBottom = 780;
+    const drawTableHeader = (y) => {
+    doc.rect(left, y, contentWidth, 22).fill('#000');
     doc.font('Helvetica-Bold').fontSize(9).fillColor('#fff');
-    doc.text('Cod', cols.code + 4, tableY + 6);
-    doc.text('Produto', cols.description + 4, tableY + 6);
-    doc.text('Qtde', cols.quantity, tableY + 6, { width: 45, align: 'right' });
-    doc.text('Valor Un.', cols.unit, tableY + 6, { width: 55, align: 'right' });
-    doc.text('Desc R$', cols.discount, tableY + 6, { width: 55, align: 'right' });
-    doc.text('Total', cols.total, tableY + 6, { width: 45, align: 'right' });
+    doc.text('Cod', cols.code + 4, y + 6);
+    doc.text('Produto', cols.description + 4, y + 6);
+    doc.text('Qtde', cols.quantity, y + 6, { width: 45, align: 'right' });
+    doc.text('Valor Un.', cols.unit, y + 6, { width: 55, align: 'right' });
+    doc.text('Desc R$', cols.discount, y + 6, { width: 55, align: 'right' });
+    doc.text('Total', cols.total, y + 6, { width: 45, align: 'right' });
 
-    let currentY = tableY + 30;
+    };
+    const newPage = (table = true) => {
+      doc.moveTo(left, 805).lineTo(right, 805).stroke('#111827');
+      doc.addPage();
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(`${documentLabel} ${order.number || ''}`, left, 30);
+      if (table) drawTableHeader(60);
+      return table ? 90 : 60;
+    };
+    // Wrap explicitly so a single long URL or installation note can span pages without PDFKit moving columns independently.
+    const wrapLines = (value, width) => {
+      const lines = [];
+      for (const paragraph of String(value).split('\n')) {
+        let line = '';
+        for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+          if (line && doc.widthOfString(`${line} ${word}`) <= width) { line += ` ${word}`; continue; }
+          if (line) { lines.push(line); line = ''; }
+          for (const character of word) {
+            if (line && doc.widthOfString(line + character) > width) { lines.push(line); line = ''; }
+            line += character;
+          }
+        }
+        lines.push(line);
+      }
+      return lines;
+    };
+    drawTableHeader(310);
+    let currentY = 340;
     tableRows.forEach((item, index) => {
-      const description = String(item.description || 'Item sem descrição');
-      const quantity = Number(item.quantity || 0);
-      const unitPrice = Number(item.unitPrice || 0);
-      const total = Number(item.total ?? quantity * unitPrice);
-      const descriptionHeight = doc.heightOfString(description, { width: 265, fontSize: 9 });
-      doc.font('Helvetica').fontSize(9).fillColor('#111827');
-      doc.text(item.code || String(index + 1).padStart(3, '0'), cols.code + 4, currentY);
-      doc.text(description, cols.description + 4, currentY, { width: 265 });
-      doc.text(quantity.toFixed(4).replace('.', ','), cols.quantity, currentY, { width: 45, align: 'right' });
-      doc.text(fmtMoney(unitPrice), cols.unit, currentY, { width: 55, align: 'right' });
-      doc.text('0,0000', cols.discount, currentY, { width: 55, align: 'right' });
-      doc.text(fmtMoney(total), cols.total, currentY, { width: 45, align: 'right' });
-      currentY += Math.max(22, descriptionHeight + 7);
+      doc.font('Helvetica').fontSize(9);
+      const lines = wrapLines([item.description || 'Item', ...itemDocumentDetails(item)].join('\n'), 235);
+      const lineHeight = doc.currentLineHeight(true);
+      let firstChunk = true;
+      while (lines.length) {
+        if (currentY + Math.min(lines.length * lineHeight + 7, 70) > pageBottom) currentY = newPage();
+        doc.font('Helvetica').fontSize(9).fillColor('#111827');
+        const count = Math.max(1, Math.floor((pageBottom - currentY - 7) / lineHeight));
+        const chunk = lines.splice(0, count);
+        doc.text(item.code || String(index + 1).padStart(3, '0'), cols.code + 4, currentY, { width: 35, lineBreak: false });
+        chunk.forEach((line, lineIndex) => doc.text(line, cols.description + 4, currentY + lineIndex * lineHeight, { width: 235, lineBreak: false }));
+        if (firstChunk) {
+          const quantity = Number(item.quantity || 0);
+          const unitPrice = Number(item.unitPrice || 0);
+          doc.text(quantity.toFixed(4).replace('.', ','), cols.quantity, currentY, { width: 45, align: 'right', lineBreak: false });
+          doc.text(fmtMoney(unitPrice), cols.unit, currentY, { width: 55, align: 'right', lineBreak: false });
+          doc.text('0,0000', cols.discount, currentY, { width: 55, align: 'right', lineBreak: false });
+          doc.text(fmtMoney(item.total ?? quantity * unitPrice), cols.total, currentY, { width: 45, align: 'right', lineBreak: false });
+        }
+        currentY += Math.max(22, chunk.length * lineHeight + 7);
+        firstChunk = false;
+        if (lines.length) currentY = newPage();
+      }
     });
+    if (currentY + 240 > pageBottom) currentY = newPage(false);
 
     doc.font('Helvetica-Oblique').fontSize(9).fillColor('#6b7280').text('—', cols.description + 4, currentY);
     doc.font('Helvetica-BoldOblique').fontSize(10).text('Total Desconto: ', 315, currentY, { continued: true });
@@ -192,13 +246,23 @@ export const buildOrderPdfBuffer = async (order) => {
     doc.rect(left, paymentY, contentWidth, 39).stroke('#111827');
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('Forma de Pagamento:', left + 185, paymentY + 11, { continued: true });
     doc.font('Helvetica').text(` ${paymentLabel}`);
-    doc.font('Helvetica-Bold').fontSize(9).text('Observações:', left + 42, paymentY + 46);
-    doc.moveTo(left + 42, paymentY + 66).lineTo(right, paymentY + 66).stroke('#6b7280');
-    doc.font('Helvetica-Bold').fontSize(9).text('Informações Complementares:', left + 42, paymentY + 78);
-    doc.moveTo(left, paymentY + 110).lineTo(right, paymentY + 110).stroke('#6b7280');
-    if (order.observations) doc.font('Helvetica').fontSize(9).text(order.observations, left + 42, paymentY + 48, { width: contentWidth - 55 });
-
-    const signatureY = Math.min(paymentY + 180, 700);
+    currentY = paymentY + 46;
+    doc.font('Helvetica-Bold').fontSize(9).text('Observa\u00e7\u00f5es:', left + 42, currentY);
+    currentY += 15;
+    doc.font('Helvetica').fontSize(9);
+    const observationLines = order.observations ? wrapLines(order.observations, contentWidth - 55) : [];
+    const observationLineHeight = doc.currentLineHeight(true);
+    for (const line of observationLines) {
+      if (currentY + observationLineHeight > pageBottom) currentY = newPage(false);
+      doc.font('Helvetica').fontSize(9).fillColor('#111827').text(line, left + 42, currentY, {width: contentWidth - 55, lineBreak: false});
+      currentY += observationLineHeight;
+    }
+    if (currentY + 130 > pageBottom) currentY = newPage(false);
+    const complementY = Math.max(currentY + 12, paymentY + 78 <= pageBottom - 120 && currentY >= paymentY ? paymentY + 78 : currentY + 12);
+    doc.moveTo(left + 42, currentY + 3).lineTo(right, currentY + 3).stroke('#6b7280');
+    doc.font('Helvetica-Bold').fontSize(9).text('Informa\u00e7\u00f5es Complementares:', left + 42, complementY);
+    doc.moveTo(left, complementY + 32).lineTo(right, complementY + 32).stroke('#6b7280');
+    const signatureY = Math.max(complementY + 75, currentY >= paymentY && paymentY + 180 < pageBottom ? paymentY + 180 : 0);
     doc.moveTo(left, signatureY).lineTo(left + 220, signatureY).stroke('#111827');
     doc.moveTo(right - 220, signatureY).lineTo(right, signatureY).stroke('#111827');
     doc.font('Helvetica').fontSize(8).fillColor('#111827').text(client.name || 'Cliente', left, signatureY + 7, { width: 220, align: 'center' });
@@ -210,7 +274,7 @@ export const buildOrderPdfBuffer = async (order) => {
 };
 
 // Monta texto para envio via WhatsApp (usado no front com wa.me)
-const buildWhatsappText = (order, client) => {
+export const buildWhatsappText = (order, client) => {
   const lines = [];
   const clientName = client?.name || 'Cliente não cadastrado';
   const subtotal = Number(order.totalValue || (order.items || []).reduce((sum, item) => sum + Number(item.total || 0), 0));
@@ -223,10 +287,11 @@ const buildWhatsappText = (order, client) => {
   lines.push('');
   lines.push(`Cliente: ${clientName}`);
   lines.push(`Data de Emissão: ${fmtDate(order.createdAt)}`);
-  lines.push(`Prev. Entrega: ${fmtDate(order.deliveryDate)}`);
+  lines.push(`Prev. Entrega: ${fmtDate(calendarDate(order.deliveryDate))}`);
   lines.push('');
   lines.push('*Cod | Produto | Qtde | Valor Un. | Desc R$ | Total*');
   (order.items || []).forEach((it, index) => {
+    lines.push(...itemDocumentDetails(it));
     lines.push(`${it.code || String(index + 1).padStart(3, '0')} | ${it.description} | ${Number(it.quantity || 0).toFixed(4).replace('.', ',')} | ${fmtMoney(it.unitPrice)} | R$ 0,00 | ${fmtMoney(it.total)}`);
   });
   lines.push(`Total Desconto: ${fmtMoney(discount)}`);
@@ -381,6 +446,75 @@ export const createReceivablesListHandler = ({ OrderModel = Order } = {}) => asy
 
 router.get('/receivables', createReceivablesListHandler());
 
+export function createProductionBoardHandler({ OrderModel = Order, now = () => new Date() } = {}) {
+  return async (req,res) => {
+    try {
+      const at = now();
+      const rows = await OrderModel.find({$or:[{status:'aprovado'},{status:'concluido',completedAt:{$gte:new Date(at-7*86400000)}}],quickSaleKey:{$exists:false}}).populate('client','name phone').lean();
+      return res.json(boardOrders(rows,req.query,at));
+    } catch(error) { return res.status(400).json({message:error.message}); }
+  };
+}
+export function createProductionAdvanceHandler({ OrderModel = Order } = {}) {
+  return async (req,res) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) throw new Error('Identificador de pedido inválido');
+      const order = await OrderModel.findById(req.params.id);
+      if (!order) return res.status(404).json({message:'Pedido não encontrado'});
+      if (order.status !== 'aprovado' || order.production === 'pausado') throw new Error('Pedido deve estar aprovado e não pausado');
+      const transition = nextProductionStage(order,req.body?.expectedStage,req.body?.skip ?? false);
+      const at = new Date();
+      const delivered = transition.toStage === 'entregue';
+      const filter = {_id:order._id,status:'aprovado',production:order.production,productionStage:order.productionStage ?? {$exists:false}};
+      const updated = await OrderModel.findOneAndUpdate(filter, {
+        $set: {productionStage:transition.toStage,skippedStages:transition.skippedStages,production:delivered?'concluido':'em_producao',...(delivered?{status:'concluido',completedAt:at}:{}),...(!order.productionStartedAt?{productionStartedAt:at}:{})},
+        $push: {history:{action:delivered?'concluido':req.body?.skip?'etapa_dispensada':'etapa_avancada',by:req.user.name,at,...transition}},
+      },{new:true,runValidators:true});
+      if (!updated) return res.status(409).json({message:'Etapa alterada; atualize o pedido'});
+      return res.json(updated);
+    } catch(error) { return res.status(error.statusCode || 400).json({message:error.message}); }
+  };
+}
+export function createQuickSaleHandler({ OrderModel = Order, ProductModel = Product } = {}) {
+  return async (req,res) => {
+    let quickSaleKey;
+    try {
+      const {items,paymentMethod,requestId} = req.body || {};
+      if (typeof requestId !== 'string' || !requestId.trim() || requestId.length>120) throw orderItemError('Identificador da venda inválido');
+      quickSaleKey = `${req.user._id}:${requestId}`;
+      const existing = await OrderModel.findOne({quickSaleKey});
+      if (existing) return res.json(existing);
+      if (!['pix','dinheiro','debito','credito'].includes(paymentMethod)) throw orderItemError('Forma de pagamento inválida');
+      if (!Array.isArray(items) || !items.length) throw orderItemError('Informe os itens da venda');
+      const quantities = new Map();
+      for (const item of items) {
+        if (!mongoose.isValidObjectId(item?.productId) || !Number.isSafeInteger(item.quantity) || item.quantity<=0) throw orderItemError('Produto ou quantidade inválida');
+        quantities.set(item.productId,(quantities.get(item.productId)||0)+item.quantity);
+      }
+      const pricedItems = await Promise.all([...quantities].map(async ([productId,quantity])=>{
+        const product = await ProductModel.findById(productId);
+        if (!product?.active || product.saleUnit!=='unit') throw orderItemError('Venda rápida aceita apenas produtos ativos por unidade');
+        try { return buildCatalogOrderItem({product,quantity}); } catch (error) { throw orderItemError(error.message); }
+      }));
+      const finalValue = Math.ceil(Math.round(pricedItems.reduce((sum,item)=>sum+item.total,0)*100)/100);
+      if (!Number.isFinite(finalValue)) throw orderItemError('Total inválido');
+      const at = new Date();
+      const order = await OrderModel.create({quickSaleKey,client:null,items:pricedItems,finalValue,amountPaid:finalValue,paymentMethod,paymentStatus:'quitado',status:'concluido',production:'concluido',productionStage:'entregue',completedAt:at,createdBy:req.user._id,payments:[{amount:finalValue,method:paymentMethod,type:'pagamento',paidAt:at}],history:[{action:'venda_rapida',by:req.user.name,at,paymentMethod}]});
+      return res.status(201).json(order);
+    } catch(error) {
+      if (error.code===11000 && quickSaleKey) {
+        try { const existing = await OrderModel.findOne({quickSaleKey}); if(existing) return res.json(existing); } catch { return res.status(500).json({message:'Falha ao confirmar venda; tente novamente com a mesma venda'}); }
+      }
+      if (error.statusCode === 400 || error.name === 'ValidationError') return res.status(400).json({message:error.message});
+      return res.status(500).json({message:'Falha ao confirmar venda; tente novamente com a mesma venda'});
+    }
+  };
+}
+
+router.get('/production-board', createProductionBoardHandler());
+router.post('/quick-sale', createQuickSaleHandler());
+router.post('/:id/production/advance', createProductionAdvanceHandler());
+
 router.get('/:id', async (req, res) => {
   const order = await Order.findById(req.params.id).populate('client');
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
@@ -399,11 +533,11 @@ router.post('/', async (req, res) => {
     if (!Array.isArray(req.body?.items) || !req.body.items.some((item) => item?.productId || item?.description?.trim())) {
       return res.status(400).json({ message: 'Informe pelo menos um item do pedido' });
     }
-    const fields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
+    const fields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod', 'priority', 'skippedStages'];
     const payload = Object.fromEntries(fields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
     if (payload.client === '') payload.client = null;
     payload.items = await buildOrderItems(payload.items);
-    const order = await Order.create({ ...payload, createdBy: req.user._id });
+    const order = await Order.create({ ...payload, productionStage: initialProductionStage(payload.skippedStages), createdBy: req.user._id });
     initializeNewOrder(order, { quickOrder: req.body.quickOrder === true, userName: req.user.name });
     await order.save();
     res.status(201).json(order);
@@ -436,6 +570,7 @@ router.post('/merge', adminOnly, async (req, res) => {
     const totalPaid = orders.reduce((sum, order) => sum + (order.amountPaid || 0), 0);
     const sourceNumbers = orders.map((order) => `#${order.number}`).join(', ');
     [merged] = await Order.create([{
+      ...mergeProductionWorkflow(orders),
       client: orders[0].client,
       items: orders.flatMap((order) => order.items.map((item) => item.toObject())),
       discount: orders.reduce((sum, order) => sum + (order.discount || 0), 0),
@@ -446,6 +581,7 @@ router.post('/merge', adminOnly, async (req, res) => {
         { action: 'agregado', by: req.user.name, note: `Origem: ${sourceNumbers}` },
       ],
       status: allConcluded ? 'concluido' : hasApproved ? 'aprovado' : 'pendente',
+      priority: orders.some(order=>order.priority==='urgente') ? 'urgente' : orders.some(order=>order.priority==='alta') ? 'alta' : 'normal',
       production: allConcluded ? 'concluido' : hasProduction ? 'em_producao' : 'nao_iniciado',
       deliveryDate: orders.map((order) => order.deliveryDate).filter(Boolean).sort((a, b) => a - b)[0],
       observations: `Agregado dos pedidos ${sourceNumbers}.`,
@@ -468,7 +604,7 @@ router.post('/merge', adminOnly, async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const editableFields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod'];
+    const editableFields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod', 'priority', 'skippedStages'];
     const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
     if (changes.client === '') changes.client = null;
     if (changes.client && (!mongoose.isValidObjectId(changes.client) || !await Client.exists({ _id: changes.client }))) {
@@ -476,6 +612,7 @@ router.put('/:id', async (req, res) => {
     }
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+    if (order.quickSaleKey) return res.status(400).json({ message: 'Vendas de balcão concluídas possuem recibo individual e não podem ser editadas' });
     if (order.status !== 'pendente' && 'downPayment' in changes
       && Number(changes.downPayment) !== Number(order.downPayment || 0)) {
       return res.status(400).json({ message: 'A entrada não pode ser alterada após a aprovação do pedido' });
@@ -492,10 +629,19 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', adminOnly, async (req, res) => {
-  await Order.findByIdAndDelete(req.params.id);
-  res.json({ ok: true });
-});
+export function createOrderDeleteHandler({ OrderModel = Order } = {}) {
+  return async (req, res) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) throw new Error('Identificador de pedido inválido');
+      const order = await OrderModel.findById(req.params.id);
+      if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+      if (order.quickSaleKey) throw new Error('Vendas de balcão mantêm o recibo para impedir cobrança duplicada e não podem ser excluídas');
+      await OrderModel.findByIdAndDelete(req.params.id);
+      return res.json({ ok: true });
+    } catch (error) { return res.status(400).json({ message: error.message }); }
+  };
+}
+router.delete('/:id', adminOnly, createOrderDeleteHandler());
 
 // ---- Ações de fluxo ----
 
@@ -530,44 +676,28 @@ router.post('/:id/approve', async (req, res) => {
   }
 });
 
-// Iniciar produção
-router.post('/:id/production/start', async (req, res) => {
-  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
-  const order = await Order.findById(req.params.id);
-  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-  if (order.status !== 'aprovado' || order.production !== 'nao_iniciado') return res.status(400).json({ message: 'O pedido precisa estar aprovado e não iniciado para começar a produção' });
-  order.production = 'em_producao';
-  if (!order.productionStartedAt) order.productionStartedAt = new Date();
-  order.history.push({ action: 'producao_iniciada', by: req.user.name });
-  await order.save();
-  res.json(order);
-});
-
-// Pausar produção
-router.post('/:id/production/pause', async (req, res) => {
-  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
-  const order = await Order.findById(req.params.id);
-  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-  if (order.production !== 'em_producao') return res.status(400).json({ message: 'Somente uma produção ativa pode ser pausada' });
-  if (!req.body?.note?.trim()) return res.status(400).json({ message: 'O motivo da pausa é obrigatório' });
-  order.production = 'pausado';
-  order.productionPausedAt = new Date();
-  order.history.push({ action: 'pausado', by: req.user.name, note: req.body.note.trim() });
-  await order.save();
-  res.json(order);
-});
-
-// Retomar produção
-router.post('/:id/production/resume', async (req, res) => {
-  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
-  const order = await Order.findById(req.params.id);
-  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-  if (order.production !== 'pausado') return res.status(400).json({ message: 'Somente uma produção pausada pode ser retomada' });
-  order.production = 'em_producao';
-  order.history.push({ action: 'retomado', by: req.user.name });
-  await order.save();
-  res.json(order);
-});
+export function createProductionStateHandler(action, { OrderModel = Order } = {}) {
+  const requiredProduction = {start:'nao_iniciado',pause:'em_producao',resume:'pausado'}[action];
+  return async (req,res) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) throw new Error('Identificador de pedido inv\u00e1lido');
+      const order = await OrderModel.findById(req.params.id);
+      if (!order) return res.status(404).json({message:'Pedido n\u00e3o encontrado'});
+      if (order.status !== 'aprovado' || order.production !== requiredProduction) throw new Error('O pedido n\u00e3o permite esta a\u00e7\u00e3o de produ\u00e7\u00e3o');
+      if (action === 'pause' && (typeof req.body?.note !== 'string' || !req.body.note.trim())) throw new Error('O motivo da pausa \u00e9 obrigat\u00f3rio');
+      const at = new Date();
+      const updated = await OrderModel.findOneAndUpdate({_id:order._id,status:'aprovado',production:requiredProduction,productionStage:order.productionStage ?? {$exists:false}}, {
+        $set:{production:action==='pause'?'pausado':'em_producao',...(action==='pause'?{productionPausedAt:at}:{}),...(action==='start'&&!order.productionStartedAt?{productionStartedAt:at}:{})},
+        $push:{history:{action:{start:'producao_iniciada',pause:'pausado',resume:'retomado'}[action],by:req.user.name,at,...(action==='pause'?{note:req.body.note.trim()}:{})}},
+      },{new:true,runValidators:true});
+      if (!updated) return res.status(409).json({message:'Produ\u00e7\u00e3o alterada; atualize o pedido'});
+      return res.json(updated);
+    } catch(error) { return res.status(400).json({message:error.message}); }
+  };
+}
+router.post('/:id/production/start', createProductionStateHandler('start'));
+router.post('/:id/production/pause', createProductionStateHandler('pause'));
+router.post('/:id/production/resume', createProductionStateHandler('resume'));
 
 // Concluir pedido (produção concluída + status concluído)
 router.post('/:id/complete', async (req, res) => {
@@ -575,6 +705,8 @@ router.post('/:id/complete', async (req, res) => {
   const order = await Order.findById(req.params.id);
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
   if (order.status !== 'aprovado' || !['em_producao', 'pausado'].includes(order.production)) return res.status(400).json({ message: 'O pedido precisa estar em produção para ser concluído' });
+  if (order.productionStage && nextProductionStage(order, order.productionStage).toStage !== 'entregue') return res.status(400).json({ message: 'Avance pelas etapas antes de concluir o pedido' });
+  order.productionStage = 'entregue';
   order.production = 'concluido';
   order.status = 'concluido';
   order.completedAt = new Date();

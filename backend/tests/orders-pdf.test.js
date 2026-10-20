@@ -91,3 +91,25 @@ test('buildOrderPdfBuffer should return a PDF buffer for a valid order', async (
   assert.ok(fs.existsSync(filePath));
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
+import zlib from 'node:zlib';
+const pdfStreams = (buffer) => [...buffer.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map((match) => {
+  try { return zlib.inflateSync(Buffer.from(match[1], 'latin1')).toString('latin1'); } catch { return ''; }
+});
+test('rich items paginate with repeated table headers and complete metadata', async () => {
+  const order = { number: 'MANY', items: Array.from({ length: 14 }, (_, index) => ({ description: `Banner ${index}`, quantity: 2, unitPrice: 10, total: 20, serviceName: 'Impressao', material: 'Vinil', finishing: 'Laminado', applicationLocation: 'Fachada', promisedDate: '2026-10-20', artworkUrl: `https://example.org/${'arte'.repeat(80)}`, installationNotes: `Nota${index} ${'detalhes de instalacao '.repeat(30)}` })), finalValue: 280, observations: 'Observacoes finais' };
+  const buffer = await buildOrderPdfBuffer(order);
+  const pageCount = [...buffer.toString('latin1').matchAll(/\/Type \/Page\b/g)].length;
+  const streams = pdfStreams(buffer).filter(stream => stream.includes('BT'));
+  const decoded = streams.map(stream => [...stream.matchAll(/<([0-9a-f]+)>/gi)].map(match => Buffer.from(match[1], 'hex').toString('latin1')).join(''));
+  const headerPages = decoded.filter(text => text.includes('Produto')).length;
+  assert.ok(pageCount > 1);
+  assert.ok(headerPages > 1, 'each continued item page must repeat the table header');
+  assert.ok(decoded.some(text => text.includes('Nota13')), 'last metadata must remain in PDF');
+  assert.ok(streams.every(stream => !/1 0 0 1 [\d.]+ -[\d.]+ Tm/.test(stream)), 'text coordinates must remain above the page bottom');
+});
+test('single huge item and long observations paginate without losing their tails', async () => {
+  const buffer = await buildOrderPdfBuffer({ number: 'LONG', items: [{ description: 'Banner', quantity: 1, unitPrice: 10, installationNotes: 'Detalhes '.repeat(1500) + 'FIMITEM' }], observations: 'Observacoes '.repeat(1500) + 'FIMOBS' });
+  const streams = pdfStreams(buffer).join('\n').toLowerCase();
+  for (const marker of ['FIMITEM', 'FIMOBS']) assert.ok(streams.includes(Buffer.from(marker).toString('hex')), marker);
+  assert.ok(!/1 0 0 1 [\d.]+ -[\d.]+ tm/.test(streams));
+});

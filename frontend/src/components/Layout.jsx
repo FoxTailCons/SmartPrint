@@ -1,6 +1,7 @@
+import { useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package,
+  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package, Zap, Columns3,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import BrandMark from './BrandMark.jsx';
@@ -8,6 +9,8 @@ import BrandMark from './BrandMark.jsx';
 const menu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/pedidos', label: 'Pedidos / Orçamentos', icon: ClipboardList },
+  { to: '/pedido-rapido', label: 'Pedido rápido · F2', icon: Zap },
+  { to: '/producao', label: 'Produção', icon: Columns3 },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/produtos', label: 'Produtos', icon: Package, adminOnly: true },
   { to: '/contas-receber', label: 'Contas a Receber', icon: Wallet },
@@ -19,6 +22,16 @@ const roleLabel = { admin: 'Administrador', atendente: 'Atendente', producao: 'P
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const shortcut = (event) => {
+      if (event.key !== 'F2' || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+      event.preventDefault();
+      navigate('/pedido-rapido');
+    };
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen lg:flex">

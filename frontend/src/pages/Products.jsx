@@ -7,13 +7,14 @@ import Pagination from '../components/Pagination.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { getListState } from '../hooks/listState.js';
 import { useServerPagination } from '../hooks/useServerPagination.js';
+import { getQuantityPrice, parsePriceTiers } from './catalogPricing.js';
 
 const saleUnits = [
   { value: 'unit', label: 'Unidade' },
   { value: 'linear_meter', label: 'Metro linear' },
   { value: 'square_meter', label: 'Metro quadrado (m²)' },
 ];
-const emptyForm = { name: '', code: '', saleUnit: 'unit', price: '', active: true };
+const emptyForm = { name: '', code: '', saleUnit: 'unit', price: '', active: true, priceTiers: [] };
 const PAGE_SIZE = 20;
 const unitLabel = (value) => saleUnits.find((unit) => unit.value === value)?.label || value;
 
@@ -50,6 +51,7 @@ export default function Products() {
       saleUnit: product.saleUnit,
       price: String(product.price),
       active: product.active,
+      priceTiers: (product.priceTiers || []).map((tier) => ({ minQuantity: String(tier.minQuantity), price: String(tier.price) })),
     });
     setFormOpen(true);
   };
@@ -59,7 +61,9 @@ export default function Products() {
     setSaving(true);
     setError('');
     try {
-      const body = { ...form, price: Number(form.price) };
+      const price = Number(form.price);
+      if (form.price.trim() === '' || !Number.isFinite(price) || price < 0) throw new Error('Informe um preço válido, maior ou igual a zero.');
+      const body = { ...form, price, priceTiers: parsePriceTiers(form.priceTiers) };
       await api(editingId ? `/api/products/${editingId}` : '/api/products', {
         method: editingId ? 'PUT' : 'POST',
         body,
@@ -86,6 +90,7 @@ export default function Products() {
             code: product.code || '',
             saleUnit: product.saleUnit,
             price: product.price,
+            priceTiers: product.priceTiers || [],
             active: true,
           },
         });
@@ -160,6 +165,9 @@ export default function Products() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{product.name}</div>
+                  {(product.priceTiers || []).slice().sort((a, b) => a.minQuantity - b.minQuantity).map((tier) => (
+                    <div key={tier.minQuantity} className="text-xs text-slate-600">A partir de {tier.minQuantity}: {fmt(getQuantityPrice(product, tier.minQuantity).unitPrice)}</div>
+                  ))}
                   <div className="text-xs text-slate-500">
                     {product.code ? `${product.code} · ` : ''}{unitLabel(product.saleUnit)}
                     {!product.active && <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-slate-500">Inativo</span>}
@@ -203,6 +211,22 @@ export default function Products() {
             <label className="mb-1 block text-sm font-medium">Preço por {form.saleUnit === 'unit' ? 'unidade' : form.saleUnit === 'linear_meter' ? 'metro linear' : 'metro quadrado (m²)'}</label>
             <input required type="number" min="0" step="any" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" />
           </div>
+          <fieldset className="space-y-3 rounded-lg border p-3">
+            <legend className="px-1 text-sm font-medium">Preços por quantidade</legend>
+            <p className="text-xs text-slate-500">O mínimo é inclusivo: acima de 20 unidades significa mínimo 21. Sem faixa aplicável, vale o preço base.</p>
+            {form.priceTiers.map((tier, index) => (
+              <div key={index} className="flex items-end gap-2">
+                <label className="min-w-0 flex-1 text-sm">Mínimo
+                  <input aria-label={`Mínimo da faixa ${index + 1}`} required type="number" min="0" step="any" value={tier.minQuantity} onChange={(event) => setForm({ ...form, priceTiers: form.priceTiers.map((row, rowIndex) => rowIndex === index ? { ...row, minQuantity: event.target.value } : row) })} className="mt-1 w-full rounded-lg border px-3 py-2" />
+                </label>
+                <label className="min-w-0 flex-1 text-sm">Preço
+                  <input aria-label={`Preço da faixa ${index + 1}`} required type="number" min="0" step="any" value={tier.price} onChange={(event) => setForm({ ...form, priceTiers: form.priceTiers.map((row, rowIndex) => rowIndex === index ? { ...row, price: event.target.value } : row) })} className="mt-1 w-full rounded-lg border px-3 py-2" />
+                </label>
+                <button type="button" aria-label={`Remover faixa ${index + 1}`} onClick={() => setForm({ ...form, priceTiers: form.priceTiers.filter((_, rowIndex) => rowIndex !== index) })} className="rounded-lg border p-2.5"><X size={16} /></button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setForm({ ...form, priceTiers: [...form.priceTiers, { minQuantity: '', price: '' }] })} className="rounded-lg border px-3 py-2 text-sm">Adicionar faixa</button>
+          </fieldset>
           {editingId && (
             <label className="inline-flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} />

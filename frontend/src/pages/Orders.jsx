@@ -11,6 +11,7 @@ import { getListState } from '../hooks/listState.js';
 import { useServerPagination } from '../hooks/useServerPagination.js';
 import OrderForm from './OrderForm.jsx';
 import { getOrderDocumentLabel } from './orderPresentation.js';
+import { getDeadline, getProductionStage, productionStages } from './printshop.js';
 
 const PAGE_SIZE = 20;
 const filters = [
@@ -43,9 +44,12 @@ export default function Orders() {
           <h1 className="text-2xl font-bold">Pedidos / Orçamentos</h1>
           <p className="text-sm text-slate-500">{total} pedido(s)/orçamento(s) encontrado(s)</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <Link to="/pedido-rapido" className="rounded-lg border bg-white px-4 py-2 text-sm font-medium">Pedido rápido · F2</Link>
         <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
           <Plus size={16} /> Novo Orçamento
         </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-4 flex flex-wrap gap-3 items-center">
@@ -106,7 +110,10 @@ export default function Orders() {
                   </td>
                   <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
                   <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
-                  <td className="px-5 py-3"><StatusBadge value={o.production} /></td>
+                  <td className="px-5 py-3"><StatusBadge value={o.production} />
+                    <div className="mt-1 text-xs text-slate-500">{productionStages.find(([key]) => key === getProductionStage(o))?.[1]}</div>
+                    <div className={`mt-1 text-xs ${getDeadline(o).overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{getDeadline(o).label}</div>
+                  </td>
                   <td className="px-5 py-3"><StatusBadge value={o.paymentStatus} /></td>
                   <td className="px-5 py-3 text-right">{fmt(o.amountPaid)}</td>
                   <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>

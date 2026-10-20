@@ -10,6 +10,8 @@ import Clients from './pages/Clients.jsx';
 import Payables from './pages/Payables.jsx';
 import Receivables from './pages/Receivables.jsx';
 import Products from './pages/Products.jsx';
+import QuickOrder from './pages/QuickOrder.jsx';
+import Production from './pages/Production.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -29,6 +31,8 @@ export default function App() {
       <Route path="/pedidos/:id/editar" element={<Protected><OrderForm /></Protected>} />
       <Route path="/clientes" element={<Protected><Clients /></Protected>} />
       <Route path="/produtos" element={<Protected><Products /></Protected>} />
+      <Route path="/pedido-rapido" element={<Protected><QuickOrder /></Protected>} />
+      <Route path="/producao" element={<Protected><Production /></Protected>} />
       <Route path="/contas-pagar" element={<Protected><Payables /></Protected>} />
       <Route path="/contas-receber" element={<Protected><Receivables /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />

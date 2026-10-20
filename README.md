@@ -145,3 +145,18 @@ No cadastro de um pedido, selecione um produto do catálogo e informe a quantida
 - Gerar PDF do orçamento (ex: pdfmake)
 - Integração com WhatsApp Business API (ao invés de wa.me)
 - Backup automático do MongoDB Atlas
+
+## Atendimento e produção da gráfica
+
+- **Pedido rápido (`/pedido-rapido`, F2):** escolha um produto por unidade, informe quantidade e pagamento e confirme. Cliente é opcional. A API calcula o preço, registra o recebimento integral e entrega o serviço; a confirmação permite imprimir o recibo. Esse fluxo não entra na fila de produção.
+- **Falha de conexão no balcão:** use “Tentar a mesma venda novamente”. A tentativa fica salva na sessão do navegador por usuário, inclusive após refresh ou navegar para outra tela, para consultar o mesmo pedido sem novo recebimento. Não limpe o armazenamento nem feche a aba enquanto uma venda estiver pendente. Uma rejeição explícita de dados libera a correção do formulário.
+- **Faixas no produto:** administradores cadastram mínimos inclusivos e preços em Produtos. Para “acima de 20 un”, informe mínimo **21**; para “acima de 300 un”, mínimo **301**. O maior mínimo atingido define o preço unitário. Não há conversão automática dos SKUs antigos nem preços comerciais inventados: cadastre a tabela real no produto escolhido. Pedidos salvos mantêm a tabela de preço histórica; legados sem tabela mantêm o preço unitário salvo.
+- **Calculadora:** em um orçamento, use “Calcular por dimensão”: largura × altura em metros ou centímetros, peças, material m² do catálogo e instalação/deslocamento opcionais. Os acréscimos são cobrados uma vez por item. O resultado preenche o item com serviço, medidas e material; itens livres continuam disponíveis.
+- **Especificações por item:** abra “Material, acabamento, arte e instalação” para preencher material, acabamento, local de aplicação, prazo, link HTTP(S) da arte e notas de instalação. Os campos preenchidos aparecem no detalhe, PDF e texto preparado para WhatsApp. Upload de arquivos não faz parte desta versão.
+- **Produção (`/producao`):** Arte → Aprovação do cliente → Impressão → Instalação → Entregue. A tela atende também ao perfil Produção, permite avançar etapas, abrir detalhes e filtrar prazo/prioridade. Etapas desnecessárias podem ser dispensadas no orçamento ou durante a execução. Pausar/retomar continua disponível no detalhe. Entrega não quita pagamento automaticamente.
+- O Kanban mostra pedidos aprovados e entregues nos últimos sete dias, priorizando urgência e prazo. Usa a data de entrega ou, na ausência dela, o primeiro prazo por item. Datas civis seguem o calendário de São Paulo. Pedidos legados mantêm compatibilidade: produção ativa/pausada corresponde a Impressão; concluídos a Entregue.
+- Vendas rápidas concluídas possuem recibo individual e não podem ser editadas, agregadas ou excluídas, preservando a identificação usada em novas tentativas.
+
+### Verificação local
+
+Execute `npm test` em `backend` e `frontend`, e `npm run build` em `frontend`. Não é necessário acessar o banco de produção para essas suítes. Os testes de persistência usam modelos simulados; a validação com MongoDB real deve ser realizada em homologação antes de publicar.

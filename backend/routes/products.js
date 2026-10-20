@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import Product from '../models/Product.js';
+import { normalizePriceTiers } from '../services/orderItemPricing.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { saleUnits } from '../models/Product.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
@@ -20,12 +21,15 @@ const normalizeInput = (body, { allowActive = false } = {}) => {
     return { error: 'Status do produto inválido' };
   }
 
+  let priceTiers;
+  try { priceTiers = normalizePriceTiers(body?.priceTiers); } catch (error) { return { error: error.message }; }
   return {
     value: {
       name,
       code: code || undefined,
       saleUnit,
       price,
+      priceTiers,
       ...(allowActive && body.active !== undefined ? { active: body.active } : {}),
     },
   };
