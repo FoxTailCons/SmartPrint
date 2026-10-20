@@ -1,8 +1,14 @@
 ﻿import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createQuickSaleCheckout } from './quickSaleCheckout.js';
+import { createQuickSaleCheckout, getQuickSaleUserId } from './quickSaleCheckout.js';
 
 const input = { product: { _id: 'p1', active: true, saleUnit: 'unit' }, quantity: 21, paymentMethod: 'pix' };
+test('resolves the authenticated user id returned by the API', () => {
+  assert.equal(getQuickSaleUserId({ id: 'user-a' }), 'user-a');
+  assert.equal(getQuickSaleUserId({ _id: 'user-b' }), 'user-b');
+  assert.equal(getQuickSaleUserId(null), undefined);
+});
+
 test('uncertain failure retries the exact same request and next sale gets a fresh key', async () => {
   const bodies = [];
   let sequence = 0;

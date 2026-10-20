@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, fmt } from '../api.js';
 import PaymentReceiptPrintButton from '../components/PaymentReceiptPrintButton.jsx';
 import { getQuantityPrice } from './catalogPricing.js';
-import { createQuickSaleCheckout } from './quickSaleCheckout.js';
+import { createQuickSaleCheckout, getQuickSaleUserId } from './quickSaleCheckout.js';
 import { createPaymentReceipt } from './paymentReceipt.js';
 import { roundOrderTotalUp } from './orderPresentation.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -29,6 +29,7 @@ export function QuickSaleResult({ order, onNewSale }) {
 
 export default function QuickOrder() {
   const { user } = useAuth();
+  const userId = getQuickSaleUserId(user);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -53,12 +54,12 @@ export default function QuickOrder() {
     setProductSearch('');
     setQuantity('1');
     setPaymentMethod('pix');
-    if (!user?._id) return;
+    if (!userId) return;
     try {
       if (!window.sessionStorage) throw new Error('Armazenamento de sessão indisponível.');
       checkout.current = createQuickSaleCheckout((body) => api('/api/orders/quick-sale', { method: 'POST', body }), undefined, {
         storage: window.sessionStorage,
-        storageKey: `sp_quick_sale:${user._id}`,
+        storageKey: `sp_quick_sale:${userId}`,
       });
       const pending = checkout.current.getPending();
       if (pending) {
@@ -72,7 +73,7 @@ export default function QuickOrder() {
     } catch (storageError) {
       setError(`Não foi possível recuperar ou proteger a tentativa de venda: ${storageError.message}`);
     }
-  }, [user?._id]);
+  }, [userId]);
 
   useEffect(() => {
     let current = true;

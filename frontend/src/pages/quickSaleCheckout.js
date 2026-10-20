@@ -1,3 +1,5 @@
+export const getQuickSaleUserId = (user) => user?.id ?? user?._id;
+
 export function createQuickSaleCheckout(post, createId = () => crypto.randomUUID(), { storage, storageKey } = {}) {
   const saved = storage?.getItem(storageKey);
   let request = saved ? JSON.parse(saved) : null;
