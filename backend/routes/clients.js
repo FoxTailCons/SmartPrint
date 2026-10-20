@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import Client from '../models/Client.js';
 import Order from '../models/Order.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 import { hideOrderCosts } from '../services/orderCostVisibility.js';
@@ -53,9 +53,9 @@ export const createClientListHandler = ({ ClientModel = Client, OrderModel = Ord
   return res.json(pagination ? buildPage(withStats, page, pagination.pageSize, total) : withStats);
 };
 
-router.get('/', createClientListHandler());
+router.get('/', allowRoles('admin', 'atendente'), createClientListHandler());
 
-router.get('/:id', asyncRoute(async (req, res) => {
+router.get('/:id', allowRoles('admin', 'atendente'), asyncRoute(async (req, res) => {
   const client = await Client.findById(req.params.id);
   if (!client) return res.status(404).json({ message: 'Cliente não encontrado' });
   const allOrders = await Order.find({ client: client._id }).sort({ createdAt: -1 });
@@ -78,7 +78,7 @@ export const getPaymentPreference = (orders) => {
   return methods.find((payment) => payment.method)?.method || '';
 };
 
-router.post('/:id/reorder/:orderId', asyncRoute(async (req, res) => {
+router.post('/:id/reorder/:orderId', allowRoles('admin', 'atendente'), asyncRoute(async (req, res) => {
   const client = await Client.findById(req.params.id);
   if (!client) return res.status(404).json({ message: 'Cliente não encontrado' });
   const previous = await Order.findOne({ _id: req.params.orderId, client: client._id });
@@ -104,7 +104,7 @@ router.post('/:id/reorder/:orderId', asyncRoute(async (req, res) => {
   return res.status(201).json(req.user?.role === 'admin' ? order : hideOrderCosts(order));
 }));
 
-router.post('/', async (req, res) => {
+router.post('/', allowRoles('admin', 'atendente'), async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
     const phone = String(req.body?.phone || '').trim();
@@ -116,7 +116,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', allowRoles('admin', 'atendente'), async (req, res) => {
   const name = String(req.body?.name || '').trim();
   const phone = String(req.body?.phone || '').trim();
   if (!name || !phone) return res.status(400).json({ message: 'Nome e telefone são obrigatórios' });

@@ -24,3 +24,10 @@ export const adminOnly = (req, res, next) => {
   }
   next();
 };
+
+export const allowRoles = (...roles) => function allowRolesMiddleware(req, res, next) {
+  if (!roles.includes(req.user?.role)) {
+    return res.status(403).json({ message: 'Acesso restrito ao perfil' });
+  }
+  next();
+};

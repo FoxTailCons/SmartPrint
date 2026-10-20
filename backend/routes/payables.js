@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
 import Payable from '../models/Payable.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 
 const router = Router();
 router.use(protect);
+router.use(allowRoles('admin'));
 
 export const createPayableListHandler = ({ PayableModel = Payable } = {}) => async (req, res) => {
   const pagination = parsePagination(req.query);

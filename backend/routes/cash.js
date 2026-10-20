@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import CashSession from '../models/CashSession.js';
 import Order from '../models/Order.js';
-import { protect } from '../middleware/auth.js';
+import { protect, allowRoles } from '../middleware/auth.js';
 
 const methods = ['dinheiro', 'pix', 'debito', 'credito', 'parcelado'];
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch((error) => {
@@ -61,9 +61,7 @@ export const buildCashReport = (session, orders, dateKey) => {
 
 const router = Router();
 router.use(protect);
-router.use((req, res, next) => req.user?.role === 'admin' || req.user?.role === 'atendente'
-  ? next()
-  : res.status(403).json({ message: 'Acesso restrito ao balcão' }));
+router.use(allowRoles('admin', 'atendente'));
 
 const findSession = async (dateKey) => CashSession.findOne({ dateKey });
 const getReport = async (session, dateKey) => {

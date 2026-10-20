@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import Product from '../models/Product.js';
 import { normalizePriceTiers } from '../services/orderItemPricing.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
 import { productCategories, saleUnits } from '../models/Product.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 
@@ -86,7 +86,7 @@ export function createProductsRouter({
   const router = Router();
   router.use(protectMiddleware);
 
-  router.get('/', async (req, res, next) => {
+  router.get('/', allowRoles('admin', 'atendente'), async (req, res, next) => {
     const pagination = parsePagination(req.query);
     if (pagination?.error) {
       return res.status(400).json({ message: pagination.error });
@@ -134,7 +134,7 @@ export function createProductsRouter({
     }
   });
 
-  router.get('/:id', async (req, res, next) => {
+  router.get('/:id', allowRoles('admin', 'atendente'), async (req, res, next) => {
     try {
       const product = await ProductModel.findById(req.params.id);
       if (!product || (!product.active && req.user?.role !== 'admin')) {

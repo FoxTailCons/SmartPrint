@@ -2,12 +2,13 @@ import { Router } from 'express';
 import Order from '../models/Order.js';
 import Payable from '../models/Payable.js';
 import Client from '../models/Client.js';
-import { protect } from '../middleware/auth.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
 import { productCategoryLabels } from '../models/Product.js';
 
 const router = Router();
 router.use(protect);
+router.use(adminOnly);
 
 export const filterOrdersForDashboard = (orders = [], filters = {}) => {
   const { clientId, period } = filters;

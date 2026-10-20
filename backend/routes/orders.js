@@ -10,7 +10,7 @@ import { buildCatalogOrderItem } from '../services/orderItemPricing.js';
 import { receiveDownPayment } from '../services/orderInstallments.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
 import { productCategories, productCategoryLabels } from '../models/Product.js';
 import { getOrderSettings } from '../config/orderSettings.js';
 import { calculateOrderFinalValue, registeredClientError, requiresRegisteredClient } from '../services/orderClientRequirement.js';
@@ -419,7 +419,7 @@ export const createOrderListHandler = ({ OrderModel = Order, ClientModel = Clien
   return res.json(buildPage(items, page, pagination.pageSize, total));
 };
 
-router.get('/', createOrderListHandler());
+router.get('/', allowRoles('admin', 'atendente'), createOrderListHandler());
 
 const confirmedOrdersFilter = {
   $or: [
@@ -525,7 +525,7 @@ export const createReceivablesListHandler = ({ OrderModel = Order } = {}) => asy
   });
 };
 
-router.get('/receivables', createReceivablesListHandler());
+router.get('/receivables', allowRoles('admin', 'atendente'), createReceivablesListHandler());
 
 export function createProductionBoardHandler({ OrderModel = Order, now = () => new Date() } = {}) {
   return async (req,res) => {
@@ -592,8 +592,8 @@ export function createQuickSaleHandler({ OrderModel = Order, ProductModel = Prod
   };
 }
 
-router.get('/production-board', createProductionBoardHandler());
-router.get('/settings', (req, res) => {
+router.get('/production-board', allowRoles('admin', 'atendente', 'producao'), createProductionBoardHandler());
+router.get('/settings', allowRoles('admin', 'atendente'), (req, res) => {
   try {
     const { clientRequiredThreshold } = getOrderSettings();
     return res.json({ clientRequiredThreshold });
@@ -601,10 +601,10 @@ router.get('/settings', (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 });
-router.post('/quick-sale', createQuickSaleHandler());
-router.post('/:id/production/advance', createProductionAdvanceHandler());
+router.post('/quick-sale', allowRoles('admin', 'atendente'), createQuickSaleHandler());
+router.post('/:id/production/advance', allowRoles('admin', 'producao'), createProductionAdvanceHandler());
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', allowRoles('admin', 'atendente', 'producao'), async (req, res) => {
   const order = await Order.findById(req.params.id).populate('client');
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
   res.json(order);
@@ -652,7 +652,7 @@ export function createOrderCreateHandler({
     }
   };
 }
-router.post('/', createOrderCreateHandler());
+router.post('/', allowRoles('admin', 'atendente'), createOrderCreateHandler());
 
 // Consolida dois ou mais pedidos do mesmo cliente em um único pedido.
 router.post('/merge', adminOnly, async (req, res) => {
@@ -759,7 +759,7 @@ export function createOrderUpdateHandler({
     }
   };
 }
-router.put('/:id', createOrderUpdateHandler());
+router.put('/:id', allowRoles('admin', 'atendente'), createOrderUpdateHandler());
 
 export function createOrderDeleteHandler({ OrderModel = Order } = {}) {
   return async (req, res) => {
@@ -778,7 +778,7 @@ router.delete('/:id', adminOnly, createOrderDeleteHandler());
 // ---- Ações de fluxo ----
 
 // Aprovar orçamento (pendente -> aprovado)
-router.post('/:id/approve', async (req, res) => {
+router.post('/:id/approve', allowRoles('admin', 'atendente'), async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ message: 'Identificador de pedido inválido' });
@@ -827,12 +827,12 @@ export function createProductionStateHandler(action, { OrderModel = Order } = {}
     } catch(error) { return res.status(400).json({message:error.message}); }
   };
 }
-router.post('/:id/production/start', createProductionStateHandler('start'));
-router.post('/:id/production/pause', createProductionStateHandler('pause'));
-router.post('/:id/production/resume', createProductionStateHandler('resume'));
+router.post('/:id/production/start', allowRoles('admin', 'producao'), createProductionStateHandler('start'));
+router.post('/:id/production/pause', allowRoles('admin', 'producao'), createProductionStateHandler('pause'));
+router.post('/:id/production/resume', allowRoles('admin', 'producao'), createProductionStateHandler('resume'));
 
 // Concluir pedido (produção concluída + status concluído)
-router.post('/:id/complete', async (req, res) => {
+router.post('/:id/complete', allowRoles('admin', 'producao'), async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
@@ -848,7 +848,7 @@ router.post('/:id/complete', async (req, res) => {
 });
 
 // Registrar pagamento (parcial ou total) - desdobra nas parcelas
-router.post('/:id/payments', async (req, res) => {
+router.post('/:id/payments', allowRoles('admin', 'atendente'), async (req, res) => {
   const { amount, date, installmentIndex, paymentMethod = 'pix', receiptUrl = '' } = req.body;
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
@@ -942,9 +942,9 @@ export function createWhatsappHandler({ OrderModel = Order } = {}) {
   };
 }
 
-router.get('/:id/whatsapp', createWhatsappHandler());
+router.get('/:id/whatsapp', allowRoles('admin', 'atendente'), createWhatsappHandler());
 
-router.get('/:id/pdf', async (req, res) => {
+router.get('/:id/pdf', allowRoles('admin', 'atendente'), async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ message: 'Identificador de pedido inválido' });
