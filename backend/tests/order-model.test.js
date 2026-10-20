@@ -12,3 +12,17 @@ test('Order rejects a down payment greater than the order total', async () => {
 
   await assert.rejects(order.validate(), /Entrada não pode ser maior que o total do pedido/);
 });
+
+test('Order rounds a fractional final value up to the next whole real', async () => {
+  const order = new Order({
+    number: '10002',
+    client: null,
+    items: [{ description: 'Foto cópia', quantity: 1, unitPrice: 10.25 }],
+  });
+
+  await order.validate();
+
+  assert.equal(order.totalValue, 10.25);
+  assert.equal(order.finalValue, 11);
+  assert.equal(order.client, null);
+});

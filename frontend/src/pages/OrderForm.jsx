@@ -6,7 +6,7 @@ import Modal from '../components/Modal.jsx';
 import MeasureCalculator from '../components/MeasureCalculator.jsx';
 import { calculateAreaPerPiece } from './measurements.js';
 import { splitInstallmentAmounts } from './installmentMath.js';
-import { getOrderDocumentLabel } from './orderPresentation.js';
+import { getOrderDocumentLabel, roundOrderTotalUp } from './orderPresentation.js';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
 const emptyCatalogMeasure = {
@@ -35,6 +35,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [discount, setDiscount] = useState(0);
   const [downPayment, setDownPayment] = useState(0);
   const [orderStatus, setOrderStatus] = useState('pendente');
+  const [quickOrder, setQuickOrder] = useState(false);
   const [amountPaid, setAmountPaid] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [deliveryDate, setDeliveryDate] = useState('');
@@ -67,7 +68,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   }, [id]);
 
   const itemsTotal = items.reduce((s, i) => s + (Number(i.quantity) * Number(i.unitPrice) || 0), 0);
-  const finalValue = Math.max(0, itemsTotal - Number(discount || 0));
+  const finalValue = roundOrderTotalUp(itemsTotal, discount);
   const selectedProduct = products.find((product) => product._id === catalogProductId);
   const pieceCount = Number(catalogMeasure.pieceCount);
   const lengthPerPiece = Number(catalogMeasure.lengthPerPiece);
@@ -178,6 +179,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         deliveryDate: deliveryDate || undefined,
         observations,
         installments: installments.map((p) => ({ ...p, dueDate: new Date(p.dueDate) })),
+        ...(!isEdit && quickOrder ? { quickOrder: true } : {}),
       };
       const saved = isEdit
         ? await api(`/api/orders/${id}`, { method: 'PUT', body })
@@ -210,7 +212,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
           <h1 className="text-2xl font-bold">
             {isEdit
               ? `Editar ${getOrderDocumentLabel({ status: orderStatus, amountPaid })}`
-              : 'Novo Orçamento'}
+              : quickOrder ? 'Novo Pedido rápido' : 'Novo Orçamento'}
           </h1>
           <p className="text-sm text-slate-500">Grandes formatos · Adesivagem · SmartPrint Lindóia</p>
         </div>
@@ -218,6 +220,20 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       </div>}
 
       <form onSubmit={save} className="space-y-5">
+        {!isEdit && (
+          <fieldset className="bg-white rounded-xl border shadow-sm p-5 space-y-3">
+            <legend className="font-semibold px-1">Tipo de registro</legend>
+            <label className="flex items-start gap-3 text-sm">
+              <input type="radio" name="orderType" checked={!quickOrder} onChange={() => setQuickOrder(false)} className="mt-0.5" />
+              <span><strong>Orçamento</strong><span className="block text-slate-500">Fica pendente até ser aprovado.</span></span>
+            </label>
+            <label className="flex items-start gap-3 text-sm">
+              <input type="radio" name="orderType" checked={quickOrder} onChange={() => setQuickOrder(true)} className="mt-0.5" />
+              <span><strong>Pedido rápido</strong><span className="block text-slate-500">Já aprovado, sem exigir cadastro de cliente (ex.: fotocópia).</span></span>
+            </label>
+          </fieldset>
+        )}
+
         {/* Cliente */}
         <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
           <h2 className="font-semibold">Cliente</h2>
@@ -227,7 +243,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
               onChange={(e) => setClientId(e.target.value)}
               className="flex-1 px-3 py-2.5 border rounded-lg text-sm bg-white"
             >
-              <option value="">Sem cliente cadastrado / orçar para pessoa física</option>
+              <option value="">Sem cliente cadastrado</option>
               {clients.map((c) => <option key={c._id} value={c._id}>{c.name} {c.phone ? `(${c.phone})` : ''}</option>)}
             </select>
             <button type="button" onClick={() => setShowNewClient(true)} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm hover:bg-slate-50">
@@ -459,7 +475,9 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         <div className="flex justify-end gap-3 pb-6">
           <button type="button" onClick={onCancel || (() => navigate(-1))} className="px-5 py-2.5 border rounded-lg hover:bg-slate-50">Cancelar</button>
           <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium disabled:opacity-50">
-            <Save size={16} /> {saving ? 'Salvando...' : orderStatus === 'pendente' ? 'Salvar Orçamento' : 'Salvar Pedido'}
+            <Save size={16} /> {saving ? 'Salvando...' : isEdit
+              ? orderStatus === 'pendente' ? 'Salvar Orçamento' : 'Salvar Pedido'
+              : quickOrder ? 'Criar Pedido rápido' : 'Salvar Orçamento'}
           </button>
         </div>
       </form>
@@ -486,7 +504,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       onClose={onCancel}
       title={isEdit
         ? `Editar ${getOrderDocumentLabel({ status: orderStatus, amountPaid })}`
-        : 'Novo Orçamento'}
+        : quickOrder ? 'Novo Pedido rápido' : 'Novo Orçamento'}
       wide
     >
       {content}

@@ -3,7 +3,7 @@ import { MessageCircle, Copy, Check, Download } from 'lucide-react';
 import { api } from '../api';
 import Modal from './Modal.jsx';
 
-export default function WhatsAppButton({ orderId, className = '' }) {
+export default function WhatsAppButton({ orderId, className = '', disabled = false }) {
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -52,7 +52,8 @@ export default function WhatsAppButton({ orderId, className = '' }) {
     <>
       <button
         onClick={openModal}
-        disabled={loading}
+        disabled={loading || disabled}
+        title={disabled ? 'Cadastre um telefone/WhatsApp para este cliente' : undefined}
         className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition disabled:opacity-50 ${className}`}
       >
         <MessageCircle size={16} /> {loading ? 'Gerando...' : 'WhatsApp'}

@@ -99,7 +99,7 @@ export default function Clients() {
                       <span className="flex-1 text-right font-medium">{fmt(o.finalValue)}</span>
                       <div className="inline-flex gap-2">
                         <PrintButton orderId={o._id} className="!py-1 !px-2 text-xs" />
-                        <WhatsAppButton orderId={o._id} className="!py-1 !px-2 text-xs" />
+                        <WhatsAppButton orderId={o._id} disabled={!c.phone} className="!py-1 !px-2 text-xs" />
                       </div>
                       <Link to={`/pedidos/${o._id}`} className="px-2 py-1 border rounded text-xs hover:bg-slate-50">Abrir</Link>
                     </div>

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildOrderDocumentLabel, buildOrderPdfBuffer, canReceivePayments } from '../routes/orders.js';
+import { buildOrderDocumentLabel, buildOrderPdfBuffer, canReceivePayments, initializeNewOrder } from '../routes/orders.js';
 
 test('paid orders keep the Pedido title instead of becoming receipts', () => {
   assert.equal(buildOrderDocumentLabel({ amountPaid: 25 }), 'Pedido');
@@ -26,6 +26,38 @@ test('new payments are only allowed after order approval', () => {
   assert.equal(canReceivePayments({ status: 'pendente' }), false);
   assert.equal(canReceivePayments({ status: 'aprovado' }), true);
   assert.equal(canReceivePayments({ status: 'concluido' }), true);
+});
+
+test('quick orders without a client are approved immediately and record a configured entry once', () => {
+  const order = {
+    client: null,
+    status: 'pendente',
+    downPayment: 5,
+    amountPaid: 0,
+    finalValue: 11,
+    paymentMethod: 'pix',
+    payments: [],
+    installments: [],
+    history: [],
+  };
+
+  initializeNewOrder(order, { quickOrder: true, userName: 'Atendente' });
+
+  assert.equal(order.status, 'aprovado');
+  assert.equal(order.client, null);
+  assert.equal(order.amountPaid, 5);
+  assert.equal(order.payments.length, 1);
+  assert.equal(order.payments[0].type, 'entrada');
+  assert.deepEqual(order.history.map(({ action }) => action), ['criado', 'aprovado', 'pagamento']);
+});
+
+test('regular orders stay pending when initialized without quick-order mode', () => {
+  const order = { status: 'pendente', history: [] };
+
+  initializeNewOrder(order, { userName: 'Atendente' });
+
+  assert.equal(order.status, 'pendente');
+  assert.deepEqual(order.history.map(({ action }) => action), ['criado']);
 });
 
 test('buildOrderPdfBuffer should return a PDF buffer for a valid order', async () => {

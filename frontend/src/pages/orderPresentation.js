@@ -3,3 +3,7 @@ export const isConfirmedOrder = (order) => (
 );
 
 export const getOrderDocumentLabel = (order) => (isConfirmedOrder(order) ? 'Pedido' : 'Orçamento');
+
+export const roundOrderTotalUp = (itemsTotal, discount = 0) => (
+  Math.ceil(Math.round(Math.max(0, itemsTotal - (Number(discount) || 0)) * 100) / 100)
+);

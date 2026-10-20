@@ -113,7 +113,7 @@ orderSchema.pre('validate', async function (next) {
   });
   const itemsTotal = this.items.reduce((s, i) => s + i.total, 0);
   this.totalValue = itemsTotal;
-  this.finalValue = Math.max(0, itemsTotal - (this.discount || 0));
+  this.finalValue = Math.ceil(Math.round(Math.max(0, itemsTotal - (this.discount || 0)) * 100) / 100);
   if (this.downPayment > this.finalValue) {
     this.invalidate('downPayment', 'Entrada não pode ser maior que o total do pedido');
   }

@@ -25,6 +25,24 @@ export const buildOrderDocumentLabel = (order) => (isConfirmedOrder(order) ? 'Pe
 
 export const canReceivePayments = (order) => order.status !== 'pendente';
 
+export const initializeNewOrder = (order, { quickOrder = false, userName = '' } = {}) => {
+  order.history.push({ action: 'criado', by: userName });
+  if (!quickOrder) return;
+
+  order.status = 'aprovado';
+  order.history.push({ action: 'aprovado', by: userName, note: 'Pedido rápido' });
+  const downPayment = Number(order.downPayment) || 0;
+  if (downPayment > 0) {
+    receiveDownPayment(order);
+    order.history.push({
+      action: 'pagamento',
+      by: userName,
+      paymentMethod: order.paymentMethod,
+      note: `Entrada recebida no valor de ${fmtMoney(downPayment)} via ${order.paymentMethod}`,
+    });
+  }
+};
+
 export const buildOrderItems = async (items, existingItems = []) => Promise.all(items.map(async (item) => {
   if (!item?.productId) return item;
   if (!mongoose.isValidObjectId(item.productId)) throw orderItemError('Produto inválido');
@@ -372,6 +390,9 @@ router.get('/:id', async (req, res) => {
 // Criar orçamento/pedido
 router.post('/', async (req, res) => {
   try {
+    if ('quickOrder' in (req.body || {}) && typeof req.body.quickOrder !== 'boolean') {
+      return res.status(400).json({ message: 'Opção de pedido rápido inválida' });
+    }
     const rawClientId = req.body?.client;
     if (rawClientId && !mongoose.isValidObjectId(rawClientId)) return res.status(400).json({ message: 'Cliente inválido' });
     if (rawClientId && !await Client.exists({ _id: rawClientId })) return res.status(400).json({ message: 'Cliente não encontrado' });
@@ -383,7 +404,7 @@ router.post('/', async (req, res) => {
     if (payload.client === '') payload.client = null;
     payload.items = await buildOrderItems(payload.items);
     const order = await Order.create({ ...payload, createdBy: req.user._id });
-    order.history.push({ action: 'criado', by: req.user.name });
+    initializeNewOrder(order, { quickOrder: req.body.quickOrder === true, userName: req.user.name });
     await order.save();
     res.status(201).json(order);
   } catch (err) {
