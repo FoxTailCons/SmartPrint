@@ -8,3 +8,44 @@ export const hideOrderCosts = (value) => {
       .map(([key, item]) => [key, hideOrderCosts(item)])
   );
 };
+
+const pickFields = (value, fields) => Object.fromEntries(
+  fields.filter((field) => value[field] !== undefined).map((field) => [field, value[field]])
+);
+
+export const projectProductionOrder = (value) => {
+  if (Array.isArray(value)) return value.map(projectProductionOrder);
+  const order = value?.toObject ? value.toObject() : value;
+  if (!order || typeof order !== 'object') return order;
+  if (!Array.isArray(order.items) || !order.number) return order;
+
+  const client = order.client && typeof order.client === 'object'
+    ? pickFields(order.client.toObject ? order.client.toObject() : order.client, ['name', 'phone'])
+    : null;
+
+  return {
+    ...pickFields(order, [
+      '_id', 'number', 'status', 'production', 'productionStage', 'skippedStages', 'priority',
+      'deliveryDate', 'observations', 'attachments', 'createdAt', 'updatedAt',
+      'productionStartedAt', 'productionPausedAt', 'completedAt',
+    ]),
+    ...(client ? { client } : {}),
+    items: order.items.map((item) => pickFields(item, [
+      'description', 'quantity', 'productName', 'saleUnit', 'measurements',
+      'serviceName', 'material', 'finishing', 'applicationLocation',
+      'promisedDate', 'artworkUrl', 'installationNotes',
+    ])),
+  };
+};
+
+export const applyOrderRoleVisibility = (value, role) => {
+  if (role === 'admin') return value;
+  if (role !== 'producao') return hideOrderCosts(value);
+  if (Array.isArray(value)) return value.map(projectProductionOrder);
+  if (!value || typeof value !== 'object') return value;
+  if (value.toObject) return projectProductionOrder(value);
+  if (Array.isArray(value.items) && !value.number) {
+    return { ...value, items: value.items.map(projectProductionOrder) };
+  }
+  return projectProductionOrder(value);
+};

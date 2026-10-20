@@ -13,10 +13,13 @@ import { createPaymentReceipt } from './paymentReceipt.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 import { getDeadline, itemMetadata, priorityLabels } from './printshop.js';
 import ProductionProgress from '../components/ProductionProgress.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { canAccess } from '../roleAccess.js';
 
 const paymentMethodLabels = { pix: 'PIX', dinheiro: 'Dinheiro', debito: 'Cartão débito', credito: 'Cartão crédito', parcelado: 'Crédito parcelado' };
 
 export default function OrderDetail() {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
@@ -35,6 +38,8 @@ export default function OrderDetail() {
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
   if (!order) return <div className="p-8 text-center">Pedido não encontrado.</div>;
 
+  const isProductionUser = user?.role === 'producao';
+  const canManageProduction = canAccess(user?.role, 'productionActions');
   const balance = (order.finalValue || 0) - (order.amountPaid || 0);
   const deadline = getDeadline(order);
 
@@ -79,74 +84,76 @@ export default function OrderDetail() {
     <div className="space-y-5 max-w-5xl">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <Link to="/pedidos" className="text-sm text-slate-500 hover:underline">← Pedidos / Orçamentos</Link>
+          <Link to={isProductionUser ? '/producao' : '/pedidos'} className="text-sm text-slate-500 hover:underline">
+            {isProductionUser ? '← Produção' : '← Pedidos / Orçamentos'}
+          </Link>
           <h1 className="text-2xl font-bold mt-1">
             {getOrderDocumentLabel(order)} #{order.number}
           </h1>
           <p className="text-sm text-slate-500">{order.client?.name || 'Cliente não cadastrado'} · Criado em {fmtDate(order.createdAt)}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <PrintButton orderId={order._id} className="px-3 py-2" />
-          <WhatsAppButton orderId={order._id} />
-          {!order.quickSaleKey && <Link to={`/pedidos/${order._id}/editar`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-slate-50">
+          {!isProductionUser && <PrintButton orderId={order._id} className="px-3 py-2" />}
+          {!isProductionUser && <WhatsAppButton orderId={order._id} />}
+          {!isProductionUser && !order.quickSaleKey && <Link to={`/pedidos/${order._id}/editar`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-slate-50">
             <Pencil size={16} /> Editar
           </Link>}
-          {!order.quickSaleKey && <button onClick={remove} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50">
+          {!isProductionUser && !order.quickSaleKey && <button onClick={remove} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50">
             <Trash2 size={16} /> Excluir
           </button>}
         </div>
       </div>
 
       {/* Status cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border shadow-sm p-4">
+      <div className={`grid grid-cols-1 ${isProductionUser ? 'md:grid-cols-1' : 'md:grid-cols-3'} gap-4`}>
+        {!isProductionUser && <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-slate-500 uppercase">Status do pedido</div>
           <div className="mt-2"><StatusBadge value={order.status} /></div>
-        </div>
+        </div>}
         <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-slate-500 uppercase">Produção</div>
           <div className="mt-2"><StatusBadge value={order.production} /></div>
           <p className={`mt-2 text-xs ${deadline.overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{deadline.label}</p>
           <p className="mt-1 text-xs text-slate-500">Prioridade: {priorityLabels[order.priority || 'normal']}</p>
         </div>
-        <div className="bg-white rounded-xl border shadow-sm p-4">
+        {!isProductionUser && <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-slate-500 uppercase">Pagamento</div>
           <div className="mt-2"><StatusBadge value={order.paymentStatus} /></div>
           <div className="text-xs text-slate-500 mt-2">Saldo: <strong className={balance > 0 ? 'text-red-600' : 'text-emerald-600'}>{fmt(balance)}</strong></div>
-        </div>
+        </div>}
       </div>
 
       {/* Ações de fluxo */}
       <div className="bg-white rounded-xl border shadow-sm p-5">
         <h2 className="font-semibold mb-3">Fluxo do pedido</h2>
-        <div className="mb-4"><ProductionProgress order={order} onChanged={(changed) => setOrder((current) => ({ ...changed, client: current.client }))} /></div>
+        <div className="mb-4"><ProductionProgress order={order} readOnly={!canManageProduction} onChanged={(changed) => setOrder((current) => ({ ...changed, client: current.client }))} /></div>
         <div className="flex flex-wrap gap-2">
-          {order.status === 'pendente' && (
+          {!isProductionUser && order.status === 'pendente' && (
             <button onClick={() => action('approve')} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
               <ThumbsUp size={16} /> Aprovar orçamento
             </button>
           )}
-          {!order.productionStage && order.production === 'nao_iniciado' && order.status !== 'pendente' && (
+          {canManageProduction && !order.productionStage && order.production === 'nao_iniciado' && order.status !== 'pendente' && (
             <button onClick={() => action('production/start')} className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
               <Play size={16} /> Iniciar produção
             </button>
           )}
-          {order.production === 'em_producao' && (
+          {canManageProduction && order.production === 'em_producao' && (
             <button onClick={() => setPauseOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600">
               <Pause size={16} /> Pausar produção
             </button>
           )}
-          {order.production === 'pausado' && (
+          {canManageProduction && order.production === 'pausado' && (
             <button onClick={() => action('production/resume')} className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
               <RotateCcw size={16} /> Retomar produção
             </button>
           )}
-          {!order.productionStage && order.production !== 'concluido' && order.status !== 'pendente' && (
+          {canManageProduction && !order.productionStage && order.production !== 'concluido' && order.status !== 'pendente' && (
             <button onClick={() => action('complete')} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">
               <CheckCircle2 size={16} /> Concluir pedido
             </button>
           )}
-          {balance > 0 && order.status !== 'pendente' && (
+          {!isProductionUser && balance > 0 && order.status !== 'pendente' && (
             <button onClick={() => setPayOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-900">
               <Banknote size={16} /> Receber pagamento
             </button>
@@ -161,27 +168,27 @@ export default function OrderDetail() {
           <div className="space-y-2 text-sm">
             {order.items?.map((it, i) => (
               <div key={i} className="flex justify-between gap-3 border-b pb-2">
-                <div>{it.description} <span className="text-slate-400">({it.quantity}x {fmt(it.unitPrice)})</span>
+                <div>{it.description} <span className="text-slate-400">({isProductionUser ? it.quantity : `${it.quantity}x ${fmt(it.unitPrice)}`})</span>
                   <dl className="mt-2 space-y-1 text-xs text-slate-500">
                     {itemMetadata(it).map(([label, value]) => <div key={label} className="break-words"><dt className="inline font-medium">{label}: </dt><dd className="inline">{label === 'Arte' && /^https?:\/\//i.test(value) ? <a href={value} target="_blank" rel="noreferrer" className="text-brand-700 underline">Abrir arquivo de arte</a> : value}</dd></div>)}
                   </dl>
                 </div>
-                <span className="font-medium">{fmt(it.total)}</span>
+                {!isProductionUser && <span className="font-medium">{fmt(it.total)}</span>}
               </div>
             ))}
           </div>
-          <div className="mt-3 space-y-1 text-sm">
+          {!isProductionUser && <div className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span>{fmt(order.totalValue)}</span></div>
             <div className="flex justify-between"><span className="text-slate-500">Desconto</span><span>-{fmt(order.discount)}</span></div>
             <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>Total</span><span className="text-brand-600">{fmt(order.finalValue)}</span></div>
             <div className="flex justify-between text-sm"><span className="text-slate-500">Já recebido</span><span className="text-emerald-600">{fmt(order.amountPaid)}</span></div>
             <div className="flex justify-between text-sm font-semibold"><span>Saldo devido</span><span className={balance > 0 ? 'text-red-600' : 'text-emerald-600'}>{fmt(Math.max(0, balance))}</span></div>
-          </div>
+          </div>}
           {order.observations && <p className="mt-3 text-xs text-slate-500 bg-slate-50 p-2 rounded">Obs: {order.observations}</p>}
         </div>
 
         {/* Parcelas */}
-        <div className="bg-white rounded-xl border shadow-sm p-5">
+        {!isProductionUser && <div className="bg-white rounded-xl border shadow-sm p-5">
           <h2 className="font-semibold mb-3">Parcelas / Desdobramento</h2>
           {(!order.installments || order.installments.length === 0) ? (
             <p className="text-sm text-slate-400">Sem parcelas cadastradas (pagamento à vista).</p>
@@ -192,7 +199,7 @@ export default function OrderDetail() {
                   <span>{i + 1}ª · {fmtDate(p.dueDate)}</span>
                   <span className="font-medium">{fmt(p.amount)}</span>
                   <span className={`text-xs font-semibold ${p.paid ? 'text-emerald-600' : 'text-slate-400'}`}>{p.paid ? 'PAGA' : 'EM ABERTO'}</span>
-                </div>
+                </div>}
               ))}
             </div>
           )}
@@ -212,7 +219,7 @@ export default function OrderDetail() {
       )}
 
       {/* Pagamentos recebidos */}
-      <div className="bg-white rounded-xl border shadow-sm p-5">
+      {!isProductionUser && <div className="bg-white rounded-xl border shadow-sm p-5">
         <h2 className="font-semibold mb-3">Pagamentos recebidos</h2>
         {!order.payments?.length ? (
           <p className="text-sm text-slate-400">Nenhum pagamento recebido.</p>
@@ -226,7 +233,7 @@ export default function OrderDetail() {
                     <div className="font-medium">{payment.type === 'entrada' ? 'Entrada' : 'Pagamento'} · {fmt(payment.amount)}</div>
                     <div className="text-xs text-slate-500">{paymentMethodLabels[payment.method] || payment.method} · {fmtDate(payment.paidAt)}</div>
                     {payment.receiptUrl && <a href={payment.receiptUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-brand-600 underline">Ver comprovante</a>}
-                  </div>
+                  </div>}
                   {receipt && (
                     <div className="flex flex-wrap items-center gap-2">
                       <PaymentReceiptPrintButton text={receipt.text} />
@@ -247,20 +254,20 @@ export default function OrderDetail() {
       </div>
 
       {/* Histórico */}
-      <div className="bg-white rounded-xl border shadow-sm p-5">
+      {!isProductionUser && <div className="bg-white rounded-xl border shadow-sm p-5">
         <h2 className="font-semibold mb-3">Histórico</h2>
         <div className="space-y-2 text-sm">
           {order.history?.slice().reverse().map((h, i) => (
             <div key={i} className="flex gap-3 text-slate-600">
               <span className="text-slate-400 shrink-0">{fmtDate(h.at)} {new Date(h.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
               <span><strong>{h.action}</strong>{h.by ? ` por ${h.by}` : ''}{h.note ? ` — ${h.note}` : ''}</span>
-            </div>
+            </div>}
           ))}
         </div>
       </div>
 
       {/* Modal de recebimento */}
-      <Modal open={payOpen} onClose={() => setPayOpen(false)} title="Receber pagamento (parcial ou total)">
+      {!isProductionUser && <Modal open={payOpen} onClose={() => setPayOpen(false)} title="Receber pagamento (parcial ou total)">
         <div className="space-y-4">
           <div className="bg-slate-50 rounded-lg p-3 text-sm">
             <div>Total do pedido: <strong>{fmt(order.finalValue)}</strong></div>
@@ -297,7 +304,7 @@ export default function OrderDetail() {
           )}
           <button onClick={submitPayment} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold">Confirmar recebimento</button>
         </div>
-      </Modal>
+      </Modal>}
 
       <Modal open={pauseOpen} onClose={() => setPauseOpen(false)} title="Motivo da pausa da produção">
         <div className="space-y-4">

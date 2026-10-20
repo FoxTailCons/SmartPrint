@@ -64,8 +64,13 @@
 - Modify: `backend/routes/clients.js`
 - Modify: `backend/routes/products.js`
 - Modify: `backend/routes/dashboard.js`
+- Modify: `backend/services/orderCostVisibility.js`
+- Test: `backend/tests/order-cost-visibility.test.js`
 - Modify: `frontend/src/App.jsx`
 - Modify: `frontend/src/components/Layout.jsx`
+- Modify: `frontend/src/components/ProductionProgress.jsx`
+- Create: `frontend/src/roleAccess.js`
+- Create: `frontend/src/roleAccess.test.js`
 - Modify: `frontend/src/pages/Orders.jsx`
 - Modify: `frontend/src/pages/OrderDetail.jsx`
 - Modify: `frontend/src/pages/Dashboard.jsx`

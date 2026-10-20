@@ -14,14 +14,14 @@ import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
 import { productCategories, productCategoryLabels } from '../models/Product.js';
 import { getOrderSettings } from '../config/orderSettings.js';
 import { calculateOrderFinalValue, registeredClientError, requiresRegisteredClient } from '../services/orderClientRequirement.js';
-import { hideOrderCosts } from '../services/orderCostVisibility.js';
+import { applyOrderRoleVisibility, projectProductionOrder } from '../services/orderCostVisibility.js';
 
 const router = Router();
 router.use(protect);
 router.use((req, res, next) => {
   if (req.user?.role === 'admin') return next();
   const sendJson = res.json.bind(res);
-  res.json = (body) => sendJson(hideOrderCosts(body));
+  res.json = (body) => sendJson(applyOrderRoleVisibility(body, req.user?.role));
   return next();
 });
 
@@ -532,7 +532,7 @@ export function createProductionBoardHandler({ OrderModel = Order, now = () => n
     try {
       const at = now();
       const rows = await OrderModel.find({$or:[{status:'aprovado'},{status:'concluido',completedAt:{$gte:new Date(at-7*86400000)}}],quickSaleKey:{$exists:false}}).populate('client','name phone').lean();
-      return res.json(boardOrders(rows,req.query,at));
+      return res.json(boardOrders(rows,req.query,at).map(projectProductionOrder));
     } catch(error) { return res.status(400).json({message:error.message}); }
   };
 }
@@ -607,7 +607,7 @@ router.post('/:id/production/advance', allowRoles('admin', 'producao'), createPr
 router.get('/:id', allowRoles('admin', 'atendente', 'producao'), async (req, res) => {
   const order = await Order.findById(req.params.id).populate('client');
   if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-  res.json(order);
+  res.json(req.user?.role === 'producao' ? projectProductionOrder(order) : order);
 });
 
 // Criar orçamento/pedido

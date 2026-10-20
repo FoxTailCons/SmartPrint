@@ -5,17 +5,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import BrandMark from './BrandMark.jsx';
+import { canAccess } from '../roleAccess.js';
 
 const menu = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/pedidos', label: 'Pedidos / Orçamentos', icon: ClipboardList },
-  { to: '/pedido-rapido', label: 'Pedido rápido · F2', icon: Zap },
-  { to: '/producao', label: 'Produção', icon: Columns3 },
-  { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/produtos', label: 'Produtos', icon: Package, adminOnly: true },
-  { to: '/contas-receber', label: 'Contas a Receber', icon: Wallet },
-  { to: '/caixa', label: 'Fechamento de caixa', icon: Banknote, cashierOnly: true },
-  { to: '/contas-pagar', label: 'Contas a Pagar', icon: TrendingDown },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, permission: 'dashboard' },
+  { to: '/pedidos', label: 'Pedidos / Orçamentos', icon: ClipboardList, permission: 'orders' },
+  { to: '/pedido-rapido', label: 'Pedido rápido · F2', icon: Zap, permission: 'quickOrder' },
+  { to: '/producao', label: 'Produção', icon: Columns3, permission: 'production' },
+  { to: '/clientes', label: 'Clientes', icon: Users, permission: 'clients' },
+  { to: '/produtos', label: 'Produtos', icon: Package, permission: 'products' },
+  { to: '/contas-receber', label: 'Contas a Receber', icon: Wallet, permission: 'receivables' },
+  { to: '/caixa', label: 'Fechamento de caixa', icon: Banknote, permission: 'cash' },
+  { to: '/contas-pagar', label: 'Contas a Pagar', icon: TrendingDown, permission: 'payables' },
 ];
 
 const roleLabel = { admin: 'Administrador', atendente: 'Atendente', producao: 'Produção' };
@@ -41,7 +42,7 @@ export default function Layout({ children }) {
           <BrandMark dark />
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-x-auto">
-          {menu.filter((m) => (!m.adminOnly || user?.role === 'admin') && (!m.cashierOnly || ['admin', 'atendente'].includes(user?.role))).map((m) => (
+          {menu.filter((m) => canAccess(user?.role, m.permission)).map((m) => (
             <NavLink
               key={m.to}
               to={m.to}

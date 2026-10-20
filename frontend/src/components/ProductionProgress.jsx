@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { api } from '../api';
 import { getProductionStage, productionStages } from '../pages/printshop.js';
 
-export default function ProductionProgress({ order, onChanged }) {
+export default function ProductionProgress({ order, onChanged, readOnly = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const locked = useRef(false);
@@ -28,7 +28,7 @@ export default function ProductionProgress({ order, onChanged }) {
   return (
     <div className="space-y-2 text-sm">
       <div className="font-medium">Etapa: {label}</div>
-      {order.status === 'aprovado' && stage !== 'entregue' && order.production !== 'pausado' && (
+      {!readOnly && order.status === 'aprovado' && stage !== 'entregue' && order.production !== 'pausado' && (
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={busy} onClick={() => advance()} className="rounded-lg bg-brand-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50">
             {busy ? 'Salvando...' : stage === 'aprovacao_cliente' ? 'Cliente aprovou → avançar' : stage === 'instalacao' ? 'Confirmar entrega' : `Concluir ${label.toLowerCase()} → avançar`}
@@ -36,7 +36,7 @@ export default function ProductionProgress({ order, onChanged }) {
           {stage !== 'impressao' && <button type="button" disabled={busy} onClick={() => advance(true)} className="rounded-lg border px-3 py-2 text-xs disabled:opacity-50">Dispensar etapa</button>}
         </div>
       )}
-      {order.production === 'pausado' && <span className="text-amber-700">Produção pausada; retome no detalhe.</span>}
+      {order.production === 'pausado' && <span className="text-amber-700">Produção pausada{readOnly ? '.' : '; retome no detalhe.'}</span>}
       {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
     </div>
   );
