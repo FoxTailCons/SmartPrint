@@ -17,7 +17,7 @@ import OrderForm from './OrderForm.jsx';
 import { toggleSelectedOrder } from './listPagination.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 
-const DETAIL_PAGE_SIZE = 10;
+const DETAIL_PAGE_SIZE = 20;
 
 function Card({ icon: Icon, label, value, color, sub, open, onClick }) {
   return (
@@ -41,7 +41,8 @@ function Card({ icon: Icon, label, value, color, sub, open, onClick }) {
 }
 
 function DetailList({ detail, selectedIds, onToggle }) {
-  const { items, page, pageSize, total, setPage } = usePagination(detail.items, DETAIL_PAGE_SIZE);
+  const [pageSize, setPageSize] = useState(DETAIL_PAGE_SIZE);
+  const { items, page, total, setPage } = usePagination(detail.items, pageSize);
   if (!detail.items.length) {
     return <div className="px-5 py-8 text-center text-sm text-slate-400">Nenhum registro encontrado.</div>;
   }
@@ -89,7 +90,7 @@ function DetailList({ detail, selectedIds, onToggle }) {
   return (
     <>
       {content}
-      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
     </>
   );
 }

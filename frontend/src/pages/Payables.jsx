@@ -9,17 +9,18 @@ import { useServerPagination } from '../hooks/useServerPagination.js';
 import PeriodExport from '../components/PeriodExport.jsx';
 
 const categories = ['consumo', 'insumo', 'aluguel', 'funcionario', 'imposto', 'outro'];
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 const catLabel = { consumo: 'Conta de consumo', insumo: 'Insumo/Material', aluguel: 'Aluguel', funcionario: 'Funcionário', imposto: 'Imposto', outro: 'Outro' };
 
 export default function Payables() {
   const [showNew, setShowNew] = useState(false);
   const [filter, setFilter] = useState('open');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [actionError, setActionError] = useState('');
   const [form, setForm] = useState({ description: '', category: 'consumo', value: '', dueDate: '', recurring: false, notes: '' });
   const filters = filter === 'all' ? '' : `paid=${filter === 'paid'}`;
-  const list = useServerPagination('/api/payables', filters, page, PAGE_SIZE);
+  const list = useServerPagination('/api/payables', filters, page, pageSize);
   const { items, total, summary, loading, error, retry } = list;
   const listState = getListState({ loading, error, items });
 
@@ -166,7 +167,7 @@ export default function Payables() {
           </tbody>
         </table>
         </div>
-        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
+        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
       </div>
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="Cadastrar conta a pagar">

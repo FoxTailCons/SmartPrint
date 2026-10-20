@@ -11,7 +11,7 @@ const unitLabel = (value) => ({
   kilometer: 'Quilômetro (km)',
 }[value] || value);
 
-export default function ProductList({ products, isAdmin, page, pageSize, total, onPageChange, onEdit, onToggleActive }) {
+export default function ProductList({ products, isAdmin, page, pageSize, total, onPageChange, onPageSizeChange, onEdit, onToggleActive }) {
   return (
     <>
       <div className="divide-y">
@@ -47,7 +47,7 @@ export default function ProductList({ products, isAdmin, page, pageSize, total, 
           </div>
         ))}
       </div>
-      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} />
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
     </>
   );
 }

@@ -14,7 +14,7 @@ import { getOrderDocumentLabel } from './orderPresentation.js';
 import { getDeadline, getProductionStage, productionStages } from './printshop.js';
 import PeriodExport from '../components/PeriodExport.jsx';
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 const orderTabs = [
   { status: 'pendente', label: 'Pendente aprovação' },
   { status: 'aprovado', label: 'Pendente execução' },
@@ -31,11 +31,12 @@ export default function Orders() {
   const [activeTab, setActiveTab] = useState('pendente');
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const params = new URLSearchParams();
   params.set('status', activeTab);
   Object.entries(f).forEach(([key, value]) => value && params.set(key, value));
   if (query) params.set('q', query);
-  const list = useServerPagination('/api/orders', params.toString(), page, PAGE_SIZE);
+  const list = useServerPagination('/api/orders', params.toString(), page, pageSize);
   const { items: orders, total, loading, error, retry } = list;
   const listState = getListState({ loading, error, items: orders });
 
@@ -154,7 +155,7 @@ export default function Orders() {
             </tbody>
           </table>
         </div>
-        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
+        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
       </div>
 
       <OrderForm modal open={newOrderOpen} onCancel={() => setNewOrderOpen(false)} onSaved={() => { setNewOrderOpen(false); retry(); }} />

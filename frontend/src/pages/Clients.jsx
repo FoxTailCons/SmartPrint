@@ -12,19 +12,20 @@ import { getListState } from '../hooks/listState.js';
 import { useServerPagination } from '../hooks/useServerPagination.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 const paymentMethodLabels = { pix: 'PIX', dinheiro: 'Dinheiro', debito: 'Cartão débito', credito: 'Cartão crédito', parcelado: 'Crédito parcelado' };
 
 export default function Clients() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [expanded, setExpanded] = useState(null);
   const [detail, setDetail] = useState(null);
   const [showNew, setShowNew] = useState(false);
   const [reordering, setReordering] = useState('');
   const [form, setForm] = useState({ name: '', phone: '', email: '', document: '', address: '' });
-  const list = useServerPagination('/api/clients', query ? `q=${encodeURIComponent(query)}` : '', page, PAGE_SIZE);
+  const list = useServerPagination('/api/clients', query ? `q=${encodeURIComponent(query)}` : '', page, pageSize);
   const { items: clients, total, loading, error, retry } = list;
   const listState = getListState({ loading, error, items: clients });
 
@@ -125,12 +126,12 @@ export default function Clients() {
                     </div>
                   ))}
                 </div>
-                <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
               </div>
             )}
           </div>
         ))}
       </div>
+      <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="Novo Cliente">
         <div className="space-y-3">

@@ -12,13 +12,14 @@ import { buildBalanceReminderUrl } from './printshop.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import PeriodExport from '../components/PeriodExport.jsx';
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 export default function Receivables() {
   const { user } = useAuth();
   const [filter, setFilter] = useState('open');
   const [page, setPage] = useState(1);
-  const list = useServerPagination('/api/orders/receivables', `filter=${filter}`, page, PAGE_SIZE);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const list = useServerPagination('/api/orders/receivables', `filter=${filter}`, page, pageSize);
   const { items: orders, total, summary, loading, error, retry } = list;
   const listState = getListState({ loading, error, items: orders });
 
@@ -100,7 +101,7 @@ export default function Receivables() {
           </tbody>
         </table>
         </div>
-        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} />
+        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ const saleUnits = [
   { value: 'kilometer', label: 'Quilômetro (km)' },
 ];
 const emptyForm = { name: '', code: '', saleUnit: 'unit', price: '', costPrice: '', category: '', imageUrl: '', active: true, priceTiers: [] };
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 const suggestedServices = [
   { name: 'Instalação de fachada', saleUnit: 'unit' },
   { name: 'Envelopamento parcial', saleUnit: 'unit' },
@@ -32,6 +32,7 @@ export default function Products() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -42,7 +43,7 @@ export default function Products() {
   if (query) params.set('q', query);
   if (category) params.set('category', category);
   if (isAdmin && includeInactive) params.set('includeInactive', 'true');
-  const list = useServerPagination('/api/products', params.toString(), page, PAGE_SIZE);
+  const list = useServerPagination('/api/products', params.toString(), page, pageSize);
   const { items: products, total, loading, error: listError, retry } = list;
   const listState = getListState({ loading, error: listError, items: products });
 
@@ -186,6 +187,7 @@ export default function Products() {
             pageSize={list.pageSize}
             total={total}
             onPageChange={setPage}
+            onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
             onEdit={edit}
             onToggleActive={toggleActive}
           />
