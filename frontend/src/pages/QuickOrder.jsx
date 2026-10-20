@@ -7,7 +7,8 @@ import { createQuickSaleCheckout } from './quickSaleCheckout.js';
 import { createPaymentReceipt } from './paymentReceipt.js';
 import { roundOrderTotalUp } from './orderPresentation.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { filterQuickOrderProducts, normalizeQuickOrderProducts } from './quickOrderProducts.js';
+import ProductCombobox from '../components/ProductCombobox.jsx';
+import { normalizeQuickOrderProducts } from './quickOrderProducts.js';
 
 const inputClass = 'mt-1 w-full rounded-lg border bg-white px-3 py-2';
 
@@ -106,10 +107,6 @@ export default function QuickOrder() {
   }, [order, attempted]);
 
   const product = products.find((entry) => entry._id === productId);
-  const filteredProducts = filterQuickOrderProducts(products, productSearch);
-  const visibleProducts = product && !filteredProducts.some((entry) => entry._id === product._id)
-    ? [product, ...filteredProducts]
-    : filteredProducts;
   const validQuantity = Number.isSafeInteger(Number(quantity)) && Number(quantity) > 0;
   const price = product && validQuantity ? getQuantityPrice(product, Number(quantity)) : null;
   const submit = async (event) => {
@@ -136,18 +133,17 @@ export default function QuickOrder() {
         <form onSubmit={submit} className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
           {loadError && <div role="alert" className="text-sm text-red-700">{loadError} <button type="button" onClick={() => setReload((value) => value + 1)} className="underline">Tentar carregar novamente</button></div>}
           <fieldset disabled={!checkoutReady || attempted || loading || !!loadError} className="space-y-4 disabled:opacity-70">
-            <label className="block text-sm font-medium" htmlFor="quick-product-search">Buscar produto
-              <input id="quick-product-search" aria-label="Buscar produto" type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Buscar por nome ou código..." className={inputClass} />
+            <label className="block text-sm font-medium">Produto por unidade
+              <ProductCombobox
+                products={products}
+                value={productId}
+                onChange={setProductId}
+                query={productSearch}
+                onQueryChange={setProductSearch}
+                loading={loading}
+                inputRef={productSelect}
+              />
             </label>
-            <label className="block text-sm font-medium" htmlFor="quick-product">Produto por unidade
-              <select ref={productSelect} id="quick-product" autoFocus required value={productId} onChange={(event) => setProductId(event.target.value)} className={inputClass}>
-                <option value="">{loading ? 'Carregando...' : 'Selecione um produto'}</option>
-                {attempted && productId && !product && <option value={productId}>Produto da venda pendente</option>}
-                {visibleProducts.map((entry) => <option key={entry._id} value={entry._id}>{entry.code ? `${entry.code} · ` : ''}{entry.name}</option>)}
-              </select>
-            </label>
-            {!loading && !loadError && products.length === 0 && <p className="text-sm text-slate-500">Nenhum produto ativo por unidade disponível.</p>}
-            {!loading && !loadError && products.length > 0 && filteredProducts.length === 0 && <p className="text-sm text-slate-500">Nenhum produto corresponde à busca.</p>}
             <label className="block text-sm font-medium" htmlFor="quick-quantity">Quantidade
               <input id="quick-quantity" type="number" required min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} className={inputClass} />
             </label>

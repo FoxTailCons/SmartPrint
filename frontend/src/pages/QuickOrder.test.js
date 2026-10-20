@@ -27,7 +27,8 @@ test('quick order exposes a searchable product selector', async () => {
     const html = renderToStaticMarkup(React.createElement(StaticRouter, { location: '/pedido-rapido' },
       React.createElement(AuthProvider, null, React.createElement(QuickOrder))));
 
+    assert.match(html, /role="combobox"/);
     assert.match(html, /aria-label="Buscar produto"/);
-    assert.match(html, /placeholder="Buscar por nome ou código\.\.\."/);
+    assert.doesNotMatch(html, /<select id="quick-product"/);
   } finally { await server.close(); }
 });
