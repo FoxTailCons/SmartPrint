@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { itemTotal, getProductionStage, getDeadline, graphicDate, itemMetadata, serializeOrderItems } from './printshop.js';
+import { itemTotal, getProductionStage, getDeadline, graphicDate, itemMetadata, serializeOrderItems, productCategories, getCategoryLabel, requiresQuoteClient } from './printshop.js';
 
 test('item totals charge installation and travel once per item', () => {
   assert.equal(itemTotal({ quantity: 2, unitPrice: 50, installationFee: 30, travelFee: 10 }), 140);
@@ -27,6 +27,7 @@ test('only populated metadata appears with readable date and fee labels', () => 
   assert.deepEqual(itemMetadata({ material: 'Vinil', promisedDate: '2026-10-20', installationFee: 30 }), [
     ['Material', 'Vinil'], ['Prazo combinado', '20/10/2026'], ['Instalação', 'R$ 30,00'],
   ]);
+  assert.deepEqual(itemMetadata({ category: 'fachada' }), [['Categoria', 'Fachada']]);
   assert.deepEqual(itemMetadata({}), []);
 });
 
@@ -46,4 +47,20 @@ test('order serialization preserves graphic fields and converts typed amounts fo
   assert.equal(items[1].installationFee, 10);
   assert.equal(items[1].unitPrice, undefined);
   assert.equal(items[1].material, 'Vinil');
+});
+
+test('category labels include every fixed print category and preserve categories on free order items', () => {
+  assert.deepEqual(productCategories.map(({ value }) => value), [
+    'xerox_impressao', 'adesivos', 'grande_formato', 'fachada', 'veiculos', 'papelaria', 'servicos_instalacao',
+  ]);
+  assert.equal(getCategoryLabel('fachada'), 'Fachada');
+  const serialized = serializeOrderItems([{ description: 'Letreiro', category: 'fachada', quantity: 1, unitPrice: 150 }]);
+  assert.equal(serialized[0].category, 'fachada');
+});
+
+test('quote client requirement follows final total and special item categories', () => {
+  assert.equal(requiresQuoteClient(100, [], 100), false);
+  assert.equal(requiresQuoteClient(101, [], 100), true);
+  assert.equal(requiresQuoteClient(1, [{ category: 'veiculos' }], 100), true);
+  assert.equal(requiresQuoteClient(1, [{ category: 'adesivos' }], 100), false);
 });

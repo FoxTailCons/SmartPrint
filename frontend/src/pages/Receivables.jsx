@@ -82,7 +82,7 @@ export default function Receivables() {
                 <td className="px-5 py-3 text-right">
                   <div className="inline-flex gap-2">
                     <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
-                    <WhatsAppButton orderId={o._id} disabled={!o.client?.phone} className="!py-1.5 !px-2.5 text-xs" />
+                    <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
                     <Link to={`/pedidos/${o._id}`} className="px-2.5 py-1.5 border rounded text-xs hover:bg-slate-50">Receber</Link>
                   </div>
                 </td>

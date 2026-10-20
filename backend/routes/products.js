@@ -2,7 +2,7 @@ import { Router } from 'express';
 import Product from '../models/Product.js';
 import { normalizePriceTiers } from '../services/orderItemPricing.js';
 import { protect, adminOnly } from '../middleware/auth.js';
-import { saleUnits } from '../models/Product.js';
+import { productCategories, saleUnits } from '../models/Product.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 
 const normalizeInput = (body, { allowActive = false } = {}) => {
@@ -11,6 +11,7 @@ const normalizeInput = (body, { allowActive = false } = {}) => {
   const rawPrice = body?.price;
   const price = typeof rawPrice === 'number' ? rawPrice : Number(String(rawPrice ?? '').trim());
   const code = typeof body?.code === 'string' ? body.code.trim() : '';
+  const category = body?.category;
 
   if (!name) return { error: 'Nome do produto é obrigatório' };
   if (!saleUnits.includes(saleUnit)) return { error: 'Unidade de venda inválida' };
@@ -19,6 +20,9 @@ const normalizeInput = (body, { allowActive = false } = {}) => {
   }
   if (allowActive && body.active !== undefined && typeof body.active !== 'boolean') {
     return { error: 'Status do produto inválido' };
+  }
+  if (category !== undefined && category !== '' && !productCategories.includes(category)) {
+    return { error: 'Categoria do produto inválida' };
   }
 
   let priceTiers;
@@ -30,6 +34,7 @@ const normalizeInput = (body, { allowActive = false } = {}) => {
       saleUnit,
       price,
       priceTiers,
+      category: category || undefined,
       ...(allowActive && body.active !== undefined ? { active: body.active } : {}),
     },
   };
@@ -64,13 +69,22 @@ export function createProductsRouter({
 
     const filter = includeInactive ? {} : { active: true };
     const query = String(req.query.q || '').trim();
+    const category = String(req.query.category || '').trim();
+    if (category && category !== 'sem_categoria' && !productCategories.includes(category)) {
+      return res.status(400).json({ message: 'Categoria do produto inválida' });
+    }
+    const conditions = [];
     if (query) {
       const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      filter.$or = [
+      conditions.push({ $or: [
         { name: { $regex: escaped, $options: 'i' } },
         { code: { $regex: escaped, $options: 'i' } },
-      ];
+      ] });
     }
+    if (category === 'sem_categoria') {
+      conditions.push({ $or: [{ category: { $exists: false } }, { category: null }, { category: '' }] });
+    } else if (category) filter.category = category;
+    if (conditions.length) filter.$and = conditions;
 
     try {
       if (!pagination) {

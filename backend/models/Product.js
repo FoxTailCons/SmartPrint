@@ -2,6 +2,24 @@ import mongoose from 'mongoose';
 import { normalizePriceTiers } from '../services/orderItemPricing.js';
 
 const saleUnits = ['unit', 'linear_meter', 'square_meter'];
+const productCategories = [
+  'xerox_impressao',
+  'adesivos',
+  'grande_formato',
+  'fachada',
+  'veiculos',
+  'papelaria',
+  'servicos_instalacao',
+];
+const productCategoryLabels = {
+  xerox_impressao: 'Xerox/Impressão',
+  adesivos: 'Adesivos',
+  grande_formato: 'Grande formato',
+  fachada: 'Fachada',
+  veiculos: 'Veículos',
+  papelaria: 'Papelaria',
+  servicos_instalacao: 'Serviços (instalação)',
+};
 
 const productSchema = new mongoose.Schema(
   {
@@ -22,6 +40,7 @@ const productSchema = new mongoose.Schema(
       validate: { validator: Number.isFinite, message: 'O preço deve ser um número finito' },
     },
     priceTiers: { type: [{ minQuantity: Number, price: Number, _id: false }], default: [], validate: { validator: (value) => { try { normalizePriceTiers(value); return true; } catch { return false; } }, message: 'Faixas de preço inválidas' } },
+    category: { type: String, enum: productCategories },
     active: { type: Boolean, default: true },
   },
   { timestamps: true }
@@ -30,4 +49,6 @@ const productSchema = new mongoose.Schema(
 productSchema.index({ code: 1 }, { unique: true, sparse: true });
 
 export { saleUnits };
+export { productCategories };
+export { productCategoryLabels };
 export default mongoose.model('Product', productSchema);

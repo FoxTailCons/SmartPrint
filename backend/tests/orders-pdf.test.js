@@ -95,6 +95,31 @@ import zlib from 'node:zlib';
 const pdfStreams = (buffer) => [...buffer.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map((match) => {
   try { return zlib.inflateSync(Buffer.from(match[1], 'latin1')).toString('latin1'); } catch { return ''; }
 });
+const pdfText = (buffer) => pdfStreams(buffer)
+  .flatMap((stream) => [...stream.matchAll(/<([0-9a-f]+)>/gi)].map((match) => Buffer.from(match[1], 'hex').toString('latin1')))
+  .join('');
+
+test('quote PDF includes validity and configured commercial details with conditional PIX', async () => {
+  const settings = {
+    quoteValidityDays: 7, businessAddress: 'Rua Exemplo 10', businessPhone: '51999999999',
+    businessPixKey: 'pix@example.org', businessInstagram: '@smartprint.lindoia',
+  };
+  const order = {
+    number: 'Q-10', createdAt: '2026-10-20T15:00:00Z', status: 'pendente', amountPaid: 0,
+    paymentMethod: 'pix', items: [{ description: 'Banner', quantity: 1, unitPrice: 100, total: 100 }],
+    totalValue: 100, finalValue: 100,
+  };
+  const quoteText = pdfText(await buildOrderPdfBuffer(order, settings));
+  assert.match(quoteText, /27\/10\/2026/);
+  assert.match(quoteText, /Rua Exemplo 10/);
+  assert.match(quoteText, /51999999999/);
+  assert.match(quoteText, /@smartprint\.lindoia/);
+  assert.match(quoteText, /pix@example\.org/);
+
+  const approvedText = pdfText(await buildOrderPdfBuffer({ ...order, status: 'aprovado', paymentMethod: 'dinheiro' }, settings));
+  assert.doesNotMatch(approvedText, /27\/10\/2026/);
+  assert.doesNotMatch(approvedText, /pix@example\.org/);
+});
 test('rich items paginate with repeated table headers and complete metadata', async () => {
   const order = { number: 'MANY', items: Array.from({ length: 14 }, (_, index) => ({ description: `Banner ${index}`, quantity: 2, unitPrice: 10, total: 20, serviceName: 'Impressao', material: 'Vinil', finishing: 'Laminado', applicationLocation: 'Fachada', promisedDate: '2026-10-20', artworkUrl: `https://example.org/${'arte'.repeat(80)}`, installationNotes: `Nota${index} ${'detalhes de instalacao '.repeat(30)}` })), finalValue: 280, observations: 'Observacoes finais' };
   const buffer = await buildOrderPdfBuffer(order);

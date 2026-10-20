@@ -23,6 +23,9 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - **Contas a receber** com saldo devedor e próximos vencimentos dos pedidos aprovados; orçamentos pendentes não entram nos saldos financeiros
 - Dashboard com KPIs e feed de pedidos recentes
 - Catálogo de produtos por unidade, metro linear ou metro quadrado, com cadastro restrito a administradores
+- Catálogo categorizado por tipo de serviço, com filtros por categoria no catálogo e no orçamento
+- Orçamento exige cliente cadastrado com nome e telefone acima do limite configurado ou para Fachada/Veículos; pedido rápido permanece sem cadastro obrigatório
+- PDF e WhatsApp incluem validade do orçamento e dados comerciais configurados; links são preparados para revisão e envio manual
 - Venda de itens do catálogo em pedidos com preço validado no backend e snapshot histórico de preço e medidas
 
 ## Usuários iniciais (criados no primeiro acesso ao banco)
@@ -140,9 +143,23 @@ Administradores acessam **Produtos** no menu para cadastrar, editar, pesquisar e
 
 No cadastro de um pedido, selecione um produto do catálogo e informe a quantidade ou as medidas correspondentes. O backend calcula o total usando o preço vigente no momento da inclusão e grava nome, unidade, preço e medidas no item do pedido. Alterações futuras no catálogo não modificam o histórico; itens livres continuam disponíveis.
 
+## Configurações comerciais do backend
+
+As configurações abaixo são opcionais, exceto que os limites numéricos, quando informados, devem ser válidos. A API falha explicitamente na inicialização se `QUOTE_VALIDITY_DAYS` ou `ORDER_CLIENT_REQUIRED_THRESHOLD` estiver inválida.
+
+| Variável | Padrão | Descrição |
+|---|---:|---|
+| `QUOTE_VALIDITY_DAYS` | `7` | Dias corridos de validade dos orçamentos pendentes |
+| `ORDER_CLIENT_REQUIRED_THRESHOLD` | `100` | Total final em reais a partir do qual orçamentos comuns exigem cliente |
+| `BUSINESS_ADDRESS` | vazio | Endereço mostrado no PDF e na mensagem quando configurado |
+| `BUSINESS_PHONE` | vazio | Telefone comercial mostrado quando configurado |
+| `BUSINESS_PIX_KEY` | vazio | Chave PIX mostrada somente para pagamento por PIX |
+| `BUSINESS_INSTAGRAM` | `@smartprint.lindoia` | Identificação do Instagram comercial |
+
+Pedido rápido/venda de balcão continua isento da exigência de cliente, mesmo quando ultrapassa o limite. Orçamentos comuns também exigem cliente para categorias Fachada e Veículos, sem depender do total. O WhatsApp abre uma mensagem pré-preenchida; o envio continua manual e a preparação do link não registra confirmação de entrega.
+
 ## Próximos passos sugeridos
 - Trocar senha padrão dos usuários / criar tela de gestão de usuários
-- Gerar PDF do orçamento (ex: pdfmake)
 - Integração com WhatsApp Business API (ao invés de wa.me)
 - Backup automático do MongoDB Atlas
 

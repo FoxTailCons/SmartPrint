@@ -93,6 +93,7 @@ export function buildCatalogOrderItem({
     ...metadata,
     ...(pricingBasis ? { pricingBasis } : {}),
     productId,
+    category: product?.category,
     productName,
     saleUnit,
     description,

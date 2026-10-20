@@ -12,7 +12,9 @@ import payableRoutes from './routes/payables.js';
 import dashboardRoutes from './routes/dashboard.js';
 import productRoutes from './routes/products.js';
 import User from './models/User.js';
+import { getOrderSettings } from './config/orderSettings.js';
 
+getOrderSettings();
 const app = express();
 const allowedOrigins = (process.env.CLIENT_URL || '').split(',').map((origin) => origin.trim()).filter(Boolean);
 app.use(cors({

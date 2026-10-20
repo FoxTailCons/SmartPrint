@@ -15,6 +15,12 @@ test('Product trims its name and treats an empty code as absent', async () => {
   assert.equal(product.code, undefined);
 });
 
+test('Product accepts supported categories and leaves legacy categories optional', async () => {
+  await new Product({ name: 'Cópia', saleUnit: 'unit', price: 1, category: 'xerox_impressao' }).validate();
+  await new Product({ name: 'Legado', saleUnit: 'unit', price: 1 }).validate();
+  await assert.rejects(new Product({ name: 'Inválido', saleUnit: 'unit', price: 1, category: 'outros' }).validate());
+});
+
 test('Product rejects unsupported sale units and invalid prices', async () => {
   for (const [saleUnit, price] of [['piece', 10], ['unit', -1], ['unit', Infinity], ['unit', NaN]]) {
     const product = new Product({ name: 'Produto', saleUnit, price });
@@ -33,6 +39,14 @@ test('Product declares sparse uniqueness for optional product codes', () => {
 function createApp() {
   const records = [];
   let nextId = 1;
+  const matches = (entry, filter) => Object.entries(filter).every(([field, condition]) => {
+    if (field === '$and') return condition.every((part) => matches(entry, part));
+    if (field === '$or') return condition.some((part) => matches(entry, part));
+    if (condition && typeof condition === 'object' && '$exists' in condition) return (field in entry) === condition.$exists;
+    if (condition && typeof condition === 'object' && '$regex' in condition) return new RegExp(condition.$regex, condition.$options).test(String(entry[field] || ''));
+    if (condition === null) return entry[field] === null || entry[field] === undefined;
+    return entry[field] === condition;
+  });
 
   class MemoryProduct {
     constructor(data) {
@@ -57,13 +71,7 @@ function createApp() {
     }
 
     static find(filter) {
-      let matching = records.filter((entry) =>
-        (!('active' in filter) || entry.active === filter.active)
-        && (!filter.$or || filter.$or.some((condition) => {
-          const [field, expression] = Object.entries(condition)[0];
-          return String(entry[field] || '').toLowerCase().includes(expression.$regex.toLowerCase());
-        }))
-      );
+      let matching = records.filter((entry) => matches(entry, filter));
       return {
         sort(order) {
           const [[field, direction]] = Object.entries(order);
@@ -77,13 +85,7 @@ function createApp() {
     }
 
     static countDocuments(filter) {
-      return Promise.resolve(this.find(filter).length ?? records.filter((entry) =>
-        (!('active' in filter) || entry.active === filter.active)
-        && (!filter.$or || filter.$or.some((condition) => {
-          const [field, expression] = Object.entries(condition)[0];
-          return String(entry[field] || '').toLowerCase().includes(expression.$regex.toLowerCase());
-        }))
-      ).length);
+      return Promise.resolve(records.filter((entry) => matches(entry, filter)).length);
     }
 
     static findById(id) {
@@ -157,9 +159,33 @@ test('product routes require authentication and hide inactive products from regu
   });
 });
 
+test('product routes filter by category while keeping uncategorized legacy products available', async (t) => {
+  await withApi(t, async (url, records) => {
+    records.push(
+      { _id: '1', name: 'Cópia', category: 'xerox_impressao', saleUnit: 'unit', price: 1, active: true },
+      { _id: '2', name: 'Banner', category: 'grande_formato', saleUnit: 'square_meter', price: 50, active: true },
+      { _id: '3', name: 'Produto legado', saleUnit: 'unit', price: 2, active: true }
+    );
+    const headers = { 'x-test-role': 'admin' };
+
+    const category = await fetch(`${url}?category=xerox_impressao`, { headers });
+    assert.deepEqual((await category.json()).map(({ name }) => name), ['Cópia']);
+
+    const uncategorized = await fetch(`${url}?category=sem_categoria`, { headers });
+    assert.deepEqual((await uncategorized.json()).map(({ name }) => name), ['Produto legado']);
+
+    const combined = await fetch(`${url}?category=xerox_impressao&q=c&page=1&pageSize=1`, { headers });
+    assert.equal(combined.status, 200);
+    assert.deepEqual((await combined.json()).items.map(({ name }) => name), ['Cópia']);
+
+    const invalid = await fetch(`${url}?category=desconhecida`, { headers });
+    assert.equal(invalid.status, 400);
+  });
+});
+
 test('product routes create and update products only for administrators', async (t) => {
   await withApi(t, async (url) => {
-    const payload = { name: '  Banner  ', code: 'BNR-1', saleUnit: 'square_meter', price: 95 };
+    const payload = { name: '  Banner  ', code: 'BNR-1', saleUnit: 'square_meter', price: 95, category: 'grande_formato' };
     const forbidden = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-test-role': 'atendente' },
@@ -176,6 +202,7 @@ test('product routes create and update products only for administrators', async 
     const product = await created.json();
     assert.equal(product.name, 'Banner');
     assert.equal(product.price, 95);
+    assert.equal(product.category, 'grande_formato');
 
     const updated = await fetch(`${url}/${product._id}`, {
       method: 'PUT',
@@ -184,6 +211,14 @@ test('product routes create and update products only for administrators', async 
     });
     assert.equal(updated.status, 200);
     assert.equal((await updated.json()).price, 105);
+
+    const uncategorized = await fetch(`${url}/${product._id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'x-test-role': 'admin' },
+      body: JSON.stringify({ ...payload, category: '', name: 'Banner sem categoria' }),
+    });
+    assert.equal(uncategorized.status, 200);
+    assert.equal((await uncategorized.json()).category, undefined);
   });
 });
 

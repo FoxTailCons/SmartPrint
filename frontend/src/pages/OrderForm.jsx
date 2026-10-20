@@ -8,7 +8,7 @@ import { calculateAreaPerPiece } from './measurements.js';
 import { splitInstallmentAmounts } from './installmentMath.js';
 import { getOrderDocumentLabel, roundOrderTotalUp } from './orderPresentation.js';
 import { getQuantityPrice } from './catalogPricing.js';
-import { itemTotal, priorityLabels, productionStages, serializeOrderItems } from './printshop.js';
+import { getCategoryLabel, itemTotal, priorityLabels, productCategories, productionStages, requiresQuoteClient, serializeOrderItems } from './printshop.js';
 import GraphicItemFields from '../components/GraphicItemFields.jsx';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
@@ -32,6 +32,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [products, setProducts] = useState([]);
   const [catalogError, setCatalogError] = useState('');
   const [catalogProductId, setCatalogProductId] = useState('');
+  const [catalogCategory, setCatalogCategory] = useState('');
   const [catalogMeasure, setCatalogMeasure] = useState(emptyCatalogMeasure);
   const [clientId, setClientId] = useState('');
   const [items, setItems] = useState([{ ...emptyItem }]);
@@ -51,10 +52,16 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [showMeasureCalculator, setShowMeasureCalculator] = useState(false);
   const [newClient, setNewClient] = useState({ name: '', phone: '', email: '' });
   const [saving, setSaving] = useState(false);
+  const [clientRequiredThreshold, setClientRequiredThreshold] = useState(100);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
 
   useEffect(() => {
     api('/api/clients').then(setClients);
     api('/api/products').then(setProducts).catch((error) => setCatalogError(error.message));
+    api('/api/orders/settings')
+      .then((settings) => { setClientRequiredThreshold(settings.clientRequiredThreshold); setSettingsLoaded(true); })
+      .catch((error) => setSettingsError(error.message));
     if (isEdit) {
       api(`/api/orders/${id}`).then((o) => {
         setClientId(o.client?._id || o.client);
@@ -75,7 +82,20 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
 
   const itemsTotal = items.reduce((sum, item) => sum + itemTotal(item), 0);
   const finalValue = roundOrderTotalUp(itemsTotal, discount);
+  const quoteItems = items.map((item) => item.category ? item : {
+    ...item,
+    category: products.find((product) => product._id === item.productId)?.category,
+  });
+  const clientRequired = (!isEdit || orderStatus === 'pendente')
+    && requiresQuoteClient(finalValue, quoteItems, clientRequiredThreshold);
+  const selectedClient = clients.find((client) => client._id === clientId);
+  const clientRequirementError = clientRequired && (!selectedClient?.name?.trim() || !selectedClient?.phone?.trim())
+    ? 'Este orçamento exige cliente cadastrado com nome e telefone.'
+    : '';
   const selectedProduct = products.find((product) => product._id === catalogProductId);
+  const visibleProducts = catalogCategory
+    ? products.filter((product) => catalogCategory === 'sem_categoria' ? !product.category : product.category === catalogCategory)
+    : products;
   const pieceCount = Number(catalogMeasure.pieceCount);
   const lengthPerPiece = Number(catalogMeasure.lengthPerPiece);
   const width = Number(catalogMeasure.width);
@@ -146,6 +166,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
     setItems((current) => [...current, {
       productId: selectedProduct._id,
       productName: selectedProduct.name,
+      category: selectedProduct.category,
       saleUnit: selectedProduct.saleUnit,
       description,
       quantity: catalogQuantity,
@@ -173,6 +194,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
 
   const save = async (e) => {
     e.preventDefault();
+    if (!settingsLoaded) return alert(settingsError || 'Não foi possível carregar as configurações do orçamento.');
+    if (clientRequirementError) return alert(clientRequirementError);
     setSaving(true);
     try {
       const body = {
@@ -246,6 +269,10 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
               <UserPlus size={16} /> Novo
             </button>
           </div>
+          {settingsError && <p role="alert" className="text-sm text-red-600">Não foi possível carregar a regra de cliente: {settingsError}</p>}
+          {clientRequired && !clientRequirementError && <p role="status" className="text-sm text-amber-700">Cliente com nome e telefone obrigatório para este orçamento.</p>}
+          {clientRequirementError && <p role="alert" className="text-sm text-red-600">{clientRequirementError}</p>}
+          {!clientRequired && <p className="text-xs text-slate-500">Cliente opcional até {fmt(clientRequiredThreshold)} para serviços sem categoria especial.</p>}
         </div>
 
         {/* Itens */}
@@ -267,6 +294,14 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
               <p className="text-xs text-slate-500">Prévia estimada. O preço cadastrado será validado novamente ao salvar o pedido.</p>
             </div>
             {catalogError && <p role="alert" className="text-sm text-red-600">{catalogError}</p>}
+            <label className="block text-sm">
+              Filtrar por categoria
+              <select value={catalogCategory} onChange={(event) => { setCatalogCategory(event.target.value); setCatalogProductId(''); }} className="mt-1 w-full rounded-lg border bg-white px-3 py-2">
+                <option value="">Todas as categorias</option>
+                <option value="sem_categoria">Sem categoria</option>
+                {productCategories.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
+              </select>
+            </label>
             <select
               id="catalog-product"
               value={catalogProductId}
@@ -274,9 +309,9 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
               className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
             >
               <option value="">Selecione um produto ativo...</option>
-              {products.map((product) => (
+              {visibleProducts.map((product) => (
                 <option key={product._id} value={product._id}>
-                  {product.name} · {fmt(product.price)}/{saleUnitLabels[product.saleUnit]}
+                  {product.name} · {getCategoryLabel(product.category)} · {fmt(product.price)}/{saleUnitLabels[product.saleUnit]}
                 </option>
               ))}
             </select>
@@ -361,6 +396,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                       <div className="text-xs text-slate-500">
                         {Number(it.quantity).toFixed(4).replace('.', ',')} {saleUnitLabels[it.saleUnit] || ''}
                         {' × '}{fmt(it.unitPrice)}{it.saleUnit ? `/${saleUnitLabels[it.saleUnit]}` : ''}
+                        {' · '}{getCategoryLabel(it.category || products.find((product) => product._id === it.productId)?.category)}
                       </div>
                       {it.saleUnit === 'unit' && <label className="mt-2 block text-xs">Quantidade
                         <input type="number" min="1" step="1" value={it.quantity} onChange={(event) => updateItem(idx, 'quantity', event.target.value)} className="ml-2 w-24 rounded border bg-white px-2 py-1" />
@@ -390,6 +426,15 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                       value={it.unitPrice}
                       onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
                     />
+                    <select
+                      aria-label={`Categoria do item ${idx + 1}`}
+                      className="col-span-11 rounded-lg border px-3 py-2 text-sm"
+                      value={it.category || ''}
+                      onChange={(event) => updateItem(idx, 'category', event.target.value)}
+                    >
+                      <option value="">Sem categoria</option>
+                      {productCategories.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
+                    </select>
                   </>
                 )}
                 <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-1 text-red-500 hover:bg-red-50 p-2 rounded-lg">

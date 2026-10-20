@@ -83,7 +83,7 @@ export default function OrderDetail() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <PrintButton orderId={order._id} className="px-3 py-2" />
-          <WhatsAppButton orderId={order._id} disabled={!order.client?.phone} />
+          <WhatsAppButton orderId={order._id} />
           {!order.quickSaleKey && <Link to={`/pedidos/${order._id}/editar`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-slate-50">
             <Pencil size={16} /> Editar
           </Link>}

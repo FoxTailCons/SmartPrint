@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { initialProductionStage } from '../services/productionWorkflow.js';
+import { productCategories } from './Product.js';
 
 const measurementsSchema = new mongoose.Schema(
   {
@@ -21,6 +22,7 @@ const itemSchema = new mongoose.Schema({
   unitPrice: { type: Number, default: 0, min: 0 },
   total: { type: Number, default: 0 },
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+  category: { type: String, enum: productCategories },
   productName: { type: String },
   saleUnit: { type: String, enum: ['unit', 'linear_meter', 'square_meter'] },
   measurements: { type: measurementsSchema },

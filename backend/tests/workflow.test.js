@@ -4,7 +4,16 @@ import { buildCatalogOrderItem, normalizeItemMetadata } from '../services/orderI
 import Order from '../models/Order.js';
 import { effectiveStage, nextProductionStage, calendarDate, boardOrders } from '../services/productionWorkflow.js';
 
-const product = { _id: '507f1f77bcf86cd799439011', name: 'Cópia', saleUnit: 'unit', price: 1, priceTiers: [{minQuantity:21,price:0.8},{minQuantity:301,price:0.5}] };
+const product = { _id: '507f1f77bcf86cd799439011', name: 'Cópia', saleUnit: 'unit', price: 1, category: 'xerox_impressao', priceTiers: [{minQuantity:21,price:0.8},{minQuantity:301,price:0.5}] };
+test('catalog order items take their category from the persisted product', async (t) => {
+  t.mock.method(Product, 'findById', async () => ({ ...product, category: 'fachada', active: true }));
+  const [item] = await buildOrderItems([{ productId: product._id, quantity: 1, category: 'papelaria' }]);
+  assert.equal(item.category, 'fachada');
+});
+test('free order items treat an empty category as uncategorized', async () => {
+  const [item] = await buildOrderItems([{ description: 'Cópia avulsa', quantity: 1, unitPrice: 1, category: '' }]);
+  assert.equal(item.category, undefined);
+});
 test('tiers use inclusive thresholds and historical basis', () => {
   for (const [quantity, price] of [[20,1],[21,.8],[300,.8],[301,.5]]) assert.equal(buildCatalogOrderItem({product,quantity}).unitPrice,price);
   const saved = buildCatalogOrderItem({product,quantity:20});
@@ -29,7 +38,7 @@ test('legacy stages, configured skips, conflicts and calendar deadlines',()=>{
   assert.equal(boardOrders(rows,{deadline:'today'},new Date('2026-10-20T12:00:00Z')).length,1);
   assert.equal(boardOrders(rows,{},new Date('2026-10-20T12:00:00Z'))[0].priority,'urgente');
 });
-import { createQuickSaleHandler, createProductionAdvanceHandler, buildWhatsappText, itemDocumentDetails, buildOrderItems } from '../routes/orders.js';
+import { createQuickSaleHandler, createProductionAdvanceHandler, createWhatsappHandler, buildWhatsappText, itemDocumentDetails, buildOrderItems, buildQuoteValidityDate, normalizeWhatsappPhone } from '../routes/orders.js';
 import Product from '../models/Product.js';
 const response = () => ({statusCode:200,status(value){this.statusCode=value;return this;},json(value){this.body=value;return this;}});
 const user = {_id:'507f1f77bcf86cd799439099',name:'Atendente'};
@@ -38,7 +47,7 @@ test('quick sale saves paid and delivered order once, ignores submitted prices, 
   const OrderModel = {findOne:async()=>saved,create:async(value)=>{calls++; assert.equal(value.payments[0].amount,17);assert.equal(value.status,'concluido');assert.equal(value.productionStage,'entregue'); saved={...value,_id:'sale'};return saved;}};
   const handler = createQuickSaleHandler({OrderModel,ProductModel:{findById:async()=>({...product,active:true})}});
   const req = {user,body:{items:[{productId:product._id,quantity:21,unitPrice:0}],paymentMethod:'pix',requestId:'req-1'}};
-  const res=response();await handler(req,res);assert.equal(res.statusCode,201);assert.equal(res.body.amountPaid,17);assert.equal(res.body.items[0].unitPrice,.8);
+  const res=response();await handler(req,res);assert.equal(res.statusCode,201);assert.equal(res.body.amountPaid,17);assert.equal(res.body.items[0].unitPrice,.8);assert.equal(res.body.items[0].category,'xerox_impressao');
   const retry=response();await handler(req,retry);assert.equal(retry.statusCode,200);assert.equal(retry.body._id,'sale');assert.equal(calls,1);
 });
 test('quick sale failure never performs a second partial payment write',async()=>{
@@ -69,7 +78,48 @@ test('metadata and fees survive resolver edits and appear in document text',asyn
   const [item]=await buildOrderItems([{productId:product._id,quantity:2,serviceName:'Plotagem',material:'Vinil',finishing:'Laminado',artworkUrl:'https://example.org/arte',installationFee:10,travelFee:5}]);
   assert.equal(item.total,17);assert.match(item.description,/Plotagem.*Vinil/);
   assert.ok(itemDocumentDetails(item).some(line=>line.includes('Laminado')));
-  const text=buildWhatsappText({items:[item]},null);assert.match(text,/Laminado/);assert.match(text,/https:\/\/example.org\/arte/);
+  const text=buildWhatsappText({number:'M-1',items:[item],totalValue:item.total,finalValue:item.total},null);assert.match(text,/Laminado/);assert.match(text,/https:\/\/example.org\/arte/);
+});
+test('quote WhatsApp text includes validity and configured business data only when applicable', () => {
+  const order = {
+    number: 'Q-1', status: 'pendente', amountPaid: 0, createdAt: '2026-10-20T15:00:00Z',
+    items: [{ description: 'Banner 2x1', quantity: 1, unitPrice: 120, total: 120 }],
+    totalValue: 120, finalValue: 120, paymentMethod: 'pix',
+  };
+  const text = buildWhatsappText(order, null, {
+    quoteValidityDays: 7, clientRequiredThreshold: 100, businessAddress: 'Rua Teste',
+    businessPhone: '', businessPixKey: 'pix@example.org', businessInstagram: '@smartprint.lindoia',
+  });
+  assert.match(text, /Válido até: 27\/10\/2026/);
+  assert.match(text, /Rua Teste/);
+  assert.match(text, /PIX: pix@example.org/);
+  assert.match(text, /@smartprint\.lindoia/);
+  assert.equal(buildQuoteValidityDate({ ...order, status: 'aprovado' }, 7), null);
+  assert.equal(normalizeWhatsappPhone('(51) 99999-9999'), '5551999999999');
+  assert.equal(normalizeWhatsappPhone('+55 51 99999-9999'), '5551999999999');
+  assert.equal(normalizeWhatsappPhone('123'), null);
+});
+
+test('WhatsApp text rejects orders without persisted items and totals', () => {
+  assert.throws(() => buildWhatsappText({ number: 'Q-2', items: [], finalValue: 0 }), /itens/);
+  assert.throws(() => buildWhatsappText({ number: 'Q-3', items: [{ description: 'Item', quantity: 1, unitPrice: 1, total: 1 }], finalValue: Infinity }), /total/);
+  assert.throws(() => buildWhatsappText({ number: 'Q-4', items: [{ description: 'Item', quantity: 1, unitPrice: NaN, total: 1 }], finalValue: 1 }), /valores inválidos/);
+});
+test('WhatsApp handler asks for a temporary destination and never marks the order sent', async () => {
+  const order = {
+    number: 'W-1', client: null, status: 'pendente', items: [{ description: 'Cópia', quantity: 1, unitPrice: 1, total: 1 }],
+    totalValue: 1, finalValue: 1, whatsappSentAt: null,
+  };
+  const handler = createWhatsappHandler({ OrderModel: { findById: () => ({ populate: async () => order }) } });
+  const request = (phone) => ({ params: { id: product._id }, query: phone ? { phone } : {} });
+  const initial = response();
+  await handler(request(), initial);
+  assert.equal(initial.body.requiresPhone, true);
+  const prepared = response();
+  await handler(request('(51) 99999-9999'), prepared);
+  assert.equal(prepared.body.phone, '5551999999999');
+  assert.match(prepared.body.link, /^https:\/\/wa\.me\/5551999999999\?/);
+  assert.equal(order.whatsappSentAt, null);
 });
 import { normalizePriceTiers } from '../services/orderItemPricing.js';
 test('tier tables reject duplicates, zero thresholds and nonfinite or negative prices',()=>{
@@ -85,7 +135,7 @@ test('saved item metadata is retained when quantity-only edits omit optional fie
 test('board honors promised-date fallback and date-only PDF/WhatsApp deadlines',()=>{
   const row={status:'aprovado',items:[{promisedDate:'2026-10-20'}]};
   assert.equal(boardOrders([row],{deadline:'today'},new Date('2026-10-21T01:00:00Z')).length,1);
-  const text=buildWhatsappText({deliveryDate:new Date('2026-10-20T00:00:00Z'),items:[]},null);
+  const text=buildWhatsappText({number:'D-1',status:'aprovado',deliveryDate:new Date('2026-10-20T00:00:00Z'),items:[{description:'Cópia',quantity:1,unitPrice:1,total:1}],totalValue:1,finalValue:1},null);
   assert.match(text,/20\/10\/2026/);
 });
 import { mergeProductionWorkflow } from '../services/productionWorkflow.js';

@@ -11,6 +11,9 @@ import { receiveDownPayment } from '../services/orderInstallments.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+import { productCategories, productCategoryLabels } from '../models/Product.js';
+import { getOrderSettings } from '../config/orderSettings.js';
+import { calculateOrderFinalValue, registeredClientError, requiresRegisteredClient } from '../services/orderClientRequirement.js';
 
 const router = Router();
 router.use(protect);
@@ -24,6 +27,27 @@ const fmtDate = (d) =>
 const orderItemError = (message) => Object.assign(new Error(message), { statusCode: 400 });
 
 export const buildOrderDocumentLabel = (order) => (isConfirmedOrder(order) ? 'Pedido' : 'Orçamento');
+export const buildQuoteValidityDate = (order, validityDays) => {
+  if (buildOrderDocumentLabel(order) !== 'Orçamento') return null;
+  const createdAt = new Date(order.createdAt || Date.now());
+  if (!Number.isFinite(createdAt.getTime())) throw new Error('Data de emissão do orçamento inválida');
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(createdAt);
+  const date = new Date(Date.UTC(
+    Number(parts.find((part) => part.type === 'year').value),
+    Number(parts.find((part) => part.type === 'month').value) - 1,
+    Number(parts.find((part) => part.type === 'day').value) + validityDays,
+  ));
+  return date.toISOString().slice(0, 10);
+};
+
+export const normalizeWhatsappPhone = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (/^55\d{10,11}$/.test(digits)) return digits;
+  if (/^\d{10,11}$/.test(digits)) return `55${digits}`;
+  return null;
+};
 
 export const canReceivePayments = (order) => order.status !== 'pendente';
 
@@ -45,7 +69,7 @@ export const initializeNewOrder = (order, { quickOrder = false, userName = '' } 
   }
 };
 
-export const buildOrderItems = async (items, existingItems = []) => Promise.all(items.map(async (item) => {
+export const buildOrderItems = async (items, existingItems = [], ProductModel = Product) => Promise.all(items.map(async (item) => {
   const previousItem = item?._id && typeof existingItems.id === 'function'
     ? existingItems.id(item._id)
     : null;
@@ -53,7 +77,8 @@ export const buildOrderItems = async (items, existingItems = []) => Promise.all(
   if (!item?.productId) {
     if (!item || typeof item.description !== 'string' || !item.description.trim() || typeof item.quantity !== 'number' || !Number.isFinite(item.quantity) || item.quantity <= 0 || typeof item.unitPrice !== 'number' || !Number.isFinite(item.unitPrice) || item.unitPrice < 0) throw orderItemError('Item ou preço inválido');
     if (!Number.isFinite(item.quantity * item.unitPrice + (metadata.installationFee || 0) + (metadata.travelFee || 0))) throw orderItemError('Total do item inválido');
-    return { ...item, ...metadata, productId: undefined, pricingBasis: undefined };
+    if (item.category && !productCategories.includes(item.category)) throw orderItemError('Categoria do item inválida');
+    return { ...item, ...metadata, category: item.category || undefined, productId: undefined, pricingBasis: undefined };
   }
   if (!mongoose.isValidObjectId(item.productId)) throw orderItemError('Produto inválido');
 
@@ -62,7 +87,7 @@ export const buildOrderItems = async (items, existingItems = []) => Promise.all(
     && previousItem.productName
     && previousItem.saleUnit
     && Number.isFinite(previousItem.unitPrice);
-  const product = await Product.findById(item.productId);
+  const product = await ProductModel.findById(item.productId);
   if (!product || (!product.active && !hasMatchingSnapshot)) {
     throw orderItemError('Produto não encontrado ou inativo');
   }
@@ -89,17 +114,17 @@ export const buildOrderItems = async (items, existingItems = []) => Promise.all(
     ...metadata,
   });
 
-  return { ...calculatedItem, ...(hasMatchingSnapshot ? { _id: previousItem._id } : {}) };
+  return { ...calculatedItem, category: product.category, ...(hasMatchingSnapshot ? { _id: previousItem._id } : {}) };
 }));
 
 export const itemDocumentDetails = (item) => {
-  const labels = {serviceName:'Serviço',material:'Material',finishing:'Acabamento',applicationLocation:'Local',promisedDate:'Prazo',artworkUrl:'Arte',installationNotes:'Instalação'};
-  const lines = Object.entries(labels).filter(([key])=>item[key]).map(([key,label])=>`${label}: ${key==='promisedDate'?fmtDate(item[key]):item[key]}`);
+  const labels = {category:'Categoria',serviceName:'Serviço',material:'Material',finishing:'Acabamento',applicationLocation:'Local',promisedDate:'Prazo',artworkUrl:'Arte',installationNotes:'Instalação'};
+  const lines = Object.entries(labels).filter(([key])=>item[key]).map(([key,label])=>`${label}: ${key==='promisedDate'?fmtDate(item[key]):key==='category'?productCategoryLabels[item[key]]:item[key]}`);
   for (const [key,label] of [['installationFee','Instalação'],['travelFee','Deslocamento']]) if(item[key]) lines.push(`${label}: ${fmtMoney(item[key])}`);
   return lines;
 };
 
-export const buildOrderPdfBuffer = async (order) => {
+export const buildOrderPdfBuffer = async (order, settings = getOrderSettings()) => {
   const client = order?.client || {};
   const items = Array.isArray(order.items) ? order.items : [];
 
@@ -120,6 +145,7 @@ export const buildOrderPdfBuffer = async (order) => {
     const discount = Number(order.discount || 0);
     const finalValue = Number(order.finalValue ?? Math.max(0, subtotal - discount));
     const documentLabel = buildOrderDocumentLabel(order);
+    const validityDate = buildQuoteValidityDate(order, settings.quoteValidityDays);
     const paymentLabel = {
       pix: 'PIX', dinheiro: 'DINHEIRO', debito: 'DÉBITO', credito: 'CRÉDITO', parcelado: 'PARCELADO',
     }[order.paymentMethod] || String(order.paymentMethod || 'A COMBINAR').toUpperCase();
@@ -153,7 +179,10 @@ export const buildOrderPdfBuffer = async (order) => {
 
     doc.rect(left + 18, 96, contentWidth - 36, 27).fill('#000');
     doc.font('Helvetica-Bold').fontSize(15).fillColor('#fff').text(`${documentLabel} Nº ${order.number || '00000'}`, left + 18, 103, { width: contentWidth - 36, align: 'center' });
-    doc.font('Helvetica').fontSize(10).fillColor('#111827').text('Orçamento aos cuidados do(a) Sr(a):', left, 133, { width: contentWidth, align: 'center' });
+    doc.font('Helvetica').fontSize(10).fillColor('#111827').text(
+      validityDate ? `Válido até: ${fmtDate(validityDate)}` : 'Documento SmartPrint',
+      left, 133, { width: contentWidth, align: 'center' }
+    );
 
     labelValue('Data de Emissão', fmtDate(order.createdAt), left + 40, 153, 220);
     labelValue('Prev. Entrega', fmtDate(calendarDate(order.deliveryDate)), 350, 153, 190);
@@ -243,10 +272,13 @@ export const buildOrderPdfBuffer = async (order) => {
     doc.text('Total:', 450, currentY + 14);
 
     const paymentY = currentY + 42;
-    doc.rect(left, paymentY, contentWidth, 39).stroke('#111827');
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('Forma de Pagamento:', left + 185, paymentY + 11, { continued: true });
+    const pixKey = order.paymentMethod === 'pix' ? settings.businessPixKey : '';
+    const paymentBoxHeight = pixKey ? 54 : 39;
+    doc.rect(left, paymentY, contentWidth, paymentBoxHeight).stroke('#111827');
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('Forma de Pagamento:', left + 185, paymentY + 8, { continued: true });
     doc.font('Helvetica').text(` ${paymentLabel}`);
-    currentY = paymentY + 46;
+    if (pixKey) doc.font('Helvetica').fontSize(9).text(`PIX: ${pixKey}`, left + 42, paymentY + 30, { width: contentWidth - 84, align: 'center' });
+    currentY = paymentY + paymentBoxHeight + 7;
     doc.font('Helvetica-Bold').fontSize(9).text('Observa\u00e7\u00f5es:', left + 42, currentY);
     currentY += 15;
     doc.font('Helvetica').fontSize(9);
@@ -262,11 +294,18 @@ export const buildOrderPdfBuffer = async (order) => {
     doc.moveTo(left + 42, currentY + 3).lineTo(right, currentY + 3).stroke('#6b7280');
     doc.font('Helvetica-Bold').fontSize(9).text('Informa\u00e7\u00f5es Complementares:', left + 42, complementY);
     doc.moveTo(left, complementY + 32).lineTo(right, complementY + 32).stroke('#6b7280');
-    const signatureY = Math.max(complementY + 75, currentY >= paymentY && paymentY + 180 < pageBottom ? paymentY + 180 : 0);
+    const businessDetails = [
+      settings.businessAddress && `Endereço: ${settings.businessAddress}`,
+      settings.businessPhone && `Telefone: ${settings.businessPhone}`,
+      settings.businessInstagram && `Instagram: ${settings.businessInstagram}`,
+    ].filter(Boolean).join(' · ');
+    const businessLines = businessDetails ? wrapLines(businessDetails, contentWidth - 84) : [];
+    businessLines.forEach((line, index) => doc.font('Helvetica').fontSize(8).text(line, left + 42, complementY + 39 + index * 10, { width: contentWidth - 84 }));
+    const signatureY = Math.max(complementY + 75 + Math.max(0, businessLines.length - 3) * 10, currentY >= paymentY && paymentY + 180 < pageBottom ? paymentY + 180 : 0);
     doc.moveTo(left, signatureY).lineTo(left + 220, signatureY).stroke('#111827');
     doc.moveTo(right - 220, signatureY).lineTo(right, signatureY).stroke('#111827');
     doc.font('Helvetica').fontSize(8).fillColor('#111827').text(client.name || 'Cliente', left, signatureY + 7, { width: 220, align: 'center' });
-    doc.text('LINDOIANO FONTES DE AGUAS MINERAIS LTDA', right - 220, signatureY + 7, { width: 220, align: 'center' });
+    doc.text('SmartPrint', right - 220, signatureY + 7, { width: 220, align: 'center' });
     doc.moveTo(left, 805).lineTo(right, 805).stroke('#111827');
 
     doc.end();
@@ -274,13 +313,23 @@ export const buildOrderPdfBuffer = async (order) => {
 };
 
 // Monta texto para envio via WhatsApp (usado no front com wa.me)
-export const buildWhatsappText = (order, client) => {
+export const buildWhatsappText = (order, client, settings = getOrderSettings()) => {
+  if (!String(order?.number || '').trim()) throw new Error('Número do pedido inválido para compartilhar');
+  if (!Array.isArray(order?.items) || order.items.length === 0) throw new Error('O pedido não possui itens para compartilhar');
+  if (order.items.some((item) => (
+    !String(item.description || '').trim()
+    || !Number.isFinite(Number(item.quantity))
+    || !Number.isFinite(Number(item.unitPrice))
+    || !Number.isFinite(Number(item.total))
+  ))) throw new Error('O pedido contém item ou valores inválidos para compartilhar');
   const lines = [];
   const clientName = client?.name || 'Cliente não cadastrado';
-  const subtotal = Number(order.totalValue || (order.items || []).reduce((sum, item) => sum + Number(item.total || 0), 0));
+  const subtotal = Number(order.totalValue ?? order.items.reduce((sum, item) => sum + Number(item.total || 0), 0));
   const discount = Number(order.discount || 0);
-  const finalValue = Number(order.finalValue ?? Math.max(0, subtotal - discount));
+  const finalValue = Number(order.finalValue ?? calculateOrderFinalValue(order.items, discount));
+  if (!Number.isFinite(subtotal) || !Number.isFinite(finalValue)) throw new Error('O pedido possui total inválido para compartilhar');
   const documentLabel = buildOrderDocumentLabel(order).toUpperCase();
+  const validityDate = buildQuoteValidityDate(order, settings.quoteValidityDays);
   lines.push('*SMART PRINT*');
   lines.push('gráfica e comunicação visual');
   lines.push(`*${documentLabel} Nº ${order.number}*`);
@@ -288,6 +337,10 @@ export const buildWhatsappText = (order, client) => {
   lines.push(`Cliente: ${clientName}`);
   lines.push(`Data de Emissão: ${fmtDate(order.createdAt)}`);
   lines.push(`Prev. Entrega: ${fmtDate(calendarDate(order.deliveryDate))}`);
+  if (validityDate) lines.push(`Válido até: ${fmtDate(validityDate)}`);
+  if (settings.businessAddress) lines.push(`Endereço: ${settings.businessAddress}`);
+  if (settings.businessPhone) lines.push(`Telefone: ${settings.businessPhone}`);
+  if (settings.businessInstagram) lines.push(`Instagram: ${settings.businessInstagram}`);
   lines.push('');
   lines.push('*Cod | Produto | Qtde | Valor Un. | Desc R$ | Total*');
   (order.items || []).forEach((it, index) => {
@@ -297,6 +350,7 @@ export const buildWhatsappText = (order, client) => {
   lines.push(`Total Desconto: ${fmtMoney(discount)}`);
   lines.push(`*VALOR TOTAL: ${fmtMoney(finalValue)}*`);
   lines.push(`Forma de Pagamento: ${String(order.paymentMethod || 'a combinar').toUpperCase()}`);
+  if (order.paymentMethod === 'pix' && settings.businessPixKey) lines.push(`PIX: ${settings.businessPixKey}`);
   if (order.amountPaid > 0) lines.push(`Pago: ${fmtMoney(order.amountPaid)} | Saldo: ${fmtMoney(finalValue - order.amountPaid)}`);
   if (order.observations) lines.push(`Observações: ${order.observations}`);
   lines.push('');
@@ -512,6 +566,14 @@ export function createQuickSaleHandler({ OrderModel = Order, ProductModel = Prod
 }
 
 router.get('/production-board', createProductionBoardHandler());
+router.get('/settings', (req, res) => {
+  try {
+    const { clientRequiredThreshold } = getOrderSettings();
+    return res.json({ clientRequiredThreshold });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
 router.post('/quick-sale', createQuickSaleHandler());
 router.post('/:id/production/advance', createProductionAdvanceHandler());
 
@@ -522,29 +584,47 @@ router.get('/:id', async (req, res) => {
 });
 
 // Criar orçamento/pedido
-router.post('/', async (req, res) => {
-  try {
-    if ('quickOrder' in (req.body || {}) && typeof req.body.quickOrder !== 'boolean') {
-      return res.status(400).json({ message: 'Opção de pedido rápido inválida' });
+export function createOrderCreateHandler({
+  OrderModel = Order,
+  ClientModel = Client,
+  ProductModel = Product,
+  settingsProvider = getOrderSettings,
+} = {}) {
+  return async (req, res) => {
+    try {
+      if ('quickOrder' in (req.body || {}) && typeof req.body.quickOrder !== 'boolean') {
+        return res.status(400).json({ message: 'Opção de pedido rápido inválida' });
+      }
+      if (req.body.quickOrder === true) {
+        return res.status(400).json({ message: 'Pedido rápido deve usar o fluxo de venda rápida' });
+      }
+      const rawClientId = req.body?.client;
+      if (rawClientId && !mongoose.isValidObjectId(rawClientId)) return res.status(400).json({ message: 'Cliente inválido' });
+      const client = rawClientId ? await ClientModel.findById(rawClientId) : null;
+      if (rawClientId && !client) return res.status(400).json({ message: 'Cliente não encontrado' });
+      if (!Array.isArray(req.body?.items) || !req.body.items.some((item) => item?.productId || item?.description?.trim())) {
+        return res.status(400).json({ message: 'Informe pelo menos um item do pedido' });
+      }
+      const fields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod', 'priority', 'skippedStages'];
+      const payload = Object.fromEntries(fields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
+      if (payload.client === '') payload.client = null;
+      payload.items = await buildOrderItems(payload.items, [], ProductModel);
+      const { clientRequiredThreshold } = settingsProvider();
+      const finalValue = calculateOrderFinalValue(payload.items, payload.discount);
+      if (requiresRegisteredClient({ finalValue, items: payload.items, clientRequiredThreshold })) {
+        const validationError = registeredClientError(client);
+        if (validationError) return res.status(400).json({ message: validationError });
+      }
+      const order = await OrderModel.create({ ...payload, productionStage: initialProductionStage(payload.skippedStages), createdBy: req.user._id });
+      initializeNewOrder(order, { userName: req.user.name });
+      await order.save();
+      return res.status(201).json(order);
+    } catch (err) {
+      return res.status(err.statusCode || 400).json({ message: err.message });
     }
-    const rawClientId = req.body?.client;
-    if (rawClientId && !mongoose.isValidObjectId(rawClientId)) return res.status(400).json({ message: 'Cliente inválido' });
-    if (rawClientId && !await Client.exists({ _id: rawClientId })) return res.status(400).json({ message: 'Cliente não encontrado' });
-    if (!Array.isArray(req.body?.items) || !req.body.items.some((item) => item?.productId || item?.description?.trim())) {
-      return res.status(400).json({ message: 'Informe pelo menos um item do pedido' });
-    }
-    const fields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod', 'priority', 'skippedStages'];
-    const payload = Object.fromEntries(fields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
-    if (payload.client === '') payload.client = null;
-    payload.items = await buildOrderItems(payload.items);
-    const order = await Order.create({ ...payload, productionStage: initialProductionStage(payload.skippedStages), createdBy: req.user._id });
-    initializeNewOrder(order, { quickOrder: req.body.quickOrder === true, userName: req.user.name });
-    await order.save();
-    res.status(201).json(order);
-  } catch (err) {
-    res.status(err.statusCode || 400).json({ message: err.message });
-  }
-});
+  };
+}
+router.post('/', createOrderCreateHandler());
 
 // Consolida dois ou mais pedidos do mesmo cliente em um único pedido.
 router.post('/merge', adminOnly, async (req, res) => {
@@ -602,32 +682,55 @@ router.post('/merge', adminOnly, async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
-  try {
-    const editableFields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod', 'priority', 'skippedStages'];
-    const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
-    if (changes.client === '') changes.client = null;
-    if (changes.client && (!mongoose.isValidObjectId(changes.client) || !await Client.exists({ _id: changes.client }))) {
-      return res.status(400).json({ message: 'Cliente inválido ou não encontrado' });
+export function createOrderUpdateHandler({
+  OrderModel = Order,
+  ClientModel = Client,
+  ProductModel = Product,
+  settingsProvider = getOrderSettings,
+} = {}) {
+  return async (req, res) => {
+    try {
+      const editableFields = ['client', 'items', 'discount', 'downPayment', 'deliveryDate', 'observations', 'installments', 'paymentMethod', 'priority', 'skippedStages'];
+      const changes = Object.fromEntries(editableFields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
+      if (changes.client === '') changes.client = null;
+      if (changes.client && !mongoose.isValidObjectId(changes.client)) {
+        return res.status(400).json({ message: 'Cliente inválido ou não encontrado' });
+      }
+      const order = await OrderModel.findById(req.params.id);
+      if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+      if (order.quickSaleKey) return res.status(400).json({ message: 'Vendas de balcão concluídas possuem recibo individual e não podem ser editadas' });
+      if (order.status !== 'pendente' && 'downPayment' in changes
+        && Number(changes.downPayment) !== Number(order.downPayment || 0)) {
+        return res.status(400).json({ message: 'A entrada não pode ser alterada após a aprovação do pedido' });
+      }
+      if ('items' in changes) {
+        if (!Array.isArray(changes.items)) return res.status(400).json({ message: 'Lista de itens inválida' });
+        changes.items = await buildOrderItems(changes.items, order.items, ProductModel);
+      }
+      const candidateItems = changes.items || order.items;
+      const candidateDiscount = 'discount' in changes ? changes.discount : order.discount;
+      const { clientRequiredThreshold } = settingsProvider();
+      const finalValue = calculateOrderFinalValue(candidateItems, candidateDiscount);
+      const candidateClientId = 'client' in changes ? changes.client : order.client;
+      let candidateClient = null;
+      if (candidateClientId && 'client' in changes) {
+        candidateClient = await ClientModel.findById(candidateClientId);
+        if (!candidateClient) return res.status(400).json({ message: 'Cliente inválido ou não encontrado' });
+      }
+      if (order.status === 'pendente' && requiresRegisteredClient({ finalValue, items: candidateItems, clientRequiredThreshold })) {
+        if (candidateClientId && !candidateClient) candidateClient = await ClientModel.findById(candidateClientId);
+        const validationError = registeredClientError(candidateClient);
+        if (validationError) return res.status(400).json({ message: validationError });
+      }
+      Object.assign(order, changes);
+      await order.save();
+      return res.json(await order.populate('client'));
+    } catch (err) {
+      return res.status(err.statusCode || 400).json({ message: err.message });
     }
-    const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-    if (order.quickSaleKey) return res.status(400).json({ message: 'Vendas de balcão concluídas possuem recibo individual e não podem ser editadas' });
-    if (order.status !== 'pendente' && 'downPayment' in changes
-      && Number(changes.downPayment) !== Number(order.downPayment || 0)) {
-      return res.status(400).json({ message: 'A entrada não pode ser alterada após a aprovação do pedido' });
-    }
-    if ('items' in changes) {
-      if (!Array.isArray(changes.items)) return res.status(400).json({ message: 'Lista de itens inválida' });
-      changes.items = await buildOrderItems(changes.items, order.items);
-    }
-    Object.assign(order, changes);
-    await order.save();
-    return res.json(await order.populate('client'));
-  } catch (err) {
-    return res.status(err.statusCode || 400).json({ message: err.message });
-  }
-});
+  };
+}
+router.put('/:id', createOrderUpdateHandler());
 
 export function createOrderDeleteHandler({ OrderModel = Order } = {}) {
   return async (req, res) => {
@@ -767,32 +870,42 @@ router.post('/:id/payments', async (req, res) => {
   res.json(order);
 });
 
-// Gerar texto WhatsApp + link
-router.get('/:id/whatsapp', async (req, res) => {
-  try {
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Identificador de pedido inválido' });
+export function createWhatsappHandler({ OrderModel = Order } = {}) {
+  return async (req, res) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(400).json({ message: 'Identificador de pedido inválido' });
+      }
+      const order = await OrderModel.findById(req.params.id).populate('client');
+      if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+      const settings = getOrderSettings();
+      const text = buildWhatsappText(order, order.client, settings);
+
+      if (!order.client && !req.query.phone) {
+        return res.json({ requiresPhone: true, text, documentLabel: buildOrderDocumentLabel(order) });
+      }
+      if (order.client && !String(order.client.phone || '').trim()) {
+        return res.status(400).json({ message: 'Cadastre um telefone/WhatsApp para este cliente' });
+      }
+      const phone = normalizeWhatsappPhone(order.client?.phone || req.query.phone);
+      if (!phone) {
+        return res.status(400).json({ message: order.client
+          ? 'O telefone cadastrado é inválido'
+          : 'Informe um telefone WhatsApp válido com DDD' });
+      }
+      return res.json({
+        text,
+        phone,
+        documentLabel: buildOrderDocumentLabel(order),
+        link: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
+      });
+    } catch (err) {
+      return res.status(400).json({ message: err.message });
     }
-    const order = await Order.findById(req.params.id).populate('client');
-    if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-    if (!order.client) return res.status(400).json({ message: 'Este pedido não possui um cliente vinculado' });
+  };
+}
 
-    const text = buildWhatsappText(order, order.client);
-    const phone = String(order.client.phone || '').replace(/\D/g, '');
-    if (!phone) return res.status(400).json({ message: 'Cadastre um telefone/WhatsApp para este cliente' });
-
-    order.whatsappSentAt = new Date();
-    await order.save();
-    res.json({
-      text,
-      phone,
-      documentLabel: buildOrderDocumentLabel(order),
-      link: `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`,
-    });
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
+router.get('/:id/whatsapp', createWhatsappHandler());
 
 router.get('/:id/pdf', async (req, res) => {
   try {

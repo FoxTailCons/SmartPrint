@@ -3,6 +3,23 @@ export const productionStages = [
   ['instalacao', 'Instalação'], ['entregue', 'Entregue'],
 ];
 export const priorityLabels = { normal: 'Normal', alta: 'Alta', urgente: 'Urgente' };
+export const productCategories = [
+  { value: 'xerox_impressao', label: 'Xerox/Impressão' },
+  { value: 'adesivos', label: 'Adesivos' },
+  { value: 'grande_formato', label: 'Grande formato' },
+  { value: 'fachada', label: 'Fachada' },
+  { value: 'veiculos', label: 'Veículos' },
+  { value: 'papelaria', label: 'Papelaria' },
+  { value: 'servicos_instalacao', label: 'Serviços (instalação)' },
+];
+
+export function getCategoryLabel(value) {
+  return productCategories.find((category) => category.value === value)?.label || 'Sem categoria';
+}
+
+export function requiresQuoteClient(finalValue, items, threshold = 100) {
+  return finalValue > threshold || items.some((item) => ['fachada', 'veiculos'].includes(item.category));
+}
 
 export function itemTotal(item) {
   return Number(item.quantity || 0) * Number(item.unitPrice || 0)
@@ -39,6 +56,7 @@ export function getDeadline(order, now = new Date()) {
 
 export function itemMetadata(item) {
   const fields = [
+    ['Categoria', item.category && getCategoryLabel(item.category)],
     ['Material', item.material], ['Acabamento', item.finishing], ['Aplicação', item.applicationLocation],
     ['Prazo combinado', item.promisedDate && graphicDate(item.promisedDate)],
     ['Arte', item.artworkUrl], ['Instalação / observações', item.installationNotes],
