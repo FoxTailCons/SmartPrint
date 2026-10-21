@@ -7,6 +7,8 @@ import Pagination from '../components/Pagination.jsx';
 import { getListState } from '../hooks/listState.js';
 import { useServerPagination } from '../hooks/useServerPagination.js';
 import PeriodExport from '../components/PeriodExport.jsx';
+import ThermalPrintButton from '../components/ThermalPrintButton.jsx';
+import { buildPayableThermalHtml } from './thermalPrint.js';
 
 const categories = ['consumo', 'insumo', 'aluguel', 'funcionario', 'imposto', 'outro'];
 const DEFAULT_PAGE_SIZE = 20;
@@ -158,6 +160,7 @@ export default function Payables() {
                 </td>
                 <td className="px-5 py-3 text-right">
                   <div className="inline-flex gap-2">
+                    {!p.paid && <ThermalPrintButton html={buildPayableThermalHtml(p)} label="Pendência 80 mm" className="!py-1.5 !px-2.5 text-xs" />}
                     {!p.paid && <button onClick={() => pay(p._id)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500 text-white text-xs hover:bg-emerald-600"><CheckCircle2 size={12} /> Pagar</button>}
                     <button onClick={() => remove(p._id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={14} /></button>
                   </div>

@@ -121,6 +121,23 @@ test('quote PDF includes validity and configured commercial details with conditi
   assert.doesNotMatch(approvedText, /27\/10\/2026/);
   assert.doesNotMatch(approvedText, /pix@example\.org/);
 });
+test('order PDF includes Smart Print Lindóia company registration and contact details', async () => {
+  const text = pdfText(await buildOrderPdfBuffer({
+    number: 'DOC-80',
+    items: [{ description: 'Banner', quantity: 1, unitPrice: 100, total: 100 }],
+    totalValue: 100,
+    finalValue: 100,
+  }));
+
+  for (const detail of [
+    'CNPJ: 30.792.498/0001-33',
+    'Rua Doutor Francisco Tozzi, 235',
+    'Jardim Redentor',
+    'Lindóia-SP',
+    'CEP: 13958-040',
+    '(19) 99803-1407',
+  ]) assert.ok(text.includes(detail), `PDF should include ${detail}`);
+});
 test('rich items paginate with repeated table headers and complete metadata', async () => {
   const order = { number: 'MANY', items: Array.from({ length: 14 }, (_, index) => ({ description: `Banner ${index}`, quantity: 2, unitPrice: 10, total: 20, serviceName: 'Impressao', material: 'Vinil', finishing: 'Laminado', applicationLocation: 'Fachada', promisedDate: '2026-10-20', artworkUrl: `https://example.org/${'arte'.repeat(80)}`, installationNotes: `Nota${index} ${'detalhes de instalacao '.repeat(30)}` })), finalValue: 280, observations: 'Observacoes finais' };
   const buffer = await buildOrderPdfBuffer(order);

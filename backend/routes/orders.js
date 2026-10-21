@@ -321,8 +321,14 @@ export const buildOrderPdfBuffer = async (order, settings = getOrderSettings()) 
     doc.font('Helvetica-Bold').fontSize(9).text('Informa\u00e7\u00f5es Complementares:', left + 42, complementY);
     doc.moveTo(left, complementY + 32).lineTo(right, complementY + 32).stroke('#6b7280');
     const businessDetails = [
-      settings.businessAddress && `Endereço: ${settings.businessAddress}`,
-      settings.businessPhone && `Telefone: ${settings.businessPhone}`,
+      'CNPJ: 30.792.498/0001-33',
+      'Endereço: Rua Doutor Francisco Tozzi, 235 · Jardim Redentor · Lindóia-SP',
+      'CEP: 13958-040',
+      'Telefone: (19) 99803-1407',
+      settings.businessAddress && settings.businessAddress !== 'Rua Doutor Francisco Tozzi, 235 · Jardim Redentor · Lindóia-SP'
+        && `Endereço adicional: ${settings.businessAddress}`,
+      settings.businessPhone && settings.businessPhone !== '(19) 99803-1407'
+        && `Telefone adicional: ${settings.businessPhone}`,
       settings.businessInstagram && `Instagram: ${settings.businessInstagram}`,
     ].filter(Boolean).join(' · ');
     const businessLines = businessDetails ? wrapLines(businessDetails, contentWidth - 84) : [];

@@ -8,10 +8,12 @@ import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
 import PaymentReceiptPrintButton from '../components/PaymentReceiptPrintButton.jsx';
+import ThermalPrintButton from '../components/ThermalPrintButton.jsx';
 import Modal from '../components/Modal.jsx';
 import { createPaymentReceipt } from './paymentReceipt.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 import { getDeadline, itemMetadata, priorityLabels } from './printshop.js';
+import { buildBalanceThermalHtml } from './thermalPrint.js';
 import ProductionProgress from '../components/ProductionProgress.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { canAccess } from '../roleAccess.js';
@@ -94,6 +96,8 @@ export default function OrderDetail() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {!isProductionUser && <PrintButton orderId={order._id} className="px-3 py-2" />}
+          {!isProductionUser && <PrintButton orderId={order._id} format="80mm" className="px-3 py-2" />}
+          {!isProductionUser && balance > 0 && (order.status !== 'pendente' || order.amountPaid > 0) && <ThermalPrintButton html={buildBalanceThermalHtml(order)} label="Pendência" className="px-3 py-2" />}
           {!isProductionUser && <WhatsAppButton orderId={order._id} />}
           {!isProductionUser && !order.quickSaleKey && <Link to={`/pedidos/${order._id}/editar`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-slate-50">
             <Pencil size={16} /> Editar

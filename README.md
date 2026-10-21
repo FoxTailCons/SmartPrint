@@ -18,6 +18,7 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - **Pedido rápido** já aprovado e sem cliente obrigatório, para serviços de balcão como fotocópias; seletor pesquisável integrado por nome ou código
 - Totais finais fracionários são arredondados para cima ao próximo real; quantidades e medidas permanecem fracionárias
 - **Recibos de pagamento** — cada recebimento registrado gera um recibo individual para impressão ou envio via WhatsApp na tela do pedido
+- **Impressão térmica de 80 mm** para orçamentos/pedidos, recibos individuais, saldos a receber e contas a pagar em aberto; a impressão A4 continua disponível
 - **Agrupar pedidos por cliente** (tela de Clientes, expansível)
 - **Desdobramento de pagamento em parcelas** (vencimentos individuais, baixa automática ou por parcela)
 - **Contas a pagar** (consumo/insumos/aluguel etc.) com **aviso visual no Dashboard** (vencidas em vermelho, vencendo em até 3 dias em amarelo)
@@ -36,6 +37,10 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - Venda de itens do catálogo em pedidos com preço validado no backend e snapshot histórico de preço e medidas
 - Exportação de pedidos (Admin/Atendente) e movimentações financeiras (Admin) em CSV compatível com Excel, com período filtrável
 - Interface adaptada para celular e tablet, com menu lateral recolhível e rolagem horizontal controlada nas tabelas; operação offline/PWA fica reservada para fase posterior
+
+### Impressão em 80 mm
+
+Nas ações de impressão, escolha **80 mm** para abrir um documento formatado para bobina térmica no diálogo do navegador. A opção **Imprimir** continua gerando o PDF A4. O documento térmico é montado no navegador, e a impressora disponível é selecionada no próprio diálogo; o SmartPrint não faz pareamento BLE/USB. Os impressos incluem CNPJ 30.792.498/0001-33, endereço, CEP e telefone da Smart Print Lindóia.
 
 ## Usuários iniciais (criados no primeiro acesso ao banco)
 | Perfil | E-mail | Senha |

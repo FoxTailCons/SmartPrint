@@ -4,6 +4,7 @@ import { fmt, fmtDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
+import ThermalPrintButton from '../components/ThermalPrintButton.jsx';
 import ListSkeleton from '../components/ListSkeleton.jsx';
 import Pagination from '../components/Pagination.jsx';
 import { getListState } from '../hooks/listState.js';
@@ -11,6 +12,7 @@ import { useServerPagination } from '../hooks/useServerPagination.js';
 import { buildBalanceReminderUrl } from './printshop.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import PeriodExport from '../components/PeriodExport.jsx';
+import { buildBalanceThermalHtml } from './thermalPrint.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -91,6 +93,8 @@ export default function Receivables() {
                 <td className="px-5 py-3 text-right">
                   <div className="inline-flex gap-2">
                     <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
+                    <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />
+                    {o.balance > 0 && <ThermalPrintButton html={buildBalanceThermalHtml(o)} label="Pendência" className="!py-1.5 !px-2.5 text-xs" />}
                     <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
                     {buildBalanceReminderUrl(o) && <a href={buildBalanceReminderUrl(o)} target="_blank" rel="noreferrer" className="rounded border px-2.5 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50">Lembrar</a>}
                     <Link to={`/pedidos/${o._id}`} className="px-2.5 py-1.5 border rounded text-xs hover:bg-slate-50">Receber</Link>

@@ -1,7 +1,25 @@
 import { Printer } from 'lucide-react';
+import { api } from '../api.js';
+import { buildOrderThermalHtml, openThermalPrintWindow, writeThermalPrint } from '../pages/thermalPrint.js';
 
-export default function PrintButton({ orderId, className = '' }) {
+export default function PrintButton({ orderId, format = 'a4', className = '' }) {
   const printOrder = async () => {
+    if (format === '80mm') {
+      const printWindow = openThermalPrintWindow();
+      if (!printWindow) {
+        alert('Seu navegador bloqueou a janela de impressão. Permita pop-ups e tente novamente.');
+        return;
+      }
+      try {
+        const order = await api(`/api/orders/${orderId}`);
+        writeThermalPrint(printWindow, buildOrderThermalHtml(order));
+      } catch (error) {
+        printWindow.close();
+        alert(error.message);
+      }
+      return;
+    }
+
     try {
       const base = import.meta.env.VITE_API_URL || 'https://smartprint-am7g.onrender.com';
       const tokenValue = localStorage.getItem('sp_token');
@@ -40,7 +58,7 @@ export default function PrintButton({ orderId, className = '' }) {
       onClick={printOrder}
       className={`inline-flex items-center gap-2 rounded-lg border text-sm hover:bg-slate-50 ${className}`}
     >
-      <Printer size={16} /> Imprimir
+      <Printer size={16} /> {format === '80mm' ? '80 mm' : 'Imprimir'}
     </button>
   );
 }

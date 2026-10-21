@@ -14,6 +14,7 @@ test('quick sale confirmation uses server total and existing payment receipt', a
     assert.match(html, /17,00/);
     assert.match(html, /href="\/pedidos\/sale-1"/);
     assert.match(html, /Imprimir recibo/);
+    assert.match(html, /Recibo 80 mm/);
     assert.match(html, /Venda concluída/);
     assert.match(html, /Nova venda/);
   } finally { await server.close(); }

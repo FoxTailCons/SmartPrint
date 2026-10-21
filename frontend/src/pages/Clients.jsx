@@ -119,6 +119,7 @@ export default function Clients() {
                       <span className="flex-1 text-right font-medium">{fmt(o.finalValue)}</span>
                       <div className="inline-flex gap-2">
                         <PrintButton orderId={o._id} className="!py-1 !px-2 text-xs" />
+                        <PrintButton orderId={o._id} format="80mm" className="!py-1 !px-2 text-xs" />
                         <WhatsAppButton orderId={o._id} className="!py-1 !px-2 text-xs" />
                         {getOrderDocumentLabel(o) === 'Pedido' && <button type="button" disabled={reordering === o._id} onClick={() => repeatOrder(c._id, o._id)} className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-50"><CopyPlus size={13} /> {reordering === o._id ? 'Criando...' : 'Repetir'}</button>}
                       </div>
