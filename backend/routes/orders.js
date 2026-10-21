@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import PDFDocument from 'pdfkit';
+import rateLimit from 'express-rate-limit';
 import Order from '../models/Order.js';
 import Client from '../models/Client.js';
 import Product from '../models/Product.js';
@@ -17,6 +18,14 @@ import { calculateOrderFinalValue, registeredClientError, requiresRegisteredClie
 import { applyOrderRoleVisibility, projectProductionOrder } from '../services/orderCostVisibility.js';
 
 const router = Router();
+export const adminAuthorizationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.user?.role === 'admin' || !req.body?.adminAuthorization,
+  message: { message: 'Muitas tentativas de autorização administrativa. Tente novamente em alguns minutos.' },
+});
 router.use(protect);
 router.use((req, res, next) => {
   if (req.user?.role === 'admin') return next();
@@ -854,7 +863,7 @@ router.post('/:id/complete', allowRoles('admin', 'producao'), async (req, res) =
 });
 
 // Registrar pagamento (parcial ou total) - desdobra nas parcelas
-router.post('/:id/payments', allowRoles('admin', 'atendente'), async (req, res) => {
+router.post('/:id/payments', allowRoles('admin', 'atendente'), adminAuthorizationLimiter, async (req, res) => {
   const { amount, date, installmentIndex, paymentMethod = 'pix', receiptUrl = '' } = req.body;
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
   const order = await Order.findById(req.params.id);
