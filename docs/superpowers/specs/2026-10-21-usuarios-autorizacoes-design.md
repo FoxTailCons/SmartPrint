@@ -6,8 +6,10 @@ Permitir que administradores cadastrem contas de Atendente e Produção e exigir
 
 ## Escopo e papéis
 
-- Somente Admin pode criar, listar e desativar usuários. Não há cadastro público.
+- Somente Admin pode criar, listar, editar e arquivar usuários Atendente/Produção. Não há cadastro público; contas Admin não podem ser editadas ou arquivadas nesta tela.
 - A criação requer nome, e-mail único normalizado, papel `atendente` ou `producao` e senha inicial válida. Senhas são armazenadas somente como hash, usando o hook bcrypt existente; respostas e listagens nunca incluem hashes.
+- A edição permite alterar nome, e-mail e perfil; a senha é opcional e só muda quando uma nova senha válida for informada. E-mail continua único e normalizado.
+- “Excluir” arquiva e desativa a conta, ocultando-a da listagem padrão sem apagar o documento nem quebrar referências nos registros de auditoria.
 - Atendente mantém as permissões comerciais e de recebimento existentes. Pode solicitar autorização administrativa para desconto no recebimento ou cancelamento.
 - Admin pode efetuar essas operações sem uma segunda autorização e pode autorizar ações de Atendente informando suas próprias credenciais.
 - Produção mantém somente as permissões operacionais atuais; não pode iniciar desconto nem cancelamento.
@@ -56,7 +58,7 @@ Permitir que administradores cadastrem contas de Atendente e Produção e exigir
 
 ## Critérios de aceitação e testes
 
-1. Admin cria e lista usuários Atendente/Produção; perfis não-admin recebem 403; duplicidade, papel admin enviado no cadastro e senha inválida são rejeitados.
+1. Admin cria, lista, edita, ativa/desativa e arquiva usuários Atendente/Produção; perfis não-admin recebem 403; duplicidade, papel admin enviado no cadastro/edição e senha inválida são rejeitados.
 2. Usuário inativo não autentica nem autoriza; nenhum hash aparece em respostas.
 3. Admin não consegue desativar a própria conta nem o último Admin ativo.
 4. Recebimento sem desconto mantém comportamento atual. Desconto zero não solicita autorização; desconto positivo sem credenciais, com senha incorreta, usuário inativo ou não-admin é rejeitado sem mutação.

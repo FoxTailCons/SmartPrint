@@ -13,6 +13,8 @@ const actionLabels = {
   'pedido.excluido': 'Exclusão de pedido/venda',
   'produto.preco_custo_alterado': 'Alteração de preço/custo',
   'usuario.status_alterado': 'Alteração de acesso',
+  'usuario.alterado': 'Alteração de usuário',
+  'usuario.arquivado': 'Usuário excluído/arquivado',
   'pagamento.desconto_acima_limite': 'Desconto acima de 10%',
   'autorizacao.desconto': 'Autorização de desconto',
   'autorizacao.cancelamento': 'Autorização de cancelamento',

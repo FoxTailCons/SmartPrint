@@ -29,7 +29,7 @@ const safeUser = (user) => ({
 
 export function createUserManagementHandlers({ UserModel = User, AuditLogModel = AuditLog } = {}) {
   const listUsers = async (_req, res) => {
-    const users = await UserModel.find().select('_id name email role active');
+    const users = await UserModel.find({ archivedAt: null }).select('_id name email role active');
     return res.json(users.map(safeUser));
   };
 
@@ -63,6 +63,7 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
 
     const user = await UserModel.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+    if (user.archivedAt) return res.status(404).json({ message: 'Usuário não encontrado' });
     if (req.body.active === false && user.role === 'admin' && user.active) {
       if (String(user._id) === String(req.user?._id)) {
         return res.status(400).json({ message: 'Não é possível desativar a própria conta de administrador' });
@@ -90,7 +91,104 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
     return res.json(safeUser(user));
   };
 
-  return { listUsers, createUser, setUserActive };
+  const updateUser = async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Identificador de usuário inválido' });
+    }
+    const body = req.body || {};
+    const fields = ['name', 'email', 'role', 'password'].filter((field) => Object.hasOwn(body, field));
+    if (!fields.length) return res.status(400).json({ message: 'Informe ao menos um campo para alterar' });
+    if ('name' in body && (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 120)) {
+      return res.status(400).json({ message: 'Informe um nome com até 120 caracteres' });
+    }
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    if ('email' in body && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: 'Informe um e-mail válido' });
+    }
+    if ('role' in body && !['atendente', 'producao'].includes(body.role)) {
+      return res.status(400).json({ message: 'O perfil deve ser Atendente ou Produção' });
+    }
+    if ('password' in body && (typeof body.password !== 'string' || body.password.length < 12)) {
+      return res.status(400).json({ message: 'A nova senha deve ter pelo menos 12 caracteres' });
+    }
+
+    const user = await UserModel.findById(req.params.id);
+    if (!user || user.archivedAt) return res.status(404).json({ message: 'Usuário não encontrado' });
+    if (user.role === 'admin') return res.status(403).json({ message: 'Contas de administrador não podem ser alteradas por esta tela' });
+
+    const changes = {};
+    if ('name' in body && user.name !== body.name.trim()) {
+      changes.nome = { antes: user.name, depois: body.name.trim() };
+      user.name = body.name.trim();
+    }
+    if ('email' in body && user.email !== email) {
+      changes.email = { antes: user.email, depois: email };
+      user.email = email;
+    }
+    if ('role' in body && user.role !== body.role) {
+      changes.perfil = { antes: user.role, depois: body.role };
+      user.role = body.role;
+    }
+    if ('password' in body) {
+      changes.senha = { alterada: true };
+      user.password = body.password;
+    }
+    if (!Object.keys(changes).length) return res.json(safeUser(user));
+
+    try {
+      await user.save();
+    } catch (error) {
+      if (error?.code === 11000) return res.status(409).json({ message: 'Já existe um usuário com este e-mail' });
+      if (error?.name === 'VersionError') return res.status(409).json({ message: 'O usuário foi alterado por outra operação; atualize e tente novamente' });
+      console.error(error);
+      return res.status(500).json({ message: 'Não foi possível alterar o usuário' });
+    }
+    try {
+      await recordAuditEvent({
+        AuditLogModel,
+        req,
+        action: 'usuario.alterado',
+        details: { usuarioId: String(user._id), alteracoes: changes },
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'O usuário foi alterado, mas não foi possível registrar a auditoria' });
+    }
+    return res.json(safeUser(user));
+  };
+
+  const deleteUser = async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Identificador de usuário inválido' });
+    }
+    const user = await UserModel.findById(req.params.id);
+    if (!user || user.archivedAt) return res.status(404).json({ message: 'Usuário não encontrado' });
+    if (user.role === 'admin') return res.status(403).json({ message: 'Contas de administrador não podem ser excluídas por esta tela' });
+
+    user.active = false;
+    user.archivedAt = new Date();
+    try {
+      await user.save();
+    } catch (error) {
+      if (error?.name === 'VersionError') return res.status(409).json({ message: 'O usuário foi alterado por outra operação; atualize e tente novamente' });
+      console.error(error);
+      return res.status(500).json({ message: 'Não foi possível excluir o usuário' });
+    }
+    try {
+      await recordAuditEvent({
+        AuditLogModel,
+        req,
+        action: 'usuario.arquivado',
+        details: { usuarioId: String(user._id), email: user.email, perfil: user.role },
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'O usuário foi excluído, mas não foi possível registrar a auditoria' });
+    }
+    return res.json(safeUser(user));
+  };
+
+  return { listUsers, createUser, setUserActive, updateUser, deleteUser };
 }
 
 export function createLoginHandler({
@@ -167,5 +265,7 @@ const userManagement = createUserManagementHandlers();
 router.get('/users', protect, adminOnly, userManagement.listUsers);
 router.post('/users', protect, adminOnly, userManagement.createUser);
 router.patch('/users/:id/active', protect, adminOnly, userManagement.setUserActive);
+router.patch('/users/:id', protect, adminOnly, userManagement.updateUser);
+router.delete('/users/:id', protect, adminOnly, userManagement.deleteUser);
 
 export default router;

@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema(
       default: 'atendente',
     },
     active: { type: Boolean, default: true },
+    archivedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

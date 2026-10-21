@@ -13,7 +13,7 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - Controle de pagamento: **aberto / parcial / pago / quitado** (recebimento parcial)
 - Produção: **iniciar / pausar / retomar / concluir** (com histórico e timestamps)
 - **Permissões por perfil:** Admin tem acesso total; Atendente opera pedidos, recebimentos e caixa; Produção consulta dados operacionais e avança etapas sem acesso a valores e custos
-- **Usuários:** somente Admin cadastra e ativa/desativa usuários Atendente e Produção; defina uma senha inicial forte e comunique-a diretamente ao usuário
+- **Usuários:** somente Admin cadastra, edita, ativa/desativa e exclui usuários Atendente e Produção. A exclusão arquiva e desativa a conta para preservar referências de auditoria; o e-mail arquivado continua reservado e a senha só muda quando uma nova senha é informada
 - A lista de pedidos separa **Pendente aprovação**, **Pendente execução** e **Concluído** em abas; busca, filtros financeiros/de produção e paginação continuam disponíveis
 - **Envio do pedido/orçamento via WhatsApp** (wa.me com mensagem formatada) — disponível no Dashboard, Pedidos, Clientes e Contas a Receber
 - **Pedido rápido** já aprovado e sem cliente obrigatório, para serviços de balcão como fotocópias; seletor pesquisável integrado por nome ou código
@@ -179,7 +179,7 @@ As configurações abaixo são opcionais, exceto que os limites numéricos, quan
 Pedido rápido/venda de balcão continua isento da exigência de cliente, mesmo quando ultrapassa o limite. Orçamentos comuns também exigem cliente para categorias Fachada e Veículos, sem depender do total. O WhatsApp abre uma mensagem pré-preenchida; o envio continua manual e a preparação do link não registra confirmação de entrega.
 
 ## Próximos passos sugeridos
-- Trocar senha padrão dos usuários / criar tela de gestão de usuários
+- Trocar senha padrão dos usuários iniciais
 - Integração com WhatsApp Business API (ao invés de wa.me)
 - Backup automático do MongoDB Atlas
 

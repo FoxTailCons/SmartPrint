@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import User from '../models/User.js';
 import authRouter, { createUserManagementHandlers } from '../routes/auth.js';
 import { adminOnly } from '../middleware/auth.js';
 
@@ -12,22 +13,39 @@ const createResponse = () => ({
 });
 
 const createUsers = (initial = []) => {
-  const records = initial.map((user) => ({ ...user, async save() { return this; } }));
+  const records = [];
+  const duplicateEmail = () => {
+    const error = new Error('duplicate');
+    error.code = 11000;
+    return error;
+  };
+  records.push(...initial.map((user) => ({
+    ...user,
+    async save() {
+      if (records.some((record) => record !== this && record.email === this.email)) throw duplicateEmail();
+      return this;
+    },
+  })));
   class UserModel {
     constructor(values) { Object.assign(this, values); }
     async save() {
       if (records.some((user) => user.email === this.email)) {
-        const error = new Error('duplicate');
-        error.code = 11000;
-        throw error;
+        throw duplicateEmail();
       }
       this._id = validId;
-      this.save = async function save() { return this; };
+      this.save = async function save() {
+        if (records.some((user) => user !== this && user.email === this.email)) throw duplicateEmail();
+        return this;
+      };
       records.push(this);
       return this;
     }
-    static find() {
-      return { select: async () => records };
+    static find(filter = {}) {
+      return {
+        select: async () => records.filter((user) => (
+          !Object.hasOwn(filter, 'archivedAt') || user.archivedAt == null
+        )),
+      };
     }
     static async findById(id) {
       return records.find((user) => user._id === id) || null;
@@ -44,6 +62,8 @@ test('user management routes are restricted to administrators', () => {
     ['get', '/users'],
     ['post', '/users'],
     ['patch', '/users/:id/active'],
+    ['patch', '/users/:id'],
+    ['delete', '/users/:id'],
   ]) {
     const route = authRouter.stack.find((layer) => layer.route?.path === path && layer.route.methods[method]);
     assert.ok(route, `${method.toUpperCase()} ${path} route exists`);
@@ -152,4 +172,144 @@ test('user management prevents administrators from deactivating themselves or th
   await lastAdminHandler({ params: { id: validId }, body: { active: false }, user: { _id: 'other-admin', role: 'admin' } }, lastAdminResponse);
   assert.equal(lastAdminResponse.statusCode, 409);
   assert.equal(lastAdmin.records[0].active, true);
+});
+
+test('user management edits profile fields, normalizes email, and changes password only when provided', async () => {
+  const { UserModel, records } = createUsers([{
+    _id: validId, name: 'Ana', email: 'ana@example.com', role: 'atendente', active: true, password: 'existing-hash',
+  }]);
+  const auditEvents = [];
+  const { updateUser } = createUserManagementHandlers({
+    UserModel,
+    AuditLogModel: { async create(event) { auditEvents.push(event); } },
+  });
+  const res = createResponse();
+
+  await updateUser({
+    params: { id: validId },
+    body: { name: ' Ana Maria ', email: ' ANA.MARIA@EXAMPLE.COM ', role: 'producao' },
+    user: { _id: 'admin-1', role: 'admin' },
+  }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(records[0].name, 'Ana Maria');
+  assert.equal(records[0].email, 'ana.maria@example.com');
+  assert.equal(records[0].role, 'producao');
+  assert.equal(records[0].password, 'existing-hash');
+  assert.deepEqual(auditEvents[0].detalhes.alteracoes, {
+    nome: { antes: 'Ana', depois: 'Ana Maria' },
+    email: { antes: 'ana@example.com', depois: 'ana.maria@example.com' },
+    perfil: { antes: 'atendente', depois: 'producao' },
+  });
+  assert.equal('password' in res.body, false);
+
+  const passwordResponse = createResponse();
+  await updateUser({
+    params: { id: validId },
+    body: { password: 'new-secure-password' },
+    user: { _id: 'admin-1', role: 'admin' },
+  }, passwordResponse);
+  assert.equal(records[0].password, 'new-secure-password');
+  assert.equal('password' in auditEvents[1].detalhes, false);
+});
+
+test('user management rejects invalid edits and does not allow editing Admin accounts', async () => {
+  const { UserModel, records } = createUsers([
+    { _id: validId, name: 'Ana', email: 'ana@example.com', role: 'atendente', active: true },
+    { _id: '507f191e810c19729de860ea', name: 'Admin', email: 'admin@example.com', role: 'admin', active: true },
+  ]);
+  const { updateUser } = createUserManagementHandlers({ UserModel });
+
+  for (const body of [
+    { name: '   ' },
+    { email: 'invalid-email' },
+    { role: 'admin' },
+    { password: 'short' },
+  ]) {
+    const res = createResponse();
+    await updateUser({ params: { id: validId }, body, user: { _id: 'admin-2', role: 'admin' } }, res);
+    assert.equal(res.statusCode, 400);
+  }
+
+  const adminResponse = createResponse();
+  await updateUser({
+    params: { id: '507f191e810c19729de860ea' },
+    body: { name: 'Changed Admin' },
+    user: { _id: 'admin-2', role: 'admin' },
+  }, adminResponse);
+  assert.equal(adminResponse.statusCode, 403);
+  assert.equal(records[1].name, 'Admin');
+});
+
+test('user management maps duplicate edit email to conflict', async () => {
+  const { UserModel } = createUsers([
+    { _id: validId, name: 'Ana', email: 'ana@example.com', role: 'atendente', active: true },
+    { _id: '507f191e810c19729de860ea', name: 'Bia', email: 'bia@example.com', role: 'producao', active: true },
+  ]);
+  const { updateUser } = createUserManagementHandlers({ UserModel });
+  const res = createResponse();
+
+  await updateUser({
+    params: { id: validId },
+    body: { email: 'BIA@example.com' },
+    user: { _id: 'admin-2', role: 'admin' },
+  }, res);
+
+  assert.equal(res.statusCode, 409);
+});
+
+test('deleting a user archives and deactivates it, preserves audit references, and hides it from the active list', async () => {
+  const { UserModel, records } = createUsers([{
+    _id: validId, name: 'Ana', email: 'ana@example.com', role: 'atendente', active: true,
+  }]);
+  const auditEvents = [];
+  const handlers = createUserManagementHandlers({
+    UserModel,
+    AuditLogModel: { async create(event) { auditEvents.push(event); } },
+  });
+  const deleted = createResponse();
+
+  await handlers.deleteUser({ params: { id: validId }, user: { _id: 'admin-1', role: 'admin' } }, deleted);
+
+  assert.equal(deleted.statusCode, 200);
+  assert.equal(records[0].active, false);
+  assert.ok(records[0].archivedAt instanceof Date);
+  assert.ok(User.schema.path('archivedAt'));
+  assert.equal(auditEvents[0].acao, 'usuario.arquivado');
+  assert.equal(auditEvents[0].detalhes.usuarioId, validId);
+  assert.equal('password' in deleted.body, false);
+
+  const listed = createResponse();
+  await handlers.listUsers({}, listed);
+  assert.deepEqual(listed.body, []);
+});
+
+test('user management prevents archiving Admin accounts', async () => {
+  const { UserModel, records } = createUsers([{
+    _id: validId, name: 'Admin', email: 'admin@example.com', role: 'admin', active: true,
+  }]);
+  const { deleteUser } = createUserManagementHandlers({ UserModel });
+  const res = createResponse();
+
+  await deleteUser({ params: { id: validId }, user: { _id: 'other-admin', role: 'admin' } }, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(records[0].active, true);
+  assert.equal(records[0].archivedAt, undefined);
+});
+
+test('archived users cannot be reactivated or edited through user-management routes', async () => {
+  const { UserModel, records } = createUsers([{
+    _id: validId, name: 'Ana', email: 'ana@example.com', role: 'atendente', active: false, archivedAt: new Date(),
+  }]);
+  const handlers = createUserManagementHandlers({ UserModel });
+  const activateResponse = createResponse();
+  await handlers.setUserActive({ params: { id: validId }, body: { active: true } }, activateResponse);
+  assert.equal(activateResponse.statusCode, 404);
+  assert.equal(records[0].active, false);
+
+  const editResponse = createResponse();
+  await handlers.updateUser({ params: { id: validId }, body: { name: 'Renamed' } }, editResponse);
+  assert.equal(editResponse.statusCode, 404);
+  assert.equal(records[0].name, 'Ana');
 });

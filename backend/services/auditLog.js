@@ -10,6 +10,8 @@ export const auditActions = [
   'pedido.excluido',
   'produto.preco_custo_alterado',
   'usuario.status_alterado',
+  'usuario.alterado',
+  'usuario.arquivado',
   'pagamento.desconto_acima_limite',
   'autorizacao.desconto',
   'autorizacao.cancelamento',

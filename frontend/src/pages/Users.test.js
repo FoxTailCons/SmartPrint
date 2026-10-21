@@ -24,3 +24,22 @@ test('user administration is visible only to Admin', async () => {
     await server.close();
   }
 });
+
+test('editing a user omits the optional password when it is blank', async () => {
+  const server = await createServer({ server: { middlewareMode: true, ws: false } });
+  try {
+    const { buildUserUpdatePayload } = await server.ssrLoadModule('/src/pages/Users.jsx');
+    assert.deepEqual(buildUserUpdatePayload({
+      name: ' Ana Maria ',
+      email: ' ANA@EXAMPLE.COM ',
+      role: 'producao',
+      password: '',
+    }), {
+      name: 'Ana Maria',
+      email: 'ana@example.com',
+      role: 'producao',
+    });
+  } finally {
+    await server.close();
+  }
+});
