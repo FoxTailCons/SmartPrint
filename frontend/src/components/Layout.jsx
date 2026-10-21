@@ -14,6 +14,7 @@ const menu = [
   { to: '/producao', label: 'Produção', icon: Columns3, permission: 'production' },
   { to: '/clientes', label: 'Clientes', icon: Users, permission: 'clients' },
   { to: '/produtos', label: 'Produtos', icon: Package, permission: 'products' },
+  { to: '/usuarios', label: 'Usuários', icon: Users, permission: 'users' },
   { to: '/contas-receber', label: 'Contas a Receber', icon: Wallet, permission: 'receivables' },
   { to: '/caixa', label: 'Fechamento de caixa', icon: Banknote, permission: 'cash' },
   { to: '/contas-pagar', label: 'Contas a Pagar', icon: TrendingDown, permission: 'payables' },

@@ -13,6 +13,7 @@ import Products from './pages/Products.jsx';
 import QuickOrder from './pages/QuickOrder.jsx';
 import Production from './pages/Production.jsx';
 import CashRegister from './pages/CashRegister.jsx';
+import Users from './pages/Users.jsx';
 import RoleGuard from './components/RoleGuard.jsx';
 import { getHomePath } from './roleAccess.js';
 
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/contas-pagar" element={<Protected permission="payables"><Payables /></Protected>} />
       <Route path="/contas-receber" element={<Protected permission="receivables"><Receivables /></Protected>} />
       <Route path="/caixa" element={<Protected permission="cash"><CashRegister /></Protected>} />
+      <Route path="/usuarios" element={<Protected permission="users"><Users /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

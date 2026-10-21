@@ -13,6 +13,7 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - Controle de pagamento: **aberto / parcial / pago / quitado** (recebimento parcial)
 - Produção: **iniciar / pausar / retomar / concluir** (com histórico e timestamps)
 - **Permissões por perfil:** Admin tem acesso total; Atendente opera pedidos, recebimentos e caixa; Produção consulta dados operacionais e avança etapas sem acesso a valores e custos
+- **Usuários:** somente Admin cadastra e ativa/desativa usuários Atendente e Produção; defina uma senha inicial forte e comunique-a diretamente ao usuário
 - A lista de pedidos separa **Pendente aprovação**, **Pendente execução** e **Concluído** em abas; busca, filtros financeiros/de produção e paginação continuam disponíveis
 - **Envio do pedido/orçamento via WhatsApp** (wa.me com mensagem formatada) — disponível no Dashboard, Pedidos, Clientes e Contas a Receber
 - **Pedido rápido** já aprovado e sem cliente obrigatório, para serviços de balcão como fotocópias; seletor pesquisável integrado por nome ou código

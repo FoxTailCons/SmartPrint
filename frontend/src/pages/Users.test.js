@@ -1,0 +1,26 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import React from 'react';
+import { renderToString } from 'react-dom/server';
+import { StaticRouter } from 'react-router-dom';
+import { createServer } from 'vite';
+
+test('user administration is visible only to Admin', async () => {
+  const server = await createServer({ server: { middlewareMode: true, ws: false } });
+  try {
+    const { default: Users } = await server.ssrLoadModule('/src/pages/Users.jsx');
+    const { default: RoleGuard } = await server.ssrLoadModule('/src/components/RoleGuard.jsx');
+    const render = (role) => renderToString(React.createElement(StaticRouter, { location: '/usuarios' },
+      React.createElement(RoleGuard, { role, permission: 'users' }, React.createElement(Users))));
+
+    const adminHtml = render('admin');
+    assert.match(adminHtml, /Novo usuário/);
+    assert.match(adminHtml, /Atendente/);
+    assert.match(adminHtml, /Produção/);
+    for (const role of ['atendente', 'producao']) {
+      assert.match(render(role), /Seu perfil não tem permissão/);
+    }
+  } finally {
+    await server.close();
+  }
+});
