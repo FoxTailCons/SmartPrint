@@ -27,6 +27,7 @@ test('production projection keeps work details but removes commercial and financ
     status: 'aprovado',
     production: 'em_producao',
     productionStage: 'instalacao',
+    productionAssignee: { _id: 'user-1', name: 'Responsável', role: 'atendente', email: 'private@example.org' },
     priority: 'alta',
     finalValue: 500,
     totalValue: 520,
@@ -36,7 +37,10 @@ test('production projection keeps work details but removes commercial and financ
     paymentMethod: 'pix',
     payments: [{ amount: 100, method: 'pix' }],
     installments: [{ amount: 400 }],
-    history: [{ action: 'pagamento', note: 'Recebido R$ 100,00' }],
+    history: [
+      { action: 'pagamento', note: 'Recebido R$ 100,00' },
+      { action: 'pausado', by: 'Atendente', note: 'Aguardando material', at: '2026-10-20T12:00:00Z', paymentMethod: 'pix' },
+    ],
     client: { name: 'Cliente', phone: '11999999999', openBalance: 400, paymentPreference: 'pix' },
     items: [{
       description: 'Banner',
@@ -58,6 +62,8 @@ test('production projection keeps work details but removes commercial and financ
     production: 'em_producao',
     productionStage: 'instalacao',
     priority: 'alta',
+    productionAssignee: { _id: 'user-1', name: 'Responsável', role: 'atendente' },
+    productionHistory: [{ action: 'pausado', by: 'Atendente', note: 'Aguardando material', at: '2026-10-20T12:00:00Z' }],
     client: { name: 'Cliente', phone: '11999999999' },
     items: [{
       description: 'Banner',

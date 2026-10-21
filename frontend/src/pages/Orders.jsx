@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
-import { fmt } from '../api';
+import { CheckCircle2, Plus, Search } from 'lucide-react';
+import { api, fmt } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
@@ -15,6 +15,25 @@ import { getDeadline, getProductionStage, productionStages } from './printshop.j
 import PeriodExport from '../components/PeriodExport.jsx';
 
 const DEFAULT_PAGE_SIZE = 20;
+export function ProductionStageTracker({ order }) {
+  const currentStage = getProductionStage(order);
+  const currentIndex = productionStages.findIndex(([key]) => key === currentStage);
+  return (
+    <ol aria-label="Acompanhamento das etapas de produção" className="flex min-w-64 flex-wrap gap-1">
+      {productionStages.map(([key, label], index) => {
+        const skipped = order.skippedStages?.includes(key);
+        const state = skipped ? 'dispensada' : index < currentIndex ? 'concluída' : index === currentIndex ? 'atual' : 'pendente';
+        return (
+          <li key={key} title={`${label}: ${state}`} className={`rounded-md px-1.5 py-1 text-[10px] ${state === 'concluída' ? 'bg-emerald-50 text-emerald-700' : state === 'atual' ? 'bg-blue-100 font-semibold text-blue-800' : state === 'dispensada' ? 'bg-slate-100 text-slate-400 line-through' : 'bg-slate-50 text-slate-500'}`}>
+            <span aria-hidden="true">{state === 'concluída' ? '✓ ' : state === 'dispensada' ? '— ' : state === 'atual' ? '● ' : '○ '}</span>
+            {label}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 const orderTabs = [
   { status: 'pendente', label: 'Pendente aprovação' },
   { status: 'aprovado', label: 'Pendente execução' },
@@ -31,6 +50,9 @@ export default function Orders() {
   const [f, setF] = useState({ paymentStatus: '', production: '' });
   const [activeTab, setActiveTab] = useState('pendente');
   const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [approvingId, setApprovingId] = useState('');
+  const [approvalMessage, setApprovalMessage] = useState('');
+  const [approvalError, setApprovalError] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const params = new URLSearchParams();
@@ -44,6 +66,20 @@ export default function Orders() {
   const updateFilter = (key, value) => {
     setPage(1);
     setF((current) => ({ ...current, [key]: value }));
+  };
+  const approveQuote = async (order) => {
+    setApprovingId(order._id);
+    setApprovalMessage('');
+    setApprovalError('');
+    try {
+      await api(`/api/orders/${order._id}/approve`, { method: 'POST' });
+      setApprovalMessage(`Orçamento #${order.number} aprovado e convertido em pedido.`);
+      retry();
+    } catch (err) {
+      setApprovalError(err.message);
+    } finally {
+      setApprovingId('');
+    }
   };
 
   return (
@@ -89,6 +125,8 @@ export default function Orders() {
             className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
+        {approvalMessage && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{approvalMessage}</p>}
+        {approvalError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{approvalError}</p>}
         {filters.map((flt) => (
           <select
             key={flt.key}
@@ -137,9 +175,10 @@ export default function Orders() {
                   </td>
                   <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
                   <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
-                  <td className="px-5 py-3"><StatusBadge value={o.status === 'cancelado' ? 'cancelado' : o.production} />
-                    {o.status !== 'cancelado' && <>
-                      <div className="mt-1 text-xs text-slate-500">{productionStages.find(([key]) => key === getProductionStage(o))?.[1]}</div>
+                  <td className="px-5 py-3">
+                    {o.status === 'pendente' ? <span className="text-xs text-slate-500">Aguardando aprovação</span> : o.status === 'cancelado' ? <StatusBadge value="cancelado" /> : <>
+                      <StatusBadge value={o.production} />
+                      <div className="mt-2"><ProductionStageTracker order={o} /></div>
                       <div className={`mt-1 text-xs ${getDeadline(o).overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{getDeadline(o).label}</div>
                     </>}
                   </td>
@@ -148,6 +187,9 @@ export default function Orders() {
                   <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
                   <td className="px-5 py-3 text-right">
                     <div className="inline-flex gap-2">
+                      {o.status === 'pendente' && <button type="button" disabled={Boolean(approvingId)} onClick={() => approveQuote(o)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                        <CheckCircle2 size={14} /> {approvingId === o._id ? 'Aprovando...' : 'Aprovar'}
+                      </button>}
                       {o.status !== 'cancelado' && <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}
                       {o.status !== 'cancelado' && <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />}
                       {o.status !== 'cancelado' && <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}

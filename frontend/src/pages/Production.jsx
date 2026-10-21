@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { api } from '../api';
-import ProductionProgress from '../components/ProductionProgress.jsx';
+import ProductionTaskControls from '../components/ProductionTaskControls.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { canAccess } from '../roleAccess.js';
 import { getDeadline, getProductionStage, priorityLabels, productionStages } from './printshop.js';
 
-export function ProductionStagePanel({ stage, title, orders, user, onChanged }) {
+export function ProductionStagePanel({ stage, title, orders, user, users, onChanged }) {
   const cards = orders.filter((order) => getProductionStage(order) === stage);
   return (
     <details className="group min-w-0 overflow-hidden rounded-xl border bg-white">
@@ -27,9 +26,10 @@ export function ProductionStagePanel({ stage, title, orders, user, onChanged }) 
             <p className="break-words text-xs text-slate-600">{order.items?.map((item) => item.description).join(' · ')}</p>
             <div className={`text-xs ${due.overdue ? 'font-semibold text-red-700' : 'text-slate-600'}`}>{due.label}</div>
             <div className={`text-xs ${order.priority === 'urgente' ? 'font-bold text-red-700' : 'text-slate-600'}`}>Prioridade: {priorityLabels[order.priority || 'normal']}</div>
-            <ProductionProgress
+            <ProductionTaskControls
               order={order}
-              readOnly={!canAccess(user?.role, 'productionActions')}
+              user={user}
+              users={users}
               onChanged={onChanged}
             />
           </article>;
@@ -44,8 +44,10 @@ export default function Production() {
   const [orders, setOrders] = useState([]);
   const [deadline, setDeadline] = useState('all');
   const [priority, setPriority] = useState('');
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [usersError, setUsersError] = useState('');
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     let active = true;
@@ -58,6 +60,14 @@ export default function Production() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [deadline, priority, revision]);
+  useEffect(() => {
+    if (user?.role !== 'admin') return undefined;
+    let active = true;
+    api('/api/orders/production-assignees')
+      .then((data) => { if (active) setUsers(data); })
+      .catch((err) => { if (active) setUsersError(err.message); });
+    return () => { active = false; };
+  }, [user?.role]);
 
   return (
     <div className="min-w-0 max-w-full space-y-5">
@@ -65,6 +75,7 @@ export default function Production() {
         <div><h1 className="text-2xl font-bold">Produção</h1><p className="text-sm text-slate-500">Prazos, prioridades e etapas · Entregues dos últimos 7 dias</p></div>
         <button type="button" onClick={() => setRevision((value) => value + 1)} className="rounded-lg border bg-white px-4 py-2 text-sm">Atualizar</button>
       </div>
+      {usersError && <p role="alert" className="text-sm text-red-700">Não foi possível carregar os profissionais: {usersError}</p>}
       <div className="flex flex-wrap gap-3 rounded-xl border bg-white p-4">
         <label className="text-sm">Prazo
           <select value={deadline} onChange={(e) => setDeadline(e.target.value)} className="ml-2 rounded-lg border px-3 py-2">
@@ -86,6 +97,7 @@ export default function Production() {
               title={title}
               orders={orders}
               user={user}
+              users={users}
               onChanged={() => setRevision((value) => value + 1)}
             />
           ))}

@@ -38,7 +38,7 @@ test('legacy stages, configured skips, conflicts and calendar deadlines',()=>{
   assert.equal(boardOrders(rows,{deadline:'today'},new Date('2026-10-20T12:00:00Z')).length,1);
   assert.equal(boardOrders(rows,{},new Date('2026-10-20T12:00:00Z'))[0].priority,'urgente');
 });
-import { createQuickSaleHandler, createProductionAdvanceHandler, createWhatsappHandler, buildWhatsappText, itemDocumentDetails, buildOrderItems, buildQuoteValidityDate, normalizeWhatsappPhone } from '../routes/orders.js';
+import { createQuickSaleHandler, createProductionAdvanceHandler, createProductionAssignmentHandler, createProductionTaskHandler, createWhatsappHandler, buildWhatsappText, itemDocumentDetails, buildOrderItems, buildQuoteValidityDate, normalizeWhatsappPhone } from '../routes/orders.js';
 import Product from '../models/Product.js';
 const response = () => ({statusCode:200,status(value){this.statusCode=value;return this;},json(value){this.body=value;return this;}});
 const user = {_id:'507f1f77bcf86cd799439099',name:'Atendente'};
@@ -96,6 +96,85 @@ test('production racing update and paused requests cannot advance',async()=>{
   const model={findById:async()=>({_id:product._id,status:'aprovado',production:'em_producao',productionStage:'arte'}),findOneAndUpdate:async()=>{writes++;return null;}};
   const handler=createProductionAdvanceHandler({OrderModel:model});const res=response();await handler({params:{id:product._id},user,body:{expectedStage:'arte'}},res);assert.equal(res.statusCode,409);
   model.findById=async()=>({status:'aprovado',production:'pausado',productionStage:'arte'});const paused=response();await handler({params:{id:product._id},user,body:{expectedStage:'arte'}},paused);assert.equal(paused.statusCode,400);assert.equal(writes,1);
+});
+test('production assignment is Admin-controlled and limited to active operational users',async()=>{
+  let update;
+  const order={_id:product._id,status:'aprovado',production:'nao_iniciado',productionStage:'arte',productionAssignee:null};
+  const handler=createProductionAssignmentHandler({
+    OrderModel:{findById:async()=>order,findOneAndUpdate:async(filter,changes)=>{update={filter,changes};return {...order,...changes.$set};}},
+    UserModel:{findById:async()=>({_id:'507f1f77bcf86cd799439099',name:'Atendente',role:'atendente',active:true})},
+  });
+  const res=response();
+  await handler({params:{id:product._id},user:{_id:'admin',name:'Admin',role:'admin'},body:{expectedStage:'arte',assigneeId:'507f1f77bcf86cd799439099'}},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(update.changes.$set.productionAssignee,'507f1f77bcf86cd799439099');
+  assert.equal(update.changes.$push.history.action,'producao.alocada');
+  assert.equal(update.changes.$push.history.assignedName,'Atendente');
+
+  const inactive=createProductionAssignmentHandler({
+    OrderModel:{findById:async()=>order},
+    UserModel:{findById:async()=>({_id:'507f1f77bcf86cd799439099',role:'producao',active:false})},
+  });
+  const inactiveResponse=response();
+  await inactive({params:{id:product._id},user:{_id:'admin',name:'Admin',role:'admin'},body:{expectedStage:'arte',assigneeId:'507f1f77bcf86cd799439099'}},inactiveResponse);
+  assert.equal(inactiveResponse.statusCode,400);
+});
+test('production task actions require assignment for operators and reasons for pause/completion',async()=>{
+  const assignee='507f1f77bcf86cd799439099';
+  let saved;
+  const order={_id:product._id,status:'aprovado',production:'nao_iniciado',productionStage:'arte',productionAssignee:assignee,skippedStages:['aprovacao_cliente','instalacao']};
+  const handler=createProductionTaskHandler({
+    OrderModel:{findById:async()=>order,findOneAndUpdate:async(filter,changes)=>{saved={filter,changes};return changes.$set;}},
+  });
+  const forbidden=response();
+  await handler({params:{id:product._id},user:{_id:'other',name:'Outro',role:'atendente'},body:{action:'start',expectedStage:'arte'}},forbidden);
+  assert.equal(forbidden.statusCode,403);
+
+  const start=response();
+  await handler({params:{id:product._id},user:{_id:assignee,name:'Profissional',role:'atendente'},body:{action:'start',expectedStage:'arte'}},start);
+  assert.equal(start.statusCode,200);
+  assert.deepEqual(saved.filter,{_id:product._id,status:'aprovado',production:'nao_iniciado',productionStage:'arte',productionAssignee:assignee});
+  assert.equal(saved.changes.$set.production,'em_producao');
+  assert.equal(saved.changes.$push.history.action,'producao_iniciada');
+
+  const pauseHandler=createProductionTaskHandler({OrderModel:{findById:async()=>({...order,production:'em_producao'}),findOneAndUpdate:async(_filter,changes)=>changes.$set}});
+  const pauseMissingReason=response();
+  await pauseHandler({params:{id:product._id},user:{_id:assignee,name:'Profissional',role:'atendente'},body:{action:'pause',expectedStage:'arte'}},pauseMissingReason);
+  assert.equal(pauseMissingReason.statusCode,400);
+  const pause=response();
+  await pauseHandler({params:{id:product._id},user:{_id:assignee,name:'Profissional',role:'atendente'},body:{action:'pause',expectedStage:'arte',note:'Aguardando material'}},pause);
+  assert.equal(pause.statusCode,200);
+  assert.equal(pause.body.production,'pausado');
+  assert.equal(pause.body.productionPausedAt instanceof Date,true);
+});
+test('concurrent production task updates return a conflict without overwriting the winner',async()=>{
+  const handler=createProductionTaskHandler({
+    OrderModel:{
+      findById:async()=>({_id:product._id,status:'aprovado',production:'nao_iniciado',productionStage:'arte',productionAssignee:'507f1f77bcf86cd799439099'}),
+      findOneAndUpdate:async()=>null,
+    },
+  });
+  const res=response();
+  await handler({params:{id:product._id},user:{_id:'507f1f77bcf86cd799439099',name:'Profissional',role:'producao'},body:{action:'start',expectedStage:'arte'}},res);
+  assert.equal(res.statusCode,409);
+});
+test('completing a production task requires a reason, advances configured stage, and clears assignee',async()=>{
+  let changes;
+  const order={_id:product._id,status:'aprovado',production:'em_producao',productionStage:'arte',productionAssignee:'507f1f77bcf86cd799439099',skippedStages:['aprovacao_cliente','instalacao']};
+  const handler=createProductionTaskHandler({
+    OrderModel:{findById:async()=>order,findOneAndUpdate:async(_filter,update)=>{changes=update;return update.$set;}},
+  });
+  const missingReason=response();
+  await handler({params:{id:product._id},user:{_id:order.productionAssignee,name:'Profissional',role:'producao'},body:{action:'complete',expectedStage:'arte'}},missingReason);
+  assert.equal(missingReason.statusCode,400);
+  const completed=response();
+  await handler({params:{id:product._id},user:{_id:order.productionAssignee,name:'Profissional',role:'producao'},body:{action:'complete',expectedStage:'arte',note:'Arte finalizada'}},completed);
+  assert.equal(completed.statusCode,200);
+  assert.equal(changes.$set.productionStage,'impressao');
+  assert.equal(changes.$set.production,'nao_iniciado');
+  assert.equal(changes.$set.productionAssignee,null);
+  assert.equal(changes.$push.history.action,'etapa_concluida');
+  assert.equal(changes.$push.history.note,'Arte finalizada');
 });
 test('metadata and fees survive resolver edits and appear in document text',async(t)=>{
   t.mock.method(Product,'findById',async()=>({...product,active:true}));

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  Play, Pause, RotateCcw, CheckCircle2, ThumbsUp, Banknote, Pencil, Trash2, MessageCircle,
+  ThumbsUp, Banknote, Pencil, Trash2, MessageCircle,
 } from 'lucide-react';
 import { api, fmt, fmtCivilDate, fmtDate } from '../api';
 import { formatInstantTime } from '../dateUtils.js';
@@ -18,7 +18,6 @@ import { buildBalanceThermalHtml } from './thermalPrint.js';
 import { getOrderBalance, getPaymentDiscountTotal } from './orderBalance.js';
 import ProductionProgress from '../components/ProductionProgress.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { canAccess } from '../roleAccess.js';
 
 const paymentMethodLabels = { pix: 'PIX', dinheiro: 'Dinheiro', debito: 'Cartão débito', credito: 'Cartão crédito', parcelado: 'Crédito parcelado' };
 
@@ -56,8 +55,6 @@ export default function OrderDetail() {
   const [discountReason, setDiscountReason] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
-  const [pauseOpen, setPauseOpen] = useState(false);
-  const [pauseNote, setPauseNote] = useState('');
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelAdminEmail, setCancelAdminEmail] = useState('');
@@ -72,7 +69,6 @@ export default function OrderDetail() {
 
   const isProductionUser = user?.role === 'producao';
   const isCanceled = order.status === 'cancelado';
-  const canManageProduction = canAccess(user?.role, 'productionActions');
   const balance = getOrderBalance(order);
   const paymentDiscounts = getPaymentDiscountTotal(order);
   const deadline = getDeadline(order);
@@ -132,14 +128,6 @@ export default function OrderDetail() {
   const closePayment = () => {
     setPayOpen(false);
     setAdminPassword('');
-  };
-
-  const pauseProduction = async () => {
-    const note = pauseNote.trim();
-    if (!note) return alert('Informe o motivo da pausa');
-    await action('production/pause', { note });
-    setPauseNote('');
-    setPauseOpen(false);
   };
 
   const closeCancel = () => {
@@ -232,32 +220,13 @@ export default function OrderDetail() {
       {/* Ações de fluxo */}
       <div className="bg-white rounded-xl border shadow-sm p-5">
         <h2 className="font-semibold mb-3">Fluxo do pedido</h2>
-        {!isCanceled && <div className="mb-4"><ProductionProgress order={order} readOnly={!canManageProduction} onChanged={(changed) => setOrder((current) => ({ ...changed, client: current.client }))} /></div>}
+        {!isCanceled && <div className="mb-4"><ProductionProgress order={order} /></div>}
+        {order.status === 'aprovado' && <Link to="/producao" className="mb-3 inline-flex rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">Abrir painel de Produção</Link>}
         <div className="flex flex-wrap gap-2">
           {isCanceled && <p className="w-full rounded-lg bg-red-50 p-3 text-sm text-red-700">Este pedido foi cancelado; pagamentos e alterações não estão disponíveis.</p>}
           {!isProductionUser && order.status === 'pendente' && (
             <button onClick={() => action('approve')} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
               <ThumbsUp size={16} /> Aprovar orçamento
-            </button>
-          )}
-          {canManageProduction && order.status === 'aprovado' && !order.productionStage && order.production === 'nao_iniciado' && (
-            <button onClick={() => action('production/start')} className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
-              <Play size={16} /> Iniciar produção
-            </button>
-          )}
-          {canManageProduction && order.status === 'aprovado' && order.production === 'em_producao' && (
-            <button onClick={() => setPauseOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600">
-              <Pause size={16} /> Pausar produção
-            </button>
-          )}
-          {canManageProduction && order.status === 'aprovado' && order.production === 'pausado' && (
-            <button onClick={() => action('production/resume')} className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
-              <RotateCcw size={16} /> Retomar produção
-            </button>
-          )}
-          {canManageProduction && order.status === 'aprovado' && !order.productionStage && order.production !== 'concluido' && (
-            <button onClick={() => action('complete')} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">
-              <CheckCircle2 size={16} /> Concluir pedido
             </button>
           )}
           {!isProductionUser && !isCanceled && balance > 0 && order.status !== 'pendente' && (
@@ -443,29 +412,6 @@ export default function OrderDetail() {
         </div>
       </Modal>}
 
-      <Modal open={pauseOpen} onClose={() => setPauseOpen(false)} title="Motivo da pausa da produção">
-        <div className="space-y-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-            Informe o motivo para manter o histórico do pedido completo.
-          </div>
-          <div>
-            <label htmlFor="pause-note" className="text-sm font-medium">Observação / motivo *</label>
-            <textarea
-              id="pause-note"
-              autoFocus
-              value={pauseNote}
-              onChange={(e) => setPauseNote(e.target.value)}
-              rows="4"
-              required
-              placeholder="Ex.: aguardando material do fornecedor..."
-              className="mt-1 w-full px-3 py-2.5 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-500"
-            />
-          </div>
-          <button type="button" onClick={pauseProduction} className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold">
-            Confirmar pausa
-          </button>
-        </div>
-      </Modal>
       {user?.role === 'atendente' && <Modal open={cancelOpen} onClose={closeCancel} title="Cancelar pedido">
         <div className="space-y-4">
           <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">

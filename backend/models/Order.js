@@ -71,6 +71,8 @@ const historySchema = new mongoose.Schema({
   by: { type: String, default: '' },
   at: { type: Date, default: Date.now },
   note: { type: String, default: '' },
+  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  assignedName: { type: String, default: '' },
   paymentMethod: { type: String, default: '' },
   fromStage: String, toStage: String, skippedStages: [String],
 });
@@ -113,6 +115,7 @@ const orderSchema = new mongoose.Schema(
       default: 'nao_iniciado',
     },
     productionStage: { type: String, enum: ['arte','aprovacao_cliente','impressao','instalacao','entregue'] },
+    productionAssignee: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     skippedStages: { type: [String], enum: ['arte','aprovacao_cliente','impressao','instalacao'], default: [], validate: { validator: (value) => { try { initialProductionStage(value); return true; } catch { return false; } }, message: 'Mantenha pelo menos uma etapa de produção válida' } },
     priority: { type: String, enum: ['normal','alta','urgente'], default: 'normal' },
     quickSaleKey: { type: String },

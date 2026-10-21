@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import Order from '../models/Order.js';
 import Client from '../models/Client.js';
 import Product from '../models/Product.js';
-import { calendarDate, nextProductionStage, boardOrders, mergeProductionWorkflow, initialProductionStage } from '../services/productionWorkflow.js';
+import { calendarDate, effectiveStage, nextProductionStage, boardOrders, mergeProductionWorkflow, initialProductionStage } from '../services/productionWorkflow.js';
 import { normalizeItemMetadata } from '../services/orderItemPricing.js';
 import { buildCatalogOrderItem } from '../services/orderItemPricing.js';
 import { receiveDownPayment, recalculateUnpaidInstallments } from '../services/orderInstallments.js';
@@ -573,7 +573,7 @@ export function createProductionBoardHandler({ OrderModel = Order, now = () => n
   return async (req,res) => {
     try {
       const at = now();
-      const rows = await OrderModel.find({$or:[{status:'aprovado'},{status:'concluido',completedAt:{$gte:new Date(at-7*86400000)}}],quickSaleKey:{$exists:false}}).populate('client','name phone').lean();
+      const rows = await OrderModel.find({$or:[{status:'aprovado'},{status:'concluido',completedAt:{$gte:new Date(at-7*86400000)}}],quickSaleKey:{$exists:false}}).populate('client','name phone').populate('productionAssignee','name role').lean();
       return res.json(boardOrders(rows,req.query,at).map(projectProductionOrder));
     } catch(error) { return res.status(400).json({message:error.message}); }
   };
@@ -596,6 +596,129 @@ export function createProductionAdvanceHandler({ OrderModel = Order } = {}) {
       if (!updated) return res.status(409).json({message:'Etapa alterada; atualize o pedido'});
       return res.json(updated);
     } catch(error) { return res.status(error.statusCode || 400).json({message:error.message}); }
+  };
+}
+const taskRoles = ['admin', 'atendente', 'producao'];
+const taskStages = ['arte', 'aprovacao_cliente', 'impressao', 'instalacao'];
+const taskActionStates = {
+  start: { production: 'nao_iniciado', next: 'em_producao', history: 'producao_iniciada' },
+  pause: { production: 'em_producao', next: 'pausado', history: 'pausado' },
+  resume: { production: 'pausado', next: 'em_producao', history: 'retomado' },
+  complete: { production: 'em_producao' },
+};
+const sameId = (left, right) => String(left?._id || left || '') === String(right?._id || right || '');
+
+export function createProductionAssignmentHandler({ OrderModel = Order, UserModel = User } = {}) {
+  return async (req, res) => {
+    try {
+      if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Somente o administrador pode alocar profissionais' });
+      if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
+      const { expectedStage, assigneeId } = req.body || {};
+      if (!taskStages.includes(expectedStage) || (assigneeId !== null && !mongoose.isValidObjectId(assigneeId))) {
+        return res.status(400).json({ message: 'Etapa ou profissional inválido' });
+      }
+      const order = await OrderModel.findById(req.params.id);
+      if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+      if (order.status !== 'aprovado' || order.production === 'concluido' || effectiveStage(order) !== expectedStage) {
+        return res.status(409).json({ message: 'Etapa alterada; atualize o pedido' });
+      }
+      let assignee = null;
+      if (assigneeId) {
+        assignee = await UserModel.findById(assigneeId);
+        if (!assignee || !assignee.active || assignee.archivedAt || !['atendente', 'producao'].includes(assignee.role)) {
+          return res.status(400).json({ message: 'Selecione um atendente ou profissional de produção ativo' });
+        }
+      }
+      const at = new Date();
+      const filter = {
+        _id: order._id,
+        status: 'aprovado',
+        production: order.production,
+        productionStage: order.productionStage ?? { $exists: false },
+        productionAssignee: order.productionAssignee || null,
+      };
+      const updated = await OrderModel.findOneAndUpdate(filter, {
+        $set: { productionAssignee: assignee?._id || null },
+        $push: { history: {
+          action: 'producao.alocada',
+          by: req.user.name,
+          at,
+          note: assignee ? `Alocado para ${assignee.name}` : 'Alocação removida',
+          assignedTo: assignee?._id,
+          assignedName: assignee?.name || '',
+          fromStage: expectedStage,
+        } },
+      }, { new: true, runValidators: true });
+      if (!updated) return res.status(409).json({ message: 'Pedido alterado; atualize os dados' });
+      return res.json(updated);
+    } catch (error) {
+      return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Não foi possível alocar o profissional' });
+    }
+  };
+}
+
+export function createProductionTaskHandler({ OrderModel = Order } = {}) {
+  return async (req, res) => {
+    try {
+      if (!taskRoles.includes(req.user?.role)) return res.status(403).json({ message: 'Perfil sem permissão para tarefas de produção' });
+      if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
+      const { action, expectedStage, note } = req.body || {};
+      const transition = taskActionStates[action];
+      if (!transition || !taskStages.includes(expectedStage)) return res.status(400).json({ message: 'Ação ou etapa inválida' });
+      const cleanNote = typeof note === 'string' ? note.trim() : '';
+      if (['pause', 'complete'].includes(action) && (!cleanNote || cleanNote.length > 500)) {
+        return res.status(400).json({ message: 'Informe uma justificativa de 1 a 500 caracteres' });
+      }
+      const order = await OrderModel.findById(req.params.id);
+      if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+      if (order.status !== 'aprovado' || effectiveStage(order) !== expectedStage || order.production !== transition.production) {
+        return res.status(409).json({ message: 'Etapa ou status alterado; atualize o pedido' });
+      }
+      if (req.user.role !== 'admin' && !sameId(order.productionAssignee, req.user._id)) {
+        return res.status(403).json({ message: 'Somente o profissional alocado pode executar esta tarefa' });
+      }
+      const at = new Date();
+      const filter = {
+        _id: order._id,
+        status: 'aprovado',
+        production: transition.production,
+        productionStage: order.productionStage ?? { $exists: false },
+        productionAssignee: order.productionAssignee || null,
+      };
+      const next = action === 'complete' ? nextProductionStage(order, expectedStage) : null;
+      const delivered = next?.toStage === 'entregue';
+      const set = action === 'complete'
+        ? {
+            productionStage: next.toStage,
+            skippedStages: next.skippedStages,
+            production: delivered ? 'concluido' : 'nao_iniciado',
+            productionAssignee: null,
+            productionPausedAt: null,
+            ...(delivered ? { status: 'concluido', completedAt: at } : {}),
+            ...(!order.productionStartedAt ? { productionStartedAt: at } : {}),
+          }
+        : {
+            production: transition.next,
+            ...(action === 'start' && !order.productionStage ? { productionStage: expectedStage } : {}),
+            ...(action === 'start' && !order.productionStartedAt ? { productionStartedAt: at } : {}),
+            ...(action === 'pause' ? { productionPausedAt: at } : {}),
+            ...(action === 'resume' ? { productionPausedAt: null } : {}),
+          };
+      const updated = await OrderModel.findOneAndUpdate(filter, {
+        $set: set,
+        $push: { history: {
+          action: action === 'complete' ? (delivered ? 'concluido' : 'etapa_concluida') : transition.history,
+          by: req.user.name,
+          at,
+          note: cleanNote,
+          ...(action === 'complete' ? { fromStage: next.fromStage, toStage: next.toStage, skippedStages: next.skippedStages } : {}),
+        } },
+      }, { new: true, runValidators: true });
+      if (!updated) return res.status(409).json({ message: 'Tarefa alterada; atualize os dados' });
+      return res.json(updated);
+    } catch (error) {
+      return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Não foi possível atualizar a tarefa' });
+    }
   };
 }
 export function createQuickSaleHandler({ OrderModel = Order, ProductModel = Product } = {}) {
@@ -635,6 +758,14 @@ export function createQuickSaleHandler({ OrderModel = Order, ProductModel = Prod
 }
 
 router.get('/production-board', allowRoles('admin', 'atendente', 'producao'), createProductionBoardHandler());
+router.get('/production-assignees', allowRoles('admin'), async (_req, res) => {
+  try {
+    const users = await User.find({ active: true, archivedAt: null, role: { $in: ['atendente', 'producao'] } }).select('_id name role').sort({ name: 1 }).lean();
+    return res.json(users);
+  } catch {
+    return res.status(500).json({ message: 'Não foi possível carregar os profissionais ativos' });
+  }
+});
 router.get('/settings', allowRoles('admin', 'atendente'), (req, res) => {
   try {
     const { clientRequiredThreshold } = getOrderSettings();
@@ -644,7 +775,8 @@ router.get('/settings', allowRoles('admin', 'atendente'), (req, res) => {
   }
 });
 router.post('/quick-sale', allowRoles('admin', 'atendente'), createQuickSaleHandler());
-router.post('/:id/production/advance', allowRoles('admin', 'producao'), createProductionAdvanceHandler());
+router.post('/:id/production/assignment', allowRoles('admin'), createProductionAssignmentHandler());
+router.post('/:id/production/task', allowRoles('admin', 'atendente', 'producao'), createProductionTaskHandler());
 
 router.get('/:id', allowRoles('admin', 'atendente', 'producao'), async (req, res) => {
   const order = await Order.findById(req.params.id).populate('client');
@@ -958,26 +1090,6 @@ export function createProductionStateHandler(action, { OrderModel = Order } = {}
     } catch(error) { return res.status(400).json({message:error.message}); }
   };
 }
-router.post('/:id/production/start', allowRoles('admin', 'producao'), createProductionStateHandler('start'));
-router.post('/:id/production/pause', allowRoles('admin', 'producao'), createProductionStateHandler('pause'));
-router.post('/:id/production/resume', allowRoles('admin', 'producao'), createProductionStateHandler('resume'));
-
-// Concluir pedido (produção concluída + status concluído)
-router.post('/:id/complete', allowRoles('admin', 'producao'), async (req, res) => {
-  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
-  const order = await Order.findById(req.params.id);
-  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-  if (order.status !== 'aprovado' || !['em_producao', 'pausado'].includes(order.production)) return res.status(400).json({ message: 'O pedido precisa estar em produção para ser concluído' });
-  if (order.productionStage && nextProductionStage(order, order.productionStage).toStage !== 'entregue') return res.status(400).json({ message: 'Avance pelas etapas antes de concluir o pedido' });
-  order.productionStage = 'entregue';
-  order.production = 'concluido';
-  order.status = 'concluido';
-  order.completedAt = new Date();
-  order.history.push({ action: 'concluido', by: req.user.name });
-  await order.save();
-  res.json(order);
-});
-
 export function createPaymentHandler({ OrderModel = Order, UserModel = User, AuditLogModel = AuditLog } = {}) {
   return async (req, res) => {
     const {

@@ -22,6 +22,10 @@ export const projectProductionOrder = (value) => {
   const client = order.client && typeof order.client === 'object'
     ? pickFields(order.client.toObject ? order.client.toObject() : order.client, ['name', 'phone'])
     : null;
+  const productionHistory = (order.history || [])
+    .filter(({ action }) => ['producao.alocada', 'producao_iniciada', 'pausado', 'retomado', 'etapa_concluida', 'concluido'].includes(action))
+    .slice(-5)
+    .map((event) => pickFields(event.toObject ? event.toObject() : event, ['action', 'by', 'at', 'note', 'assignedName', 'fromStage', 'toStage']));
 
   return {
     ...pickFields(order, [
@@ -35,6 +39,10 @@ export const projectProductionOrder = (value) => {
       'serviceName', 'material', 'finishing', 'applicationLocation',
       'promisedDate', 'artworkUrl', 'installationNotes',
     ])),
+    ...(order.populated?.('productionAssignee') || order.productionAssignee?.name
+      ? { productionAssignee: pickFields(order.productionAssignee.toObject ? order.productionAssignee.toObject() : order.productionAssignee, ['_id', 'name', 'role']) }
+      : {}),
+    ...(productionHistory.length ? { productionHistory } : {}),
   };
 };
 

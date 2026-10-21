@@ -10,6 +10,8 @@ test('page access follows administrator, attendant and production responsibiliti
   assert.equal(access.canAccess('producao', 'orders'), false);
   assert.equal(access.canAccess('producao', 'orderDetail'), true);
   assert.equal(access.canAccess('producao', 'production'), true);
+  assert.equal(access.canAccess('atendente', 'productionActions'), true);
+  assert.equal(access.canAccess('producao', 'productionActions'), true);
   assert.equal(access.canAccess('atendente', 'payables'), false);
   assert.equal(access.canAccess('atendente', 'receivables'), true);
   assert.equal(access.canAccess('atendente', 'products'), true);

@@ -23,3 +23,25 @@ test('orders page shows accessible tabs including canceled orders', async () => 
     await server.close();
   }
 });
+
+test('orders list stage tracker distinguishes completed, skipped, current and upcoming stages', async () => {
+  const server = await createServer({ server: { middlewareMode: true, ws: false } });
+  try {
+    const { ProductionStageTracker } = await server.ssrLoadModule('/src/pages/Orders.jsx');
+    const html = renderToString(React.createElement(StaticRouter, { location: '/pedidos' },
+      React.createElement(ProductionStageTracker, {
+        order: {
+          productionStage: 'impressao',
+          skippedStages: ['aprovacao_cliente'],
+        },
+      })));
+
+    assert.match(html, /Arte: concluída/);
+    assert.match(html, /Aprovação do cliente: dispensada/);
+    assert.match(html, /Impressão: atual/);
+    assert.match(html, /Instalação: pendente/);
+    assert.match(html, /Entregue: pendente/);
+  } finally {
+    await server.close();
+  }
+});
