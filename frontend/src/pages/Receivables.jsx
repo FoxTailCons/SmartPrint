@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fmt, fmtDate } from '../api';
+import { fmt, fmtCivilDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
@@ -55,7 +55,7 @@ export default function Receivables() {
             {upcoming.slice(0, 8).map((u, i) => (
               <div key={i} className="text-xs bg-slate-50 border rounded-lg px-3 py-2">
                 <div className="font-semibold">#{u.order.number} · {u.order.client?.name || 'Cliente não cadastrado'}</div>
-                <div className="text-slate-500">{u.parcela}ª · {fmtDate(u.dueDate)} · <strong>{fmt(u.amount)}</strong></div>
+                <div className="text-slate-500">{u.parcela}ª · {fmtCivilDate(u.dueDate)} · <strong>{fmt(u.amount)}</strong></div>
               </div>
             ))}
           </div>

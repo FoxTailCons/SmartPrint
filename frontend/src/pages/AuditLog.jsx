@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatInstantDateTime } from '../dateUtils.js';
 import { api } from '../api';
 import { useServerPagination } from '../hooks/useServerPagination.js';
 import ListSkeleton from '../components/ListSkeleton.jsx';
@@ -101,7 +102,7 @@ export default function AuditLog() {
                 : list.items.length === 0 ? <tr><td colSpan="7" className="px-4 py-8 text-center text-slate-500">Nenhum registro encontrado.</td></tr>
                   : list.items.map((entry) => (
                     <tr key={entry._id}>
-                      <td className="whitespace-nowrap px-4 py-3">{new Date(entry.data).toLocaleString('pt-BR')}</td>
+                      <td className="whitespace-nowrap px-4 py-3">{formatInstantDateTime(entry.data)}</td>
                       <td className="px-4 py-3">{entry.usuarioSolicitante?.name || entry.detalhes?.email || '—'}</td>
                       <td className="px-4 py-3">{entry.usuarioAutorizou?.name || '—'}</td>
                       <td className="px-4 py-3">{actionLabels[entry.acao] || entry.acao}</td>

@@ -3,7 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Play, Pause, RotateCcw, CheckCircle2, ThumbsUp, Banknote, Pencil, Trash2, MessageCircle,
 } from 'lucide-react';
-import { api, fmt, fmtDate } from '../api';
+import { api, fmt, fmtCivilDate, fmtDate } from '../api';
+import { formatInstantTime } from '../dateUtils.js';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
@@ -303,7 +304,7 @@ export default function OrderDetail() {
             <div className="space-y-2">
               {order.installments.map((p, i) => (
                 <div key={i} className={`flex items-center justify-between text-sm px-3 py-2 rounded-lg border ${p.paid ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50'}`}>
-                  <span>{i + 1}ª · {fmtDate(p.dueDate)}</span>
+                  <span>{i + 1}ª · {fmtCivilDate(p.dueDate)}</span>
                   <span className="font-medium">{fmt(p.amount)}</span>
                   <span className={`text-xs font-semibold ${p.paid ? 'text-emerald-600' : 'text-slate-400'}`}>{p.paid ? 'PAGA' : 'EM ABERTO'}</span>
                 </div>
@@ -366,7 +367,7 @@ export default function OrderDetail() {
         <div className="space-y-2 text-sm">
           {order.history?.slice().reverse().map((h, i) => (
             <div key={i} className="flex gap-3 text-slate-600">
-              <span className="text-slate-400 shrink-0">{fmtDate(h.at)} {new Date(h.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+              <span className="text-slate-400 shrink-0">{fmtDate(h.at)} {formatInstantTime(h.at)}</span>
               <span><strong>{h.action}</strong>{h.by ? ` por ${h.by}` : ''}{h.note ? ` — ${h.note}` : ''}</span>
             </div>
           ))}
@@ -434,7 +435,7 @@ export default function OrderDetail() {
               <label className="text-sm font-medium">Marcar parcela específica (opcional)</label>
               <select value={payInst} onChange={(e) => setPayInst(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white">
                 <option value="">Desdobrar automaticamente (pagar em ordem)</option>
-                {order.installments.map((p, i) => !p.paid && <option key={i} value={i}>{i + 1}ª · {fmtDate(p.dueDate)} · {fmt(p.amount)}</option>)}
+                {order.installments.map((p, i) => !p.paid && <option key={i} value={i}>{i + 1}ª · {fmtCivilDate(p.dueDate)} · {fmt(p.amount)}</option>)}
               </select>
             </div>
           )}

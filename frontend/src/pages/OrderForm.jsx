@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Plus, Trash2, Save, UserPlus, Ruler } from 'lucide-react';
 import { api, fmt } from '../api';
+import { addCalendarMonths, calendarDate, getSaoPauloDateKey } from '../dateUtils.js';
 import Modal from '../components/Modal.jsx';
 import MeasureCalculator from '../components/MeasureCalculator.jsx';
 import { calculateAreaPerPiece } from './measurements.js';
@@ -73,12 +74,12 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         setOrderStatus(o.status || 'pendente');
         setAmountPaid(o.amountPaid || 0);
         setPaymentMethod(o.paymentMethod || 'pix');
-        setDeliveryDate(o.deliveryDate ? new Date(o.deliveryDate).toISOString().slice(0, 10) : '');
+        setDeliveryDate(calendarDate(o.deliveryDate));
         setObservations(o.observations || '');
         setAttachments(o.attachments || []);
         setPriority(o.priority || 'normal');
         setSkippedStages(o.skippedStages || []);
-        setInstallments(o.installments?.map((p) => ({ dueDate: new Date(p.dueDate).toISOString().slice(0, 10), amount: p.amount })) || []);
+        setInstallments(o.installments?.map((p) => ({ dueDate: calendarDate(p.dueDate), amount: p.amount })) || []);
       });
     }
   }, [id]);
@@ -195,12 +196,9 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const generateInstallments = () => {
     const n = Math.min(12, Math.max(1, Number(instCount) || 1));
     const amounts = splitInstallmentAmounts(finalValue - Number(downPayment || 0), n);
-    const start = firstDue ? new Date(firstDue) : new Date();
     const arr = [];
     for (let i = 0; i < n; i++) {
-      const d = new Date(start);
-      d.setMonth(d.getMonth() + i);
-      arr.push({ dueDate: d.toISOString().slice(0, 10), amount: amounts[i] });
+      arr.push({ dueDate: addCalendarMonths(firstDue || getSaoPauloDateKey(), i), amount: amounts[i] });
     }
     setInstallments(arr);
   };

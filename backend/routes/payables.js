@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import Payable from '../models/Payable.js';
 import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
+import { addCalendarDays, getSaoPauloDateKey } from '../services/calendarDate.js';
 
 const router = Router();
 router.use(protect);
@@ -19,8 +20,9 @@ export const createPayableListHandler = ({ PayableModel = Payable } = {}) => asy
 
   const total = await PayableModel.countDocuments(filter);
   const page = getEffectivePage(pagination.page, pagination.pageSize, total);
-  const today = new Date();
-  const in3days = new Date(today.getTime() + 3 * 86400000);
+  const todayKey = getSaoPauloDateKey();
+  const today = new Date(`${todayKey}T00:00:00.000Z`);
+  const in3daysExclusive = new Date(`${addCalendarDays(todayKey, 4)}T00:00:00.000Z`);
   const isPaidExpression = { $ifNull: ['$paid', false] };
   const [items, summaryRows] = await Promise.all([
     PayableModel.find(filter)
@@ -50,7 +52,7 @@ export const createPayableListHandler = ({ PayableModel = Payable } = {}) => asy
                   $and: [
                     { $eq: [isPaidExpression, false] },
                     { $gte: ['$dueDate', today] },
-                    { $lte: ['$dueDate', in3days] },
+                    { $lt: ['$dueDate', in3daysExclusive] },
                   ],
                 },
                 '$value',
@@ -135,14 +137,14 @@ router.post('/:id/pay', async (req, res) => {
   }
 });
 
-function nextMonthlyDate(date) {
+export function nextMonthlyDate(date) {
   const current = new Date(date);
-  const day = current.getDate();
+  const day = current.getUTCDate();
   const next = new Date(current);
-  next.setDate(1);
-  next.setMonth(next.getMonth() + 1);
-  const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-  next.setDate(Math.min(day, lastDay));
+  next.setUTCDate(1);
+  next.setUTCMonth(next.getUTCMonth() + 1);
+  const lastDay = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
+  next.setUTCDate(Math.min(day, lastDay));
   return next;
 }
 

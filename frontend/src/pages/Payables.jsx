@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, CheckCircle2, AlertTriangle, Bell } from 'lucide-react';
-import { api, fmt, fmtDate } from '../api';
+import { api, fmt, fmtCivilDate, fmtDate } from '../api';
+import { calendarDate, getSaoPauloDateKey } from '../dateUtils.js';
 import Modal from '../components/Modal.jsx';
 import ListSkeleton from '../components/ListSkeleton.jsx';
 import Pagination from '../components/Pagination.jsx';
@@ -26,13 +27,16 @@ export default function Payables() {
   const { items, total, summary, loading, error, retry } = list;
   const listState = getListState({ loading, error, items });
 
-  const today = new Date();
-  const in3 = new Date(today.getTime() + 3 * 86400000);
+  const today = getSaoPauloDateKey();
+  const in3 = new Date(`${today}T00:00:00.000Z`);
+  in3.setUTCDate(in3.getUTCDate() + 3);
+  const dueSoonThrough = in3.toISOString().slice(0, 10);
   const rowStyle = (p) => {
     if (p.paid) return 'bg-emerald-50/50';
-    const d = new Date(p.dueDate);
-    if (d < today) return 'bg-red-50';
-    if (d <= in3) return 'bg-amber-50';
+    const dueDate = calendarDate(p.dueDate);
+    if (!dueDate) return '';
+    if (dueDate < today) return 'bg-red-50';
+    if (dueDate <= dueSoonThrough) return 'bg-amber-50';
     return '';
   };
 
@@ -149,12 +153,12 @@ export default function Payables() {
                   {p.recurring && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">recorrente</span>}
                 </td>
                 <td className="px-5 py-3 text-slate-500">{catLabel[p.category] || p.category}</td>
-                <td className="px-5 py-3">{fmtDate(p.dueDate)}</td>
+                <td className="px-5 py-3">{fmtCivilDate(p.dueDate)}</td>
                 <td className="px-5 py-3 text-right font-semibold">{fmt(p.value)}</td>
                 <td className="px-5 py-3 text-center">
                   {p.paid
                     ? <span className="text-xs font-semibold text-emerald-600">PAGA em {fmtDate(p.paidAt)}</span>
-                    : new Date(p.dueDate) < today
+                    : calendarDate(p.dueDate) && calendarDate(p.dueDate) < today
                       ? <span className="text-xs font-semibold text-red-600">VENCIDA</span>
                       : <span className="text-xs text-slate-500">aberta</span>}
                 </td>

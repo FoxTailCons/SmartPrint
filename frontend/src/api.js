@@ -1,3 +1,5 @@
+import { formatCivilDate, formatInstantDate } from './dateUtils.js';
+
 const BASE = import.meta.env.VITE_API_URL || 'https://smartprint-am7g.onrender.com'; // em dev usa proxy do Vite (/api -> :5000)
 
 const token = () => localStorage.getItem('sp_token');
@@ -51,6 +53,8 @@ export const fmt = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export const fmtDate = (d) =>
-  d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+  d ? formatInstantDate(d) : '—';
+
+export const fmtCivilDate = formatCivilDate;
 
 export const onlyDigits = (s) => (s || '').replace(/\D/g, '');

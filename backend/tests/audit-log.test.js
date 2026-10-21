@@ -63,7 +63,7 @@ test('audit filters validate user, action, date interval, and bounded pagination
   assert.deepEqual(filters.filter, {
     usuarioSolicitante: '507f1f77bcf86cd799439011',
     acao: 'caixa.fechamento',
-    data: { $gte: new Date('2026-01-01T00:00:00.000Z'), $lt: new Date('2027-01-01T00:00:00.000Z') },
+    data: { $gte: new Date('2026-01-01T03:00:00.000Z'), $lt: new Date('2027-01-01T03:00:00.000Z') },
   });
   assert.deepEqual(filters.pagination, { page: 2, pageSize: 50, skip: 50 });
   for (const query of [

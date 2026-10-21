@@ -4,7 +4,7 @@ import {
   ClipboardList, Clock, CheckCircle2, Play, Pause, Wallet, TrendingDown,
   AlertTriangle, Bell, Users, Plus, ChevronDown, ChevronUp, Combine,
 } from 'lucide-react';
-import { api, fmt, fmtDate } from '../api';
+import { api, fmt, fmtCivilDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
@@ -66,7 +66,7 @@ function DetailList({ detail, selectedIds, onToggle }) {
       <div className="divide-y">
         {items.map((payable) => (
           <div key={payable._id} className="px-5 py-3 flex items-center justify-between gap-4 text-sm">
-            <div><div className="font-medium text-slate-700">{payable.description}</div><div className="text-xs text-slate-500">Vencimento: {fmtDate(payable.dueDate)}</div></div>
+            <div><div className="font-medium text-slate-700">{payable.description}</div><div className="text-xs text-slate-500">Vencimento: {fmtCivilDate(payable.dueDate)}</div></div>
             <span className="font-semibold text-red-600">{fmt(payable.value)}</span>
           </div>
         ))}
@@ -259,7 +259,7 @@ export default function Dashboard() {
                     <div className="min-w-0">
                       <div className="truncate font-medium text-slate-700">{payable.description}</div>
                       <div className={`text-xs ${payable.urgency === 'overdue' ? 'text-red-600' : 'text-amber-600'}`}>
-                        {payable.urgency === 'overdue' ? 'Vencida' : 'Vence hoje'} · {fmtDate(payable.dueDate)}
+                        {payable.urgency === 'overdue' ? 'Vencida' : 'Vence hoje'} · {fmtCivilDate(payable.dueDate)}
                       </div>
                     </div>
                     <span className="shrink-0 font-semibold text-slate-700">{fmt(payable.value)}</span>

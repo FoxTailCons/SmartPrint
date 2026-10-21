@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { parsePagination } from './pagination.js';
+import { getSaoPauloDayRange, isValidDateKey } from './calendarDate.js';
 
 export const auditActions = [
   'auth.login',
@@ -18,14 +19,6 @@ export const auditActions = [
 ];
 
 const sensitiveKey = /password|token|authorization|secret|cookie|credential/i;
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-
-const validDate = (value) => {
-  if (typeof value !== 'string' || !datePattern.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-};
-
 const safeDetails = (value) => {
   if (Array.isArray(value)) return value.map(safeDetails);
   if (value && typeof value === 'object') {
@@ -79,11 +72,11 @@ export function parseAuditFilters(query = {}) {
     filter.acao = query.acao;
   }
   if (query.de !== undefined || query.ate !== undefined) {
-    if (!validDate(query.de) || !validDate(query.ate) || query.de > query.ate) {
+    if (!isValidDateKey(query.de) || !isValidDateKey(query.ate) || query.de > query.ate) {
       throw Object.assign(new Error('Informe um período válido'), { statusCode: 400 });
     }
-    const start = new Date(`${query.de}T00:00:00.000Z`);
-    const endExclusive = new Date(new Date(`${query.ate}T00:00:00.000Z`).getTime() + 86400000);
+    const { start } = getSaoPauloDayRange(query.de);
+    const { end: endExclusive } = getSaoPauloDayRange(query.ate);
     const maximumEnd = new Date(start);
     maximumEnd.setUTCFullYear(maximumEnd.getUTCFullYear() + 1);
     if (endExclusive > maximumEnd) {

@@ -1,4 +1,8 @@
-﻿export const productionStages = ['arte', 'aprovacao_cliente', 'impressao', 'instalacao', 'entregue'];
+﻿import { calendarDate } from './calendarDate.js';
+
+export { calendarDate };
+
+export const productionStages = ['arte', 'aprovacao_cliente', 'impressao', 'instalacao', 'entregue'];
 export const effectiveStage = (order) => order.productionStage || (order.status === 'concluido' || order.production === 'concluido' ? 'entregue' : ['em_producao', 'pausado'].includes(order.production) ? 'impressao' : 'arte');
 export function initialProductionStage(skippedStages = []) {
   if (!Array.isArray(skippedStages) || skippedStages.some(stage => !productionStages.slice(0, -1).includes(stage))) throw new Error('Etapas dispensadas inválidas');
@@ -15,11 +19,6 @@ export function nextProductionStage(order, expectedStage, skip = false) {
   let index = productionStages.indexOf(fromStage) + 1;
   while (skippedStages.includes(productionStages[index])) index++;
   return {fromStage,toStage:productionStages[index],skippedStages};
-}
-export function calendarDate(value) {
-  if (!value) return '';
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0,10);
-  return new Date(value).toISOString().slice(0,10);
 }
 export const orderDeadline = (order) => calendarDate(order.deliveryDate) || (order.items || []).map(item=>item.promisedDate).filter(Boolean).sort()[0] || '';
 export function boardOrders(orders, {deadline = 'all', priority} = {}, now = new Date()) {

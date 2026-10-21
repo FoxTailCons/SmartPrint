@@ -21,7 +21,13 @@ test('thermal quote and order documents include company details and safely rende
   const quote = buildOrderThermalHtml({
     number: '00042',
     status: 'pendente',
-    client: { name: '<Maria>', document: '123', phone: '19999999999' },
+    client: {
+      name: '<Maria>',
+      document: '123',
+      phone: '19999999999',
+      email: 'maria@example.com',
+      address: '<Rua A & B, 123>',
+    },
     createdAt: '2026-10-20T15:00:00Z',
     items: [{ description: '<Banner>', quantity: 2, unitPrice: 50, total: 100 }],
     totalValue: 100,
@@ -30,6 +36,10 @@ test('thermal quote and order documents include company details and safely rende
 
   assert.match(quote, /ORÇAMENTO Nº 00042/);
   assert.match(quote, /&lt;Maria&gt;/);
+  assert.match(quote, /CPF\/CNPJ:<\/strong> 123/);
+  assert.match(quote, /Telefone:<\/strong> 19999999999/);
+  assert.match(quote, /E-mail:<\/strong> maria@example\.com/);
+  assert.match(quote, /Endereço:<\/strong> &lt;Rua A &amp; B, 123&gt;/);
   assert.match(quote, /&lt;Banner&gt;/);
   assert.match(quote, /size: 80mm auto/);
   assert.doesNotMatch(quote, /<Maria>|<Banner>/);
@@ -37,6 +47,17 @@ test('thermal quote and order documents include company details and safely rende
 
   const order = buildOrderThermalHtml({ number: '00043', status: 'aprovado', items: [], finalValue: 0 });
   assert.match(order, /PEDIDO Nº 00043/);
+});
+
+test('thermal order print preserves the selected delivery calendar date', () => {
+  const html = buildOrderThermalHtml({
+    number: '00044',
+    status: 'aprovado',
+    deliveryDate: '2026-10-21T00:00:00.000Z',
+    items: [],
+  });
+
+  assert.match(html, /<strong>Entrega:<\/strong> 21\/10\/2026/);
 });
 
 test('balance document shows open amount and the original installment numbers', () => {

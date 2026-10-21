@@ -28,3 +28,12 @@ test('buildCashflowTrend groups payment entries by day and month', () => {
   assert.ok(trend.last7Days.some((entry) => entry.value >= 200));
   assert.ok(trend.last6Months.some((entry) => entry.value >= 300));
 });
+
+test('buildCashflowTrend groups an early UTC payment into its Sao Paulo calendar day', () => {
+  const trend = buildCashflowTrend([{
+    status: 'aprovado',
+    payments: [{ amount: 37, paidAt: new Date('2026-10-20T02:30:00.000Z') }],
+  }], new Date('2026-10-20T02:30:00.000Z'));
+
+  assert.equal(trend.last7Days.find((entry) => entry.date.toISOString().slice(0, 10) === '2026-10-19').value, 37);
+});

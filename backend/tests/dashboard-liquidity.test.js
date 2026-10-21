@@ -97,6 +97,14 @@ test('buildDailyUrgencies includes due open payables and active approved orders 
   ]);
 });
 
+test('buildDailyUrgencies keeps a UTC-midnight payable due today out of overdue status', () => {
+  const { payables } = buildDailyUrgencies([], [
+    { _id: 'due-today', dueDate: new Date('2026-04-17T00:00:00.000Z'), paid: false },
+  ], new Date('2026-04-17T15:00:00-03:00'));
+
+  assert.equal(payables[0].urgency, 'today');
+});
+
 test('buildClientPerformance groups revenue by customer and keeps no-client orders', () => {
   const orders = [
     { status: 'aprovado', client: { name: 'Maria' }, finalValue: 1000, amountPaid: 400 },

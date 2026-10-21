@@ -1,4 +1,5 @@
 import { getPaymentDiscountTotal } from './orderBalance.js';
+import { formatInstantDate } from '../dateUtils.js';
 
 const paymentMethods = {
   pix: 'PIX',
@@ -30,7 +31,7 @@ export const createPaymentReceipt = (order, paymentIndex) => {
     }),
   });
   const title = payment.type === 'entrada' ? 'Entrada recebida' : 'Pagamento recebido';
-  const paidAt = payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : '—';
+  const paidAt = payment.paidAt ? formatInstantDate(payment.paidAt) : '—';
   const text = [
     '*SMART PRINT*',
     '*RECIBO DE PAGAMENTO*',

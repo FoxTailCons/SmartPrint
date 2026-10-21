@@ -27,6 +27,13 @@ const formatDate = (value) => value
   ? new Date(value).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   : '—';
 
+const formatCivilDate = (value) => {
+  if (!value) return '—';
+  const date = value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : formatDate(value);
+};
+
 const header = `
   <header class="center">
     <h1>${printCompany.name}</h1>
@@ -96,8 +103,10 @@ export function buildOrderThermalHtml(order) {
       <div><strong>Cliente:</strong> ${escapeHtml(order?.client?.name || 'Cliente não cadastrado')}</div>
       ${order?.client?.document ? `<div><strong>CPF/CNPJ:</strong> ${escapeHtml(order.client.document)}</div>` : ''}
       ${order?.client?.phone ? `<div><strong>Telefone:</strong> ${escapeHtml(order.client.phone)}</div>` : ''}
+      ${order?.client?.email ? `<div><strong>E-mail:</strong> ${escapeHtml(order.client.email)}</div>` : ''}
+      ${order?.client?.address ? `<div><strong>Endereço:</strong> ${escapeHtml(order.client.address)}</div>` : ''}
       <div><strong>Emissão:</strong> ${formatDate(order?.createdAt)}</div>
-      ${order?.deliveryDate ? `<div><strong>Entrega:</strong> ${formatDate(order.deliveryDate)}</div>` : ''}
+      ${order?.deliveryDate ? `<div><strong>Entrega:</strong> ${formatCivilDate(order.deliveryDate)}</div>` : ''}
     </div>
     <div><strong>ITENS</strong></div>
     ${items || '<div class="muted">Nenhum item informado.</div>'}
@@ -121,7 +130,7 @@ export function buildBalanceThermalHtml(order) {
   const openInstallments = (order?.installments || []).filter((installment) => !installment.paid);
   const installments = (order?.installments || []).flatMap((installment, index) => (
     installment.paid ? [] : [`
-      <div class="line"><span>Parcela ${index + 1} · ${formatDate(installment.dueDate)}</span><span>${formatMoney(installment.amount)}</span></div>`]
+      <div class="line"><span>Parcela ${index + 1} · ${formatCivilDate(installment.dueDate)}</span><span>${formatMoney(installment.amount)}</span></div>`]
   )).join('');
   const content = `
     <h2>PENDÊNCIA · PEDIDO #${escapeHtml(order?.number || '—')}</h2>
@@ -145,7 +154,7 @@ export function buildPayableThermalHtml(payable) {
     <div class="block">
       <div><strong>Descrição:</strong> ${escapeHtml(payable?.description || '—')}</div>
       <div><strong>Categoria:</strong> ${escapeHtml(payable?.category || '—')}</div>
-      <div><strong>Vencimento:</strong> ${formatDate(payable?.dueDate)}</div>
+      <div><strong>Vencimento:</strong> ${formatCivilDate(payable?.dueDate)}</div>
       <div><strong>Status:</strong> ${payable?.paid ? 'Paga' : 'Em aberto'}</div>
       ${payable?.recurring ? '<div>Conta recorrente</div>' : ''}
     </div>

@@ -4,24 +4,15 @@ import Order from '../models/Order.js';
 import AuditLog from '../models/AuditLog.js';
 import { protect, allowRoles } from '../middleware/auth.js';
 import { recordAuditEvent } from '../services/auditLog.js';
+import { getSaoPauloDateKey, getSaoPauloDayRange, isValidDateKey } from '../services/calendarDate.js';
+
+export { getSaoPauloDateKey, getSaoPauloDayRange, isValidDateKey };
 
 const methods = ['dinheiro', 'pix', 'debito', 'credito', 'parcelado'];
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch((error) => {
   if (error?.name === 'VersionError') return res.status(409).json({ message: 'O caixa foi atualizado por outra operação; recarregue antes de continuar' });
   return next(error);
 });
-
-export const getSaoPauloDateKey = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
-}).format(date);
-
-export const isValidDateKey = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
-  && new Date(`${value}T12:00:00.000Z`).toISOString().slice(0, 10) === value;
-
-export const getSaoPauloDayRange = (dateKey) => {
-  const start = new Date(`${dateKey}T03:00:00.000Z`);
-  return { start, end: new Date(start.getTime() + 86400000) };
-};
 
 export const buildCashReport = (session, orders, dateKey) => {
   const { start, end } = getSaoPauloDayRange(dateKey);

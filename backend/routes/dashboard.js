@@ -7,20 +7,20 @@ import { isConfirmedOrder } from '../services/orderStatus.js';
 import { calendarDate, effectiveStage, orderDeadline } from '../services/productionWorkflow.js';
 import { productCategoryLabels } from '../models/Product.js';
 import { getOrderBalance } from '../services/orderBalance.js';
+import { addCalendarDays, getSaoPauloDateKey, getSaoPauloDayRange } from '../services/calendarDate.js';
 
 const router = Router();
 router.use(protect);
 router.use(adminOnly);
 
-export const filterOrdersForDashboard = (orders = [], filters = {}) => {
+export const filterOrdersForDashboard = (orders = [], filters = {}, now = new Date()) => {
   const { clientId, period } = filters;
-  const now = new Date();
   const fromDate = new Date(now);
 
-  if (period === '7d') fromDate.setDate(now.getDate() - 7);
-  else if (period === '30d') fromDate.setDate(now.getDate() - 30);
-  else if (period === '90d') fromDate.setDate(now.getDate() - 90);
-  else if (period === '12m') fromDate.setMonth(now.getMonth() - 12);
+  if (period === '7d') fromDate.setUTCDate(now.getUTCDate() - 7);
+  else if (period === '30d') fromDate.setUTCDate(now.getUTCDate() - 30);
+  else if (period === '90d') fromDate.setUTCDate(now.getUTCDate() - 90);
+  else if (period === '12m') fromDate.setUTCMonth(now.getUTCMonth() - 12);
 
   return orders.filter((order) => {
     const orderClientId = order?.client?._id ? String(order.client._id) : order?.client ? String(order.client) : null;
@@ -53,12 +53,7 @@ export const buildCashflowSummary = (orders = [], payables = []) => {
 };
 
 export const buildDailyUrgencies = (orders = [], payables = [], now = new Date()) => {
-  const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
+  const today = getSaoPauloDateKey(now);
   const urgencyRank = { overdue: 0, urgent: 1, today: 2, high: 3 };
 
   const urgentPayables = payables
@@ -181,13 +176,14 @@ export const buildServiceMargins = (orders = []) => {
   }).sort((a, b) => b.revenue - a.revenue);
 };
 
-export const buildMonthlyComparison = (orders = []) => {
-  const today = new Date();
+export const buildMonthlyComparison = (orders = [], now = new Date()) => {
+  const today = getSaoPauloDateKey(now);
+  const [year, month] = today.split('-').map(Number);
   const months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
+    const date = new Date(Date.UTC(year, month - 1 - (5 - index), 1));
     return {
-      label: date.toLocaleDateString('pt-BR', { month: 'short' }),
-      monthKey: new Date(date.getFullYear(), date.getMonth(), 1).getTime(),
+      label: date.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }),
+      monthKey: date.getTime(),
       revenue: 0,
       received: 0,
       orders: 0,
@@ -195,9 +191,10 @@ export const buildMonthlyComparison = (orders = []) => {
   });
 
   orders.filter(isConfirmedOrder).forEach((order) => {
-    const date = new Date(order.createdAt || Date.now());
-    const monthKey = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
-    const month = months.find((item) => item.monthKey === monthKey);
+    const createdAt = new Date(order.createdAt || Date.now());
+    if (!Number.isFinite(createdAt.getTime())) return;
+    const calendarMonth = getSaoPauloDateKey(createdAt).slice(0, 7);
+    const month = months.find((item) => new Date(item.monthKey).toISOString().slice(0, 7) === calendarMonth);
     if (!month) return;
 
     month.revenue += Number(order.finalValue || 0);
@@ -208,28 +205,30 @@ export const buildMonthlyComparison = (orders = []) => {
   return months;
 };
 
-export const buildCashflowTrend = (orders) => {
-  const today = new Date();
+export const buildCashflowTrend = (orders, now = new Date()) => {
+  const today = getSaoPauloDateKey(now);
   const last7Days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - index));
-    return { label: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), value: 0, date };
+    const dateKey = addCalendarDays(today, index - 6);
+    const date = new Date(`${dateKey}T00:00:00.000Z`);
+    return { label: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }), value: 0, date };
   });
 
   const last6Months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
-    return { label: date.toLocaleDateString('pt-BR', { month: 'short' }), value: 0, date };
+    const [year, month] = today.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1 - (5 - index), 1));
+    return { label: date.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }), value: 0, date };
   });
 
   const addPayments = (entries, target) => {
     entries.forEach((entry) => {
       const paidAt = new Date(entry.paidAt || entry.at || entry.date || Date.now());
-      const dayKey = new Date(paidAt.getFullYear(), paidAt.getMonth(), paidAt.getDate()).getTime();
-      const monthKey = new Date(paidAt.getFullYear(), paidAt.getMonth(), 1).getTime();
+      if (!Number.isFinite(paidAt.getTime())) return;
+      const dateKey = getSaoPauloDateKey(paidAt);
 
-      const dayMatch = target.last7Days.find((item) => item.date.getTime() === dayKey);
+      const dayMatch = target.last7Days.find((item) => item.date.toISOString().slice(0, 10) === dateKey);
       if (dayMatch) dayMatch.value += Number(entry.amount || 0);
 
-      const monthMatch = target.last6Months.find((item) => item.date.getTime() === monthKey);
+      const monthMatch = target.last6Months.find((item) => item.date.toISOString().slice(0, 7) === dateKey.slice(0, 7));
       if (monthMatch) monthMatch.value += Number(entry.amount || 0);
     });
   };
@@ -265,13 +264,14 @@ router.get('/', async (req, res) => {
   const orders = await Order.find().populate('client', 'name phone');
   const allPayables = await Payable.find();
   const clients = await Client.find().sort({ name: 1 });
-  const filteredOrders = filterOrdersForDashboard(orders, { clientId, period });
+  const now = new Date();
+  const filteredOrders = filterOrdersForDashboard(orders, { clientId, period }, now);
   const salesOrders = filteredOrders.filter(isConfirmedOrder);
   const payables = allPayables.filter((p) => !p.paid);
-  const dailyUrgencies = buildDailyUrgencies(orders, allPayables, new Date());
+  const dailyUrgencies = buildDailyUrgencies(orders, allPayables, now);
 
-  const today = new Date();
-  const in3days = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+  const todayKey = getSaoPauloDateKey(now);
+  const in3daysKey = addCalendarDays(todayKey, 3);
 
   const totalRevenue = salesOrders.reduce((s, o) => s + (o.finalValue || 0), 0);
   const totalDiscounts = salesOrders.reduce((s, o) => s + (o.discount || 0), 0);
@@ -296,23 +296,24 @@ router.get('/', async (req, res) => {
   const inProduction = inProductionOrders.length;
   const paused = pausedOrders.length;
 
-  const payablesOverdue = payables.filter((p) => new Date(p.dueDate) < today);
-  const payablesDueSoon = payables.filter(
-    (p) => new Date(p.dueDate) >= today && new Date(p.dueDate) <= in3days
-  );
+  const payablesOverdue = payables.filter((p) => calendarDate(p.dueDate) < todayKey);
+  const payablesDueSoon = payables.filter((p) => {
+    const dueDate = calendarDate(p.dueDate);
+    return dueDate >= todayKey && dueDate <= in3daysKey;
+  });
   const totalPayables = payables.reduce((s, p) => s + p.value, 0);
 
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const startOfWeek = new Date(startOfToday);
-  startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const previousMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-  const previousMonthEnd = new Date(today.getFullYear(), today.getMonth(), 1);
-  const previousWeekStart = new Date(startOfWeek);
-  previousWeekStart.setDate(startOfWeek.getDate() - 7);
-  const previousWeekEnd = new Date(startOfWeek);
-  const endOfToday = new Date(startOfToday);
-  endOfToday.setDate(endOfToday.getDate() + 1);
+  const startOfToday = getSaoPauloDayRange(todayKey).start;
+  const endOfToday = getSaoPauloDayRange(todayKey).end;
+  const startOfMonth = getSaoPauloDayRange(`${todayKey.slice(0, 7)}-01`).start;
+  const weekStartKey = addCalendarDays(todayKey, -new Date(`${todayKey}T00:00:00.000Z`).getUTCDay());
+  const startOfWeek = getSaoPauloDayRange(weekStartKey).start;
+  const previousWeekStart = getSaoPauloDayRange(addCalendarDays(weekStartKey, -7)).start;
+  const previousMonthStartKey = new Date(`${todayKey.slice(0, 7)}-01T00:00:00.000Z`);
+  previousMonthStartKey.setUTCMonth(previousMonthStartKey.getUTCMonth() - 1);
+  const previousMonthKey = previousMonthStartKey.toISOString().slice(0, 10);
+  const previousMonthStart = getSaoPauloDayRange(previousMonthKey).start;
+  const previousMonthEnd = getSaoPauloDayRange(`${todayKey.slice(0, 7)}-01`).start;
   const paymentEntries = (order) => {
     if (order.payments?.length) return order.payments;
     return (order.history || [])
@@ -344,11 +345,11 @@ router.get('/', async (req, res) => {
     return ((current - previous) / previous) * 100;
   };
 
-  const cashflowTrend = buildCashflowTrend(salesOrders);
+  const cashflowTrend = buildCashflowTrend(salesOrders, now);
   const clientPerformance = buildClientPerformance(salesOrders);
   const servicePerformance = buildServicePerformance(salesOrders);
   const serviceMargins = req.user?.role === 'admin' ? buildServiceMargins(salesOrders) : undefined;
-  const monthlyComparison = buildMonthlyComparison(salesOrders);
+  const monthlyComparison = buildMonthlyComparison(salesOrders, now);
 
   // Últimos pedidos para o feed do dashboard
   const recent = filteredOrders.slice(0, 10);

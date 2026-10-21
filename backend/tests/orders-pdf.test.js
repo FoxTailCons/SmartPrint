@@ -143,6 +143,25 @@ test('order PDF includes Smart Print Lindóia company registration and contact d
     '(19) 99803-1407',
   ]) assert.ok(text.includes(detail), `PDF should include ${detail}`);
 });
+test('order PDF includes the saved client address and contact details', async () => {
+  const text = pdfText(await buildOrderPdfBuffer({
+    number: 'CLIENT-1',
+    client: {
+      name: 'Maria Silva',
+      document: '12345678900',
+      address: 'Rua dos Pinheiros, 123',
+      phone: '(19) 99999-9999',
+      email: 'maria@example.com',
+    },
+    items: [{ description: 'Banner', quantity: 1, unitPrice: 10, total: 10 }],
+    totalValue: 10,
+    finalValue: 10,
+  }));
+
+  for (const detail of ['Rua dos Pinheiros, 123', '(19) 99999-9999', 'maria@example.com']) {
+    assert.ok(text.includes(detail), `PDF should include ${detail}`);
+  }
+});
 test('rich items paginate with repeated table headers and complete metadata', async () => {
   const order = { number: 'MANY', items: Array.from({ length: 14 }, (_, index) => ({ description: `Banner ${index}`, quantity: 2, unitPrice: 10, total: 20, serviceName: 'Impressao', material: 'Vinil', finishing: 'Laminado', applicationLocation: 'Fachada', promisedDate: '2026-10-20', artworkUrl: `https://example.org/${'arte'.repeat(80)}`, installationNotes: `Nota${index} ${'detalhes de instalacao '.repeat(30)}` })), finalValue: 280, observations: 'Observacoes finais' };
   const buffer = await buildOrderPdfBuffer(order);
