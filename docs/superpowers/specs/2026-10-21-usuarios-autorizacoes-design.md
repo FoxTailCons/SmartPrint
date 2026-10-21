@@ -11,7 +11,7 @@ Permitir que administradores cadastrem contas de Atendente e Produção e exigir
 - Atendente mantém as permissões comerciais e de recebimento existentes. Pode solicitar autorização administrativa para desconto no recebimento ou cancelamento.
 - Admin pode efetuar essas operações sem uma segunda autorização e pode autorizar ações de Atendente informando suas próprias credenciais.
 - Produção mantém somente as permissões operacionais atuais; não pode iniciar desconto nem cancelamento.
-- Usuários podem ser desativados. Contas desativadas não podem autenticar nem autorizar operações.
+- Usuários podem ser desativados. Não permitir que o Admin desative a própria conta nem o último Admin ativo. Contas desativadas não podem autenticar nem autorizar operações.
 
 ## Autorização administrativa
 
@@ -58,13 +58,14 @@ Permitir que administradores cadastrem contas de Atendente e Produção e exigir
 
 1. Admin cria e lista usuários Atendente/Produção; perfis não-admin recebem 403; duplicidade, papel admin enviado no cadastro e senha inválida são rejeitados.
 2. Usuário inativo não autentica nem autoriza; nenhum hash aparece em respostas.
-3. Recebimento sem desconto mantém comportamento atual. Desconto zero não solicita autorização; desconto positivo sem credenciais, com senha incorreta, usuário inativo ou não-admin é rejeitado sem mutação.
-4. Pagamento mais desconto nunca excede o saldo. O pagamento incrementa recebimentos somente pelo valor monetário efetivamente pago; o desconto reduz o saldo sem aparecer como entrada de caixa.
-5. Autorização e motivo ficam auditados; segredos não aparecem no histórico, recibo, exportações ou logs.
-6. Admin pode operar diretamente sem reautenticação; Atendente só conclui ação protegida com credenciais Admin válidas; Produção é negada.
-7. Cancelamento sem pagamentos funciona e mantém o registro/histórico; motivo e responsáveis são registrados. Pedido com pagamento é bloqueado sem alterar nada.
-8. Pedido cancelado não pode receber pagamento, ser aprovado, editado comercialmente ou movimentado na produção; não aparece em métricas, produção ativa, urgências, recebíveis ou exportações financeiras.
-9. Fluxos legados sem descontos/cancelamentos continuam compatíveis; testes do backend e frontend e build passam sem acessar banco de produção.
+3. Admin não consegue desativar a própria conta nem o último Admin ativo.
+4. Recebimento sem desconto mantém comportamento atual. Desconto zero não solicita autorização; desconto positivo sem credenciais, com senha incorreta, usuário inativo ou não-admin é rejeitado sem mutação.
+5. Pagamento mais desconto nunca excede o saldo. O pagamento incrementa recebimentos somente pelo valor monetário efetivamente pago; o desconto reduz o saldo sem aparecer como entrada de caixa.
+6. Autorização e motivo ficam auditados; segredos não aparecem no histórico, recibo, exportações ou logs.
+7. Admin pode operar diretamente sem reautenticação; Atendente só conclui ação protegida com credenciais Admin válidas; Produção é negada.
+8. Cancelamento sem pagamentos funciona e mantém o registro/histórico; motivo e responsáveis são registrados. Pedido com pagamento é bloqueado sem alterar nada.
+9. Pedido cancelado não pode receber pagamento, ser aprovado, editado comercialmente ou movimentado na produção; não aparece em métricas, produção ativa, urgências, recebíveis ou exportações financeiras.
+10. Fluxos legados sem descontos/cancelamentos continuam compatíveis; testes do backend e frontend e build passam sem acessar banco de produção.
 
 ## Premissas desta proposta
 
