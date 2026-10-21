@@ -15,6 +15,7 @@ import User from './models/User.js';
 import { getOrderSettings } from './config/orderSettings.js';
 import cashRoutes from './routes/cash.js';
 import exportRoutes from './routes/exports.js';
+import auditRoutes from './routes/audit.js';
 
 getOrderSettings();
 const app = express();
@@ -39,6 +40,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cash', cashRoutes);
 app.use('/api/exports', exportRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

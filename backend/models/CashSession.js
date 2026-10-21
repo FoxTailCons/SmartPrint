@@ -13,6 +13,7 @@ const cashSessionSchema = new mongoose.Schema({
   status: { type: String, enum: ['open', 'closed'], default: 'open' },
   openedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   withdrawals: { type: [movementSchema], default: [] },
+  supplies: { type: [movementSchema], default: [] },
   counted: { type: mongoose.Schema.Types.Mixed, default: null },
   inflows: { type: mongoose.Schema.Types.Mixed, default: null },
   expected: { type: mongoose.Schema.Types.Mixed, default: null },

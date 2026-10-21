@@ -129,6 +129,60 @@ test('receivables page returns full-set totals and upcoming installments', async
   });
 });
 
+test('receivables filters and summaries include payment discounts in balance calculations', async () => {
+  let countFilter;
+  let groupedPipeline;
+  const OrderModel = {
+    countDocuments: async (filter) => { countFilter = filter; return 1; },
+    find: () => query([{
+      _id: 'o1',
+      number: '00001',
+      finalValue: 100,
+      amountPaid: 20,
+      paymentDiscounts: [{ amount: 30 }],
+    }]),
+    aggregate: async (pipeline) => {
+      if (pipeline.some((stage) => '$group' in stage)) {
+        groupedPipeline = pipeline;
+        return [{ totalOpen: 50, totalReceived: 20 }];
+      }
+      return [];
+    },
+  };
+  const handler = createReceivablesListHandler({ OrderModel });
+  const res = response();
+
+  await handler({ query: { filter: 'open', page: '1', pageSize: '5' } }, res);
+
+  assert.equal(res.body.summary.totalOpen, 50);
+  assert.equal(res.body.summary.totalReceived, 20);
+  assert.deepEqual(countFilter.$and[0].status, { $ne: 'cancelado' });
+  assert.match(JSON.stringify(countFilter), /paymentDiscounts/);
+  assert.match(JSON.stringify(groupedPipeline), /paymentDiscounts/);
+});
+
+test('client summaries include payment discounts without counting them as receipts', async () => {
+  const handler = createClientListHandler({
+    ClientModel: {
+      find: () => query([{ _id: 'c1', toObject: () => ({ _id: 'c1', name: 'Maria' }) }]),
+    },
+    OrderModel: {
+      find: async () => [{
+        status: 'aprovado',
+        finalValue: 100,
+        amountPaid: 20,
+        paymentDiscounts: [{ amount: 30 }],
+      }],
+    },
+  });
+  const res = response();
+
+  await handler({ query: {} }, res);
+
+  assert.equal(res.body[0].openOrders, 1);
+  assert.equal(res.body[0].openBalance, 50);
+});
+
 test('list handlers reject invalid pagination with HTTP 400', async () => {
   const handler = createPayableListHandler();
   const res = response();

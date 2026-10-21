@@ -1,3 +1,5 @@
+import { getPaymentDiscountTotal } from './orderBalance.js';
+
 const paymentMethods = {
   pix: 'PIX',
   dinheiro: 'Dinheiro',
@@ -19,6 +21,14 @@ export const createPaymentReceipt = (order, paymentIndex) => {
   const received = order.payments
     .slice(0, paymentIndex + 1)
     .reduce((total, entry) => total + Number(entry.amount || 0), 0);
+  const paymentDate = payment.paidAt ? new Date(payment.paidAt) : null;
+  const discountsApplied = getPaymentDiscountTotal({
+    paymentDiscounts: (order.paymentDiscounts || []).filter((discount) => {
+      if (!paymentDate || !discount.at) return true;
+      const discountDate = new Date(discount.at);
+      return Number.isFinite(discountDate.getTime()) && discountDate <= paymentDate;
+    }),
+  });
   const title = payment.type === 'entrada' ? 'Entrada recebida' : 'Pagamento recebido';
   const paidAt = payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : '—';
   const text = [
@@ -31,7 +41,8 @@ export const createPaymentReceipt = (order, paymentIndex) => {
     `Data: ${paidAt}`,
     `Total do pedido: ${formatMoney(order.finalValue)}`,
     `Total recebido: ${formatMoney(received)}`,
-    `Saldo após o recebimento: ${formatMoney(Math.max(0, order.finalValue - received))}`,
+    ...(discountsApplied > 0 ? [`Descontos aplicados: ${formatMoney(discountsApplied)}`] : []),
+    `Saldo após o recebimento: ${formatMoney(Math.max(0, order.finalValue - received - discountsApplied))}`,
   ].join('\n');
 
   return {

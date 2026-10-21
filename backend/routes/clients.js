@@ -7,6 +7,7 @@ import { isConfirmedOrder } from '../services/orderStatus.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 import { hideOrderCosts } from '../services/orderCostVisibility.js';
 import { initialProductionStage } from '../services/productionWorkflow.js';
+import { getOrderBalance } from '../services/orderBalance.js';
 
 const router = Router();
 router.use(protect);
@@ -40,13 +41,13 @@ export const createClientListHandler = ({ ClientModel = Client, OrderModel = Ord
       const orders = await OrderModel.find({ client: c._id });
       const confirmedOrders = orders.filter(isConfirmedOrder);
       const total = confirmedOrders.reduce((s, o) => s + (o.finalValue || 0), 0);
-      const open = confirmedOrders.filter((o) => (o.finalValue || 0) > (o.amountPaid || 0));
+      const open = confirmedOrders.filter((order) => getOrderBalance(order) > 0);
       return {
         ...c.toObject(),
         ordersCount: confirmedOrders.length,
         totalSpent: total,
         openOrders: open.length,
-        openBalance: open.reduce((sum, order) => sum + Math.max(0, order.finalValue - order.amountPaid), 0),
+        openBalance: open.reduce((sum, order) => sum + getOrderBalance(order), 0),
         paymentPreference: getPaymentPreference(confirmedOrders),
       };
     })
@@ -61,7 +62,7 @@ router.get('/:id', allowRoles('admin', 'atendente'), asyncRoute(async (req, res)
   if (!client) return res.status(404).json({ message: 'Cliente não encontrado' });
   const allOrders = await Order.find({ client: client._id }).sort({ createdAt: -1 });
   const confirmedOrders = allOrders.filter(isConfirmedOrder);
-  const openBalance = confirmedOrders.reduce((sum, order) => sum + Math.max(0, order.finalValue - order.amountPaid), 0);
+  const openBalance = confirmedOrders.reduce((sum, order) => sum + getOrderBalance(order), 0);
   const orders = allOrders.slice(0, 10);
   res.json({
     ...client.toObject(),

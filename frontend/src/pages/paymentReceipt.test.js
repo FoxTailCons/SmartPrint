@@ -46,3 +46,17 @@ test('creates a printable receipt even when the client has no phone number', () 
   assert.match(receipt.text, /Cliente: Maria Silva/);
   assert.equal(receipt.link, null);
 });
+
+test('payment receipts show authorized discounts separately from cash received and balance', () => {
+  const receipt = createPaymentReceipt({
+    number: '00042',
+    client: { name: 'Maria Silva' },
+    finalValue: 300,
+    payments: [{ amount: 50, method: 'pix', paidAt: '2026-10-17T12:00:00Z' }],
+    paymentDiscounts: [{ amount: 20, reason: 'Ajuste aprovado', at: '2026-10-17T12:00:00Z' }],
+  }, 0);
+
+  assert.match(receipt.text, /Total recebido: R\$\s?50,00/);
+  assert.match(receipt.text, /Descontos aplicados: R\$\s?20,00/);
+  assert.match(receipt.text, /Saldo após o recebimento: R\$\s?230,00/);
+});

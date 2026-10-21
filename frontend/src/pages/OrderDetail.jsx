@@ -14,11 +14,32 @@ import { createPaymentReceipt } from './paymentReceipt.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 import { getDeadline, itemMetadata, priorityLabels } from './printshop.js';
 import { buildBalanceThermalHtml } from './thermalPrint.js';
+import { getOrderBalance, getPaymentDiscountTotal } from './orderBalance.js';
 import ProductionProgress from '../components/ProductionProgress.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { canAccess } from '../roleAccess.js';
 
 const paymentMethodLabels = { pix: 'PIX', dinheiro: 'Dinheiro', debito: 'Cartão débito', credito: 'Cartão crédito', parcelado: 'Crédito parcelado' };
+
+export const buildPaymentPayload = ({
+  amount, discount, paymentMethod, receiptUrl, installmentIndex,
+  discountReason, adminEmail, adminPassword, role,
+}) => {
+  const body = { amount, discount, paymentMethod, receiptUrl };
+  if (installmentIndex !== undefined) body.installmentIndex = installmentIndex;
+  if (discount > 0) body.discountReason = discountReason;
+  if (discount > 0 && role === 'atendente') {
+    body.adminAuthorization = { email: adminEmail, password: adminPassword };
+  }
+  return body;
+};
+
+export const buildCancelPayload = ({ reason, role, adminEmail, adminPassword }) => {
+  const body = {};
+  if (reason?.trim()) body.reason = reason.trim();
+  if (role === 'atendente') body.adminAuthorization = { email: adminEmail, password: adminPassword };
+  return body;
+};
 
 export default function OrderDetail() {
   const { user } = useAuth();
@@ -30,8 +51,16 @@ export default function OrderDetail() {
   const [payInst, setPayInst] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [receiptUrl, setReceiptUrl] = useState('');
+  const [paymentDiscount, setPaymentDiscount] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseNote, setPauseNote] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelAdminEmail, setCancelAdminEmail] = useState('');
+  const [cancelAdminPassword, setCancelAdminPassword] = useState('');
   const [loading, setLoading] = useState(true);
 
   const load = () => api(`/api/orders/${id}`).then((o) => { setOrder(o); setLoading(false); });
@@ -41,9 +70,18 @@ export default function OrderDetail() {
   if (!order) return <div className="p-8 text-center">Pedido não encontrado.</div>;
 
   const isProductionUser = user?.role === 'producao';
+  const isCanceled = order.status === 'cancelado';
   const canManageProduction = canAccess(user?.role, 'productionActions');
-  const balance = (order.finalValue || 0) - (order.amountPaid || 0);
+  const balance = getOrderBalance(order);
+  const paymentDiscounts = getPaymentDiscountTotal(order);
   const deadline = getDeadline(order);
+  const hasPayments = Number(order.amountPaid || 0) !== 0
+    || order.payments?.length > 0
+    || order.history?.some((entry) => entry.action === 'pagamento');
+  const canCancel = !isProductionUser
+    && ['pendente', 'aprovado'].includes(order.status)
+    && !order.quickSaleKey
+    && !hasPayments;
 
   const action = async (path, body) => {
     try {
@@ -54,9 +92,24 @@ export default function OrderDetail() {
 
   const submitPayment = async () => {
     const amount = Number(payAmount);
-    if (!amount || amount <= 0) return alert('Informe um valor válido');
-    const body = { amount, paymentMethod, receiptUrl: receiptUrl.trim() };
-    if (payInst !== '') body.installmentIndex = Number(payInst);
+    const discount = paymentDiscount.trim() ? Number(paymentDiscount) : 0;
+    if (!Number.isFinite(amount) || amount <= 0) return alert('Informe um valor válido');
+    if (!Number.isFinite(discount) || discount < 0) return alert('Informe um desconto válido');
+    if (discount > 0 && !discountReason.trim()) return alert('Informe o motivo do desconto');
+    if (discount > 0 && user?.role === 'atendente' && (!adminEmail.trim() || !adminPassword)) {
+      return alert('Informe as credenciais do administrador para autorizar o desconto');
+    }
+    const body = buildPaymentPayload({
+      amount,
+      discount,
+      paymentMethod,
+      receiptUrl: receiptUrl.trim(),
+      installmentIndex: payInst === '' ? undefined : Number(payInst),
+      discountReason: discountReason.trim(),
+      adminEmail: adminEmail.trim(),
+      adminPassword,
+      role: user?.role,
+    });
     try {
       const o = await api(`/api/orders/${id}/payments`, { method: 'POST', body });
       setOrder(o);
@@ -65,7 +118,19 @@ export default function OrderDetail() {
       setPayInst('');
       setPaymentMethod('pix');
       setReceiptUrl('');
-    } catch (e) { alert(e.message); }
+      setPaymentDiscount('');
+      setDiscountReason('');
+      setAdminEmail('');
+      setAdminPassword('');
+    } catch (e) {
+      setAdminPassword('');
+      alert(e.message);
+    }
+  };
+
+  const closePayment = () => {
+    setPayOpen(false);
+    setAdminPassword('');
   };
 
   const pauseProduction = async () => {
@@ -74,6 +139,39 @@ export default function OrderDetail() {
     await action('production/pause', { note });
     setPauseNote('');
     setPauseOpen(false);
+  };
+
+  const closeCancel = () => {
+    setCancelOpen(false);
+    setCancelAdminPassword('');
+  };
+
+  const submitCancel = async () => {
+    const reason = cancelReason.trim();
+    if (!reason && user?.role !== 'admin') return alert('Informe o motivo do cancelamento');
+    if (reason.length > 500) return alert('O motivo deve ter até 500 caracteres');
+    if (user?.role === 'atendente' && (!cancelAdminEmail.trim() || !cancelAdminPassword)) {
+      return alert('Informe as credenciais do administrador para autorizar o cancelamento');
+    }
+    try {
+      const canceled = await api(`/api/orders/${id}/cancel`, {
+        method: 'POST',
+        body: buildCancelPayload({
+          reason,
+          role: user?.role,
+          adminEmail: cancelAdminEmail.trim(),
+          adminPassword: cancelAdminPassword,
+        }),
+      });
+      setOrder(canceled);
+      setCancelReason('');
+      setCancelAdminEmail('');
+      setCancelAdminPassword('');
+      setCancelOpen(false);
+    } catch (error) {
+      setCancelAdminPassword('');
+      alert(error.message);
+    }
   };
 
   const remove = async () => {
@@ -95,14 +193,17 @@ export default function OrderDetail() {
           <p className="text-sm text-slate-500">{order.client?.name || 'Cliente não cadastrado'} · Criado em {fmtDate(order.createdAt)}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {!isProductionUser && <PrintButton orderId={order._id} className="px-3 py-2" />}
-          {!isProductionUser && <PrintButton orderId={order._id} format="80mm" className="px-3 py-2" />}
-          {!isProductionUser && balance > 0 && (order.status !== 'pendente' || order.amountPaid > 0) && <ThermalPrintButton html={buildBalanceThermalHtml(order)} label="Pendência" className="px-3 py-2" />}
-          {!isProductionUser && <WhatsAppButton orderId={order._id} />}
-          {!isProductionUser && !order.quickSaleKey && <Link to={`/pedidos/${order._id}/editar`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-slate-50">
+          {!isProductionUser && !isCanceled && <PrintButton orderId={order._id} className="px-3 py-2" />}
+          {!isProductionUser && !isCanceled && <PrintButton orderId={order._id} format="80mm" className="px-3 py-2" />}
+          {!isProductionUser && !isCanceled && balance > 0 && (order.status !== 'pendente' || order.amountPaid > 0) && <ThermalPrintButton html={buildBalanceThermalHtml(order)} label="Pendência" className="px-3 py-2" />}
+          {!isProductionUser && !isCanceled && <WhatsAppButton orderId={order._id} />}
+          {!isProductionUser && !isCanceled && !order.quickSaleKey && <Link to={`/pedidos/${order._id}/editar`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-slate-50">
             <Pencil size={16} /> Editar
           </Link>}
-          {!isProductionUser && !order.quickSaleKey && <button onClick={remove} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50">
+          {canCancel && <button onClick={user?.role === 'admin' ? submitCancel : () => setCancelOpen(true)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 text-amber-700 text-sm hover:bg-amber-50">
+            Cancelar pedido
+          </button>}
+          {user?.role === 'admin' && !order.quickSaleKey && <button onClick={remove} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50">
             <Trash2 size={16} /> Excluir
           </button>}
         </div>
@@ -116,7 +217,7 @@ export default function OrderDetail() {
         </div>}
         <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-slate-500 uppercase">Produção</div>
-          <div className="mt-2"><StatusBadge value={order.production} /></div>
+          <div className="mt-2"><StatusBadge value={isCanceled ? 'cancelado' : order.production} /></div>
           <p className={`mt-2 text-xs ${deadline.overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{deadline.label}</p>
           <p className="mt-1 text-xs text-slate-500">Prioridade: {priorityLabels[order.priority || 'normal']}</p>
         </div>
@@ -130,34 +231,35 @@ export default function OrderDetail() {
       {/* Ações de fluxo */}
       <div className="bg-white rounded-xl border shadow-sm p-5">
         <h2 className="font-semibold mb-3">Fluxo do pedido</h2>
-        <div className="mb-4"><ProductionProgress order={order} readOnly={!canManageProduction} onChanged={(changed) => setOrder((current) => ({ ...changed, client: current.client }))} /></div>
+        {!isCanceled && <div className="mb-4"><ProductionProgress order={order} readOnly={!canManageProduction} onChanged={(changed) => setOrder((current) => ({ ...changed, client: current.client }))} /></div>}
         <div className="flex flex-wrap gap-2">
+          {isCanceled && <p className="w-full rounded-lg bg-red-50 p-3 text-sm text-red-700">Este pedido foi cancelado; pagamentos e alterações não estão disponíveis.</p>}
           {!isProductionUser && order.status === 'pendente' && (
             <button onClick={() => action('approve')} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
               <ThumbsUp size={16} /> Aprovar orçamento
             </button>
           )}
-          {canManageProduction && !order.productionStage && order.production === 'nao_iniciado' && order.status !== 'pendente' && (
+          {canManageProduction && order.status === 'aprovado' && !order.productionStage && order.production === 'nao_iniciado' && (
             <button onClick={() => action('production/start')} className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
               <Play size={16} /> Iniciar produção
             </button>
           )}
-          {canManageProduction && order.production === 'em_producao' && (
+          {canManageProduction && order.status === 'aprovado' && order.production === 'em_producao' && (
             <button onClick={() => setPauseOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600">
               <Pause size={16} /> Pausar produção
             </button>
           )}
-          {canManageProduction && order.production === 'pausado' && (
+          {canManageProduction && order.status === 'aprovado' && order.production === 'pausado' && (
             <button onClick={() => action('production/resume')} className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
               <RotateCcw size={16} /> Retomar produção
             </button>
           )}
-          {canManageProduction && !order.productionStage && order.production !== 'concluido' && order.status !== 'pendente' && (
+          {canManageProduction && order.status === 'aprovado' && !order.productionStage && order.production !== 'concluido' && (
             <button onClick={() => action('complete')} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">
               <CheckCircle2 size={16} /> Concluir pedido
             </button>
           )}
-          {!isProductionUser && balance > 0 && order.status !== 'pendente' && (
+          {!isProductionUser && !isCanceled && balance > 0 && order.status !== 'pendente' && (
             <button onClick={() => setPayOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-900">
               <Banknote size={16} /> Receber pagamento
             </button>
@@ -186,6 +288,7 @@ export default function OrderDetail() {
             <div className="flex justify-between"><span className="text-slate-500">Desconto</span><span>-{fmt(order.discount)}</span></div>
             <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>Total</span><span className="text-brand-600">{fmt(order.finalValue)}</span></div>
             <div className="flex justify-between text-sm"><span className="text-slate-500">Já recebido</span><span className="text-emerald-600">{fmt(order.amountPaid)}</span></div>
+            {paymentDiscounts > 0 && <div className="flex justify-between text-sm"><span className="text-slate-500">Descontos no pagamento</span><span>{fmt(paymentDiscounts)}</span></div>}
             <div className="flex justify-between text-sm font-semibold"><span>Saldo devido</span><span className={balance > 0 ? 'text-red-600' : 'text-emerald-600'}>{fmt(Math.max(0, balance))}</span></div>
           </div>}
           {order.observations && <p className="mt-3 text-xs text-slate-500 bg-slate-50 p-2 rounded">Obs: {order.observations}</p>}
@@ -271,11 +374,12 @@ export default function OrderDetail() {
       </div>}
 
       {/* Modal de recebimento */}
-      {!isProductionUser && <Modal open={payOpen} onClose={() => setPayOpen(false)} title="Receber pagamento (parcial ou total)">
+      {!isProductionUser && <Modal open={payOpen} onClose={closePayment} title="Receber pagamento (parcial ou total)">
         <div className="space-y-4">
           <div className="bg-slate-50 rounded-lg p-3 text-sm">
             <div>Total do pedido: <strong>{fmt(order.finalValue)}</strong></div>
             <div>Já recebido: <strong className="text-emerald-600">{fmt(order.amountPaid)}</strong></div>
+            {paymentDiscounts > 0 && <div>Descontos já aplicados: <strong>{fmt(paymentDiscounts)}</strong></div>}
             <div>Saldo: <strong className="text-red-600">{fmt(balance)}</strong></div>
           </div>
           <div>
@@ -293,6 +397,34 @@ export default function OrderDetail() {
               <option value="parcelado">Crédito parcelado</option>
             </select>
           </div>
+          <div>
+            <label className="text-sm font-medium">Desconto neste recebimento (R$) <span className="font-normal text-slate-500">(opcional)</span></label>
+            <input type="number" min="0" max={balance} step="0.01" value={paymentDiscount} onChange={(event) => {
+              setPaymentDiscount(event.target.value);
+              if (Number(event.target.value) <= 0) setAdminPassword('');
+            }} className="mt-1 w-full rounded-lg border px-3 py-2" />
+          </div>
+          {Number(paymentDiscount) > 0 && (
+            <>
+              <label className="block text-sm font-medium">
+                Motivo do desconto
+                <textarea required maxLength="500" value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" />
+              </label>
+              {user?.role === 'atendente' && (
+                <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-sm font-medium text-amber-900">Autorização do administrador</p>
+                  <label className="block text-sm font-medium">
+                    E-mail do administrador
+                    <input type="email" autoComplete="username" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" />
+                  </label>
+                  <label className="block text-sm font-medium">
+                    Senha do administrador
+                    <input type="password" autoComplete="current-password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" />
+                  </label>
+                </div>
+              )}
+            </>
+          )}
           <div>
             <label className="text-sm font-medium">Link do comprovante <span className="font-normal text-slate-500">(opcional)</span></label>
             <input type="url" value={receiptUrl} onChange={(e) => setReceiptUrl(e.target.value)} placeholder="https://..." className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
@@ -333,6 +465,33 @@ export default function OrderDetail() {
           </button>
         </div>
       </Modal>
+      {user?.role === 'atendente' && <Modal open={cancelOpen} onClose={closeCancel} title="Cancelar pedido">
+        <div className="space-y-4">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            O pedido será mantido no histórico como cancelado. Pedidos com pagamentos registrados não podem ser cancelados.
+          </p>
+          <label className="block text-sm font-medium">
+            Motivo do cancelamento *
+            <textarea autoFocus maxLength="500" rows="3" value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" />
+          </label>
+          {user?.role === 'atendente' && (
+            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm font-medium text-amber-900">Autorização do administrador</p>
+              <label className="block text-sm font-medium">
+                E-mail do administrador
+                <input type="email" autoComplete="username" value={cancelAdminEmail} onChange={(event) => setCancelAdminEmail(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" />
+              </label>
+              <label className="block text-sm font-medium">
+                Senha do administrador
+                <input type="password" autoComplete="current-password" value={cancelAdminPassword} onChange={(event) => setCancelAdminPassword(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" />
+              </label>
+            </div>
+          )}
+          <button type="button" onClick={submitCancel} className="w-full rounded-lg bg-red-600 py-2.5 font-semibold text-white hover:bg-red-700">
+            Confirmar cancelamento
+          </button>
+        </div>
+      </Modal>}
     </div>
   );
 }

@@ -23,6 +23,11 @@ test('legacy pending orders with payments keep the Pedido title', () => {
   assert.equal(buildOrderDocumentLabel({ status: 'pendente', amountPaid: 25 }), 'Pedido');
 });
 
+test('cancelled orders are labeled separately and reject payments', () => {
+  assert.equal(buildOrderDocumentLabel({ status: 'cancelado', amountPaid: 0 }), 'Cancelado');
+  assert.equal(canReceivePayments({ status: 'cancelado' }), false);
+});
+
 test('new payments are only allowed after order approval', () => {
   assert.equal(canReceivePayments({ status: 'pendente' }), false);
   assert.equal(canReceivePayments({ status: 'aprovado' }), true);

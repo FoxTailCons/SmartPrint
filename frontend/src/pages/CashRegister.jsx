@@ -7,12 +7,24 @@ const methods = [
 ];
 const emptyCounts = Object.fromEntries(methods.map(([key]) => [key, '']));
 
+export function CashMovementForm({ title, path, movement, setMovement, submit, busy }) {
+  const label = title.toLowerCase();
+  return (
+    <form onSubmit={(event) => { event.preventDefault(); submit(path, { amount: Number(movement.amount), note: movement.note }); }} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_2fr_auto]">
+      <label className="text-sm">{title} (R$)<input required type="number" min="0.01" step="0.01" value={movement.amount} onChange={(event) => setMovement({ ...movement, amount: event.target.value })} className="mt-1 w-full rounded border px-3 py-2" /></label>
+      <label className="text-sm">Motivo<input required value={movement.note} onChange={(event) => setMovement({ ...movement, note: event.target.value })} className="mt-1 w-full rounded border px-3 py-2" /></label>
+      <button disabled={busy} className="self-end rounded border px-3 py-2 text-sm">Registrar {label}</button>
+    </form>
+  );
+}
+
 export default function CashRegister() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reportDate, setReportDate] = useState('');
   const [openingAmount, setOpeningAmount] = useState('');
   const [withdrawal, setWithdrawal] = useState({ amount: '', note: '' });
+  const [supply, setSupply] = useState({ amount: '', note: '' });
   const [counted, setCounted] = useState(emptyCounts);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -39,6 +51,7 @@ export default function CashRegister() {
     try {
       setData(await api(`/api/cash/${path}`, { method: 'POST', body }));
       setWithdrawal({ amount: '', note: '' });
+      setSupply({ amount: '', note: '' });
       if (path === 'close') setCounted(emptyCounts);
     } catch (submitError) {
       setError(submitError.message);
@@ -85,8 +98,13 @@ export default function CashRegister() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg bg-slate-50 p-3 text-sm">Saldo inicial <strong className="float-right">{fmt(report.openingAmount)}</strong></div>
+            <div className="rounded-lg bg-slate-50 p-3 text-sm">Suprimentos <strong className="float-right">{fmt(report.supplies || 0)}</strong></div>
             <div className="rounded-lg bg-slate-50 p-3 text-sm">Sangrias <strong className="float-right">{fmt(report.withdrawals)}</strong></div>
           </div>
+          {report.supplyDetails?.length > 0 && <div className="rounded-lg border p-3">
+            <h3 className="mb-2 text-sm font-medium">Suprimentos registrados</h3>
+            <ul className="space-y-1 text-xs text-slate-600">{report.supplyDetails.map((item, index) => <li key={`${item.createdAt}-${index}`} className="flex justify-between gap-3"><span>{item.note}</span><strong>{fmt(item.amount)}</strong></li>)}</ul>
+          </div>}
           {report.withdrawalDetails?.length > 0 && <div className="rounded-lg border p-3">
             <h3 className="mb-2 text-sm font-medium">Sangrias registradas</h3>
             <ul className="space-y-1 text-xs text-slate-600">{report.withdrawalDetails.map((item, index) => <li key={`${item.createdAt}-${index}`} className="flex justify-between gap-3"><span>{item.note}</span><strong>{fmt(item.amount)}</strong></li>)}</ul>
@@ -102,11 +120,8 @@ export default function CashRegister() {
           </div>
           {isOpen && data.isToday && (
             <>
-              <form onSubmit={(event) => { event.preventDefault(); submit('withdrawals', { amount: Number(withdrawal.amount), note: withdrawal.note }); }} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_2fr_auto]">
-                <label className="text-sm">Sangria (R$)<input required type="number" min="0.01" step="0.01" value={withdrawal.amount} onChange={(event) => setWithdrawal({ ...withdrawal, amount: event.target.value })} className="mt-1 w-full rounded border px-3 py-2" /></label>
-                <label className="text-sm">Motivo<input required value={withdrawal.note} onChange={(event) => setWithdrawal({ ...withdrawal, note: event.target.value })} className="mt-1 w-full rounded border px-3 py-2" /></label>
-                <button disabled={busy} className="self-end rounded border px-3 py-2 text-sm">Registrar sangria</button>
-              </form>
+              <CashMovementForm title="Sangria" path="withdrawals" movement={withdrawal} setMovement={setWithdrawal} submit={submit} busy={busy} />
+              <CashMovementForm title="Suprimento" path="supply" movement={supply} setMovement={setSupply} submit={submit} busy={busy} />
               <form onSubmit={(event) => { event.preventDefault(); submit('close', { counted: parseCounts() }); }} className="space-y-3 rounded-lg border border-brand-200 bg-brand-50/40 p-3">
                 <h3 className="font-medium">Conferência e fechamento</h3>
                 <div className="grid gap-3 sm:grid-cols-2">

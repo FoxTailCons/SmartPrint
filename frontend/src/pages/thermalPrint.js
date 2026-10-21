@@ -1,3 +1,5 @@
+import { getOrderBalance, getOrderDiscountTotal } from './orderBalance.js';
+
 export const printCompany = {
   name: 'SMART PRINT LINDÓIA',
   cnpj: '30.792.498/0001-33',
@@ -84,7 +86,8 @@ export function buildOrderThermalHtml(order) {
   const discount = Number(order?.discount || 0);
   const total = Number(order?.finalValue ?? Math.max(0, subtotal - discount));
   const paid = Number(order?.amountPaid || 0);
-  const balance = Math.max(0, total - paid);
+  const paymentDiscounts = getOrderDiscountTotal(order);
+  const balance = getOrderBalance(order);
   const paymentLines = (order?.payments || []).map((payment) => `
     <div class="line"><span>${escapeHtml(payment.method || 'Pagamento')} · ${formatDate(payment.paidAt)}</span><span>${formatMoney(payment.amount)}</span></div>`).join('');
   const content = `
@@ -102,6 +105,7 @@ export function buildOrderThermalHtml(order) {
     ${discount ? `<div class="line"><span>Desconto</span><span>-${formatMoney(discount)}</span></div>` : ''}
     <div class="line total"><span>TOTAL</span><span>${formatMoney(total)}</span></div>
     <div class="line"><span>Recebido</span><span>${formatMoney(paid)}</span></div>
+    ${paymentDiscounts > 0 ? `<div class="line"><span>Descontos no pagamento</span><span>${formatMoney(paymentDiscounts)}</span></div>` : ''}
     <div class="line balance"><span>Saldo</span><span>${formatMoney(balance)}</span></div>
     ${paymentLines ? `<div class="block"><strong>PAGAMENTOS</strong>${paymentLines}</div>` : ''}
     ${order?.observations ? `<div class="block notes"><strong>Observações:</strong> ${escapeHtml(order.observations)}</div>` : ''}
@@ -112,7 +116,8 @@ export function buildOrderThermalHtml(order) {
 export function buildBalanceThermalHtml(order) {
   const total = Number(order?.finalValue || 0);
   const paid = Number(order?.amountPaid || 0);
-  const balance = Math.max(0, total - paid);
+  const paymentDiscounts = getOrderDiscountTotal(order);
+  const balance = getOrderBalance(order);
   const openInstallments = (order?.installments || []).filter((installment) => !installment.paid);
   const installments = (order?.installments || []).flatMap((installment, index) => (
     installment.paid ? [] : [`
@@ -127,6 +132,7 @@ export function buildBalanceThermalHtml(order) {
     </div>
     <div class="line"><span>Total do pedido</span><span>${formatMoney(total)}</span></div>
     <div class="line"><span>Já recebido</span><span>${formatMoney(paid)}</span></div>
+    ${paymentDiscounts > 0 ? `<div class="line"><span>Descontos aplicados</span><span>${formatMoney(paymentDiscounts)}</span></div>` : ''}
     <div class="line total balance"><span>Saldo em aberto</span><span>${formatMoney(balance)}</span></div>
     ${openInstallments.length ? `<div class="block"><strong>PARCELAS EM ABERTO</strong>${installments}</div>` : ''}
   `;

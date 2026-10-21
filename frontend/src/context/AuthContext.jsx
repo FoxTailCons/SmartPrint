@@ -27,9 +27,11 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    localStorage.clear();
-    setUser(null);
-    window.location.reload();
+    return api('/api/auth/logout', { method: 'POST' }).then(() => {
+      localStorage.clear();
+      setUser(null);
+      window.location.reload();
+    });
   };
 
   return (

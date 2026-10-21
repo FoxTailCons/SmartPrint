@@ -48,14 +48,24 @@ test('financial movements include payment records, legacy payments, paid bills a
         payments: [],
         history: [{ action: 'pagamento', paymentMethod: 'dinheiro', note: 'Recebido R$ 15,00', at: new Date('2026-10-20T13:00:00Z') }],
       },
+      {
+        number: '00003',
+        status: 'cancelado',
+        payments: [{ amount: 100, method: 'pix', paidAt: new Date('2026-10-20T13:30:00Z') }],
+      },
     ],
     payables: [{ description: 'Insumo', value: 20, category: 'insumo', paid: true, paidAt: new Date('2026-10-20T14:00:00Z') }],
-    sessions: [{ dateKey: '2026-10-20', withdrawals: [{ amount: 5, note: 'Compra urgente', createdAt: new Date('2026-10-20T15:00:00Z') }] }],
+    sessions: [{
+      dateKey: '2026-10-20',
+      supplies: [{ amount: 10, note: 'Troco', createdAt: new Date('2026-10-20T14:30:00Z') }],
+      withdrawals: [{ amount: 5, note: 'Compra urgente', createdAt: new Date('2026-10-20T15:00:00Z') }],
+    }],
   });
   assert.deepEqual(rows.map((row) => [row.type, row.amount, row.method]), [
     ['Recebimento', 50, 'pix'],
     ['Recebimento', 15, 'dinheiro'],
     ['Conta paga', 20, ''],
+    ['Suprimento', 10, 'dinheiro'],
     ['Sangria', 5, 'dinheiro'],
   ]);
 });
@@ -79,6 +89,19 @@ test('order export rows summarize commercial fields without any cost fields', ()
   assert.equal(row.items, 'Banner (2)');
   assert.equal(row.balance, 30);
   assert.equal('costUnitPrice' in row, false);
+});
+
+test('payment discounts reduce exported balance while remaining separate from receipts', () => {
+  const [row] = csv.buildOrderExportRows([{
+    number: '00004',
+    finalValue: 100,
+    amountPaid: 20,
+    paymentDiscounts: [{ amount: 30 }],
+  }]);
+
+  assert.equal(row.received, 20);
+  assert.equal(row.paymentDiscounts, 30);
+  assert.equal(row.balance, 50);
 });
 
 test('exports router defines authenticated order and finance downloads', () => {

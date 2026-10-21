@@ -11,7 +11,7 @@ Disponibilizar para administradores uma trilha central, pesquisavel e persistent
 - Logout atualmente e local no navegador. Sera adicionado endpoint autenticado de logout para registrar o evento antes de limpar o token local. O JWT continuara valido ate expirar; revogacao de token nao faz parte deste escopo.
 - A gestao de usuarios permite ativar/desativar contas, mas nao trocar papeis. A auditoria registrara mudancas de estado de acesso existentes; alteracao de papel somente sera auditada se existir um fluxo correspondente no futuro.
 - A exclusao fisica existente de pedidos e administrativa. Vendas rapidas nao podem ser excluidas. O evento sera registrado apenas quando a exclusao permitida for concluida; este trabalho nao altera as regras de exclusao.
-- O fluxo de cancelamento de pedidos/orcamentos faz parte da especificacao anterior de usuarios e autorizacoes e ainda nao esta implementado. Quando essa tarefa for concluida, autorizacoes e recusas de cancelamento devem usar o mesmo mecanismo de auditoria.
+- O cancelamento de pedidos/orcamentos e uma transicao logica; Admin cancela diretamente com motivo padrao auditavel, enquanto Atendente informa o motivo e precisa de autorizacao Admin. Pedidos com pagamentos registrados nao podem ser cancelados; autorizacoes/recusas sao registradas no mecanismo de auditoria.
 - Descontos no recebimento estao em implementacao. Desconto superior a 10% sera calculado sobre o saldo do pedido imediatamente antes daquele abatimento. Um pagamento sem desconto nao e evento de desconto.
 
 ## Modelo e integridade
@@ -85,6 +85,7 @@ Adicionar a pagina **Gestao > Auditoria**, visivel e acessivel somente para Admi
 6. A tela Admin filtra e pagina; perfis nao Admin nao veem o menu nem acessam a rota.
 7. Sangria, suprimento e fechamento refletem os valores corretos do caixa; exclusao e alteracoes de produto preservam suas regras atuais.
 8. Testes existentes de usuarios, pedidos, autorizacao e caixa permanecem verdes.
+9. Cancelamentos mantem o pedido no historico, bloqueiam pagamentos posteriores e registram sucesso/recusa de autorizacao sem armazenar credenciais. Admin cancela sem modal de confirmacao e sem motivo digitado, usando motivo padrao; Atendente continua informando motivo e credenciais do Admin.
 
 ## Fora de escopo
 

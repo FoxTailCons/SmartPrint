@@ -6,6 +6,7 @@ import {
   buildClientPerformance,
   buildServicePerformance,
   buildServiceMargins,
+  filterActiveProductionOrders,
   filterOrdersForDashboard,
   buildMonthlyComparison,
   buildDailyUrgencies,
@@ -28,14 +29,41 @@ test('buildCashflowSummary calculates net cash from receivables and payables', (
   assert.equal(summary.netCash, 350);
 });
 
+test('payment discounts reduce outstanding dashboard balances without increasing received cash', () => {
+  const discountedOrder = {
+    status: 'aprovado',
+    client: { name: 'Maria' },
+    finalValue: 100,
+    amountPaid: 20,
+    paymentDiscounts: [{ amount: 30 }],
+  };
+
+  assert.equal(buildCashflowSummary([discountedOrder]).receivables, 50);
+  assert.deepEqual(buildClientPerformance([discountedOrder]), [{
+    name: 'Maria', revenue: 100, orders: 1, outstanding: 50,
+  }]);
+});
+
 test('buildCashflowSummary excludes unapproved quotes but preserves legacy received orders', () => {
   const summary = buildCashflowSummary([
     { status: 'pendente', finalValue: 500, amountPaid: 0 },
     { status: 'aprovado', finalValue: 200, amountPaid: 50 },
     { status: 'pendente', finalValue: 100, amountPaid: 30 },
+    { status: 'cancelado', finalValue: 100, amountPaid: 30 },
   ]);
 
   assert.equal(summary.receivables, 220);
+});
+
+test('active production counts exclude canceled orders with leftover production state', () => {
+  const active = filterActiveProductionOrders([
+    { status: 'aprovado', production: 'em_producao' },
+    { status: 'aprovado', production: 'pausado' },
+    { status: 'cancelado', production: 'em_producao' },
+  ]);
+
+  assert.equal(active.inProduction.length, 1);
+  assert.equal(active.paused.length, 1);
 });
 
 test('buildDailyUrgencies includes due open payables and active approved orders requiring attention', () => {

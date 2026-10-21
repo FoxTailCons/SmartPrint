@@ -33,8 +33,8 @@ Permitir que administradores cadastrem contas de Atendente e Produção e exigir
 ## Cancelamento
 
 - “Cancelar” é uma transição de estado com preservação do registro e do histórico, não exclusão física.
-- Admin pode cancelar diretamente; Atendente exige credenciais de Admin. Produção não inicia cancelamentos.
-- Cancelamento exige motivo. O pedido/orçamento não pode ter qualquer pagamento registrado; enquanto não existir fluxo de estorno, pedidos com pagamentos ficam bloqueados para cancelamento.
+- Admin pode cancelar diretamente, sem confirmação nem motivo digitado; o sistema registra um motivo padrão. Atendente informa o motivo e precisa de autorização do Admin. Produção não inicia cancelamentos.
+- O pedido/orçamento não pode ter qualquer pagamento registrado; enquanto não existir fluxo de estorno, pedidos com pagamentos ficam bloqueados para cancelamento.
 - Pedido cancelado não aceita novos pagamentos, aprovação, edição comercial, avanço de produção, conclusão ou novo cancelamento.
 - O status `cancelado` não deve ser confundido com `concluido`. Registrar usuário solicitante, Admin autorizador quando aplicável, motivo e data no histórico.
 - Pedidos cancelados ficam consultáveis no detalhe/histórico, mas são excluídos de produção ativa, urgências, receitas, saldos a receber, contagens de pedidos ativos, comparativos e exportações financeiras. Listas gerais podem oferecê-los como estado histórico, sem reativação.
@@ -43,7 +43,7 @@ Permitir que administradores cadastrem contas de Atendente e Produção e exigir
 ## Superfícies afetadas
 
 - **Backend:** endpoints Admin-only de usuários; validação/autorização de Admin; modelo e rotas de pagamento/cancelamento; proteção das transições de pedidos; projeções e filtros de dashboard, produção, caixa, recebíveis, recibos e CSV.
-- **Frontend:** administração de usuários para Admin; modal de recebimento com valor pago, abatimento, motivo e credenciais do Admin quando necessário; ação de cancelamento com motivo e autorização; indicação de estado cancelado e acesso ao histórico.
+- **Frontend:** administração de usuários para Admin; modal de recebimento com valor pago, abatimento, motivo e credenciais do Admin quando necessário; cancelamento direto para Admin e ação com motivo/autorização para Atendente; indicação de estado cancelado e acesso ao histórico.
 - **Documentação:** descrever administração, papéis, autorização, descontos e limite de cancelamento sem estorno.
 
 ## Regras de segurança e integridade

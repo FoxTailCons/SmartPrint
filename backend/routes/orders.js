@@ -8,7 +8,7 @@ import Product from '../models/Product.js';
 import { calendarDate, nextProductionStage, boardOrders, mergeProductionWorkflow, initialProductionStage } from '../services/productionWorkflow.js';
 import { normalizeItemMetadata } from '../services/orderItemPricing.js';
 import { buildCatalogOrderItem } from '../services/orderItemPricing.js';
-import { receiveDownPayment } from '../services/orderInstallments.js';
+import { receiveDownPayment, recalculateUnpaidInstallments } from '../services/orderInstallments.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
@@ -16,6 +16,11 @@ import { productCategories, productCategoryLabels } from '../models/Product.js';
 import { getOrderSettings } from '../config/orderSettings.js';
 import { calculateOrderFinalValue, registeredClientError, requiresRegisteredClient } from '../services/orderClientRequirement.js';
 import { applyOrderRoleVisibility, projectProductionOrder } from '../services/orderCostVisibility.js';
+import { authorizeOrderAction } from '../services/adminAuthorization.js';
+import { getOrderBalance, getOrderDiscountTotal } from '../services/orderBalance.js';
+import User from '../models/User.js';
+import AuditLog from '../models/AuditLog.js';
+import { recordAuditEvent } from '../services/auditLog.js';
 
 const router = Router();
 export const adminAuthorizationLimiter = rateLimit({
@@ -57,7 +62,9 @@ export const normalizeOrderAttachments = (value) => {
   });
 };
 
-export const buildOrderDocumentLabel = (order) => (isConfirmedOrder(order) ? 'Pedido' : 'Orçamento');
+export const buildOrderDocumentLabel = (order) => (
+  order?.status === 'cancelado' ? 'Cancelado' : isConfirmedOrder(order) ? 'Pedido' : 'Orçamento'
+);
 export const buildQuoteValidityDate = (order, validityDays) => {
   if (buildOrderDocumentLabel(order) !== 'Orçamento') return null;
   const createdAt = new Date(order.createdAt || Date.now());
@@ -80,7 +87,7 @@ export const normalizeWhatsappPhone = (value) => {
   return null;
 };
 
-export const canReceivePayments = (order) => order.status !== 'pendente';
+export const canReceivePayments = (order) => !['pendente', 'cancelado'].includes(order.status);
 
 export const initializeNewOrder = (order, { quickOrder = false, userName = '' } = {}) => {
   order.history.push({ action: 'criado', by: userName });
@@ -392,7 +399,8 @@ export const buildWhatsappText = (order, client, settings = getOrderSettings()) 
   lines.push(`*VALOR TOTAL: ${fmtMoney(finalValue)}*`);
   lines.push(`Forma de Pagamento: ${String(order.paymentMethod || 'a combinar').toUpperCase()}`);
   if (order.paymentMethod === 'pix' && settings.businessPixKey) lines.push(`PIX: ${settings.businessPixKey}`);
-  if (order.amountPaid > 0) lines.push(`Pago: ${fmtMoney(order.amountPaid)} | Saldo: ${fmtMoney(finalValue - order.amountPaid)}`);
+  if (getOrderDiscountTotal(order) > 0) lines.push(`Desconto no recebimento: ${fmtMoney(getOrderDiscountTotal(order))}`);
+  if (order.amountPaid > 0) lines.push(`Pago: ${fmtMoney(order.amountPaid)} | Saldo: ${fmtMoney(getOrderBalance(order))}`);
   if (order.observations) lines.push(`Observações: ${order.observations}`);
   for (const attachment of order.attachments || []) lines.push(`Anexo — ${attachment.label}: ${attachment.url}`);
   lines.push('');
@@ -437,6 +445,7 @@ export const createOrderListHandler = ({ OrderModel = Order, ClientModel = Clien
 router.get('/', allowRoles('admin', 'atendente'), createOrderListHandler());
 
 const confirmedOrdersFilter = {
+  status: { $ne: 'cancelado' },
   $or: [
     { status: { $in: ['aprovado', 'concluido'] } },
     { amountPaid: { $gt: 0 } },
@@ -444,9 +453,27 @@ const confirmedOrdersFilter = {
 };
 
 const receivableBalanceExpression = {
-  $subtract: [
-    { $ifNull: ['$finalValue', 0] },
-    { $ifNull: ['$amountPaid', 0] },
+  $max: [
+    0,
+    {
+      $subtract: [
+        {
+          $subtract: [
+            { $ifNull: ['$finalValue', 0] },
+            { $ifNull: ['$amountPaid', 0] },
+          ],
+        },
+        {
+          $sum: {
+            $map: {
+              input: { $ifNull: ['$paymentDiscounts', []] },
+              as: 'discount',
+              in: { $ifNull: ['$$discount.amount', 0] },
+            },
+          },
+        },
+      ],
+    },
   ],
 };
 
@@ -686,6 +713,9 @@ router.post('/merge', adminOnly, async (req, res) => {
     if (orders.some((order) => String(order.client) !== clientId)) {
       throw new Error('Só é possível agregar pedidos do mesmo cliente');
     }
+    if (orders.some((order) => order.status === 'cancelado')) {
+      throw new Error('Pedidos cancelados não podem ser agregados');
+    }
 
     const allConcluded = orders.every((order) => order.status === 'concluido');
     const hasApproved = orders.some((order) => order.status === 'aprovado');
@@ -743,6 +773,7 @@ export function createOrderUpdateHandler({
       const order = await OrderModel.findById(req.params.id);
       if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
       if (order.quickSaleKey) return res.status(400).json({ message: 'Vendas de balcão concluídas possuem recibo individual e não podem ser editadas' });
+      if (order.status === 'cancelado') return res.status(409).json({ message: 'Pedidos cancelados não podem ser editados' });
       if (order.status !== 'pendente' && 'downPayment' in changes
         && Number(changes.downPayment) !== Number(order.downPayment || 0)) {
         return res.status(400).json({ message: 'A entrada não pode ser alterada após a aprovação do pedido' });
@@ -776,19 +807,104 @@ export function createOrderUpdateHandler({
 }
 router.put('/:id', allowRoles('admin', 'atendente'), createOrderUpdateHandler());
 
-export function createOrderDeleteHandler({ OrderModel = Order } = {}) {
+export function createOrderDeleteHandler({ OrderModel = Order, AuditLogModel = AuditLog } = {}) {
   return async (req, res) => {
+    let order;
     try {
       if (!mongoose.isValidObjectId(req.params.id)) throw new Error('Identificador de pedido inválido');
-      const order = await OrderModel.findById(req.params.id);
+      order = await OrderModel.findById(req.params.id);
       if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
       if (order.quickSaleKey) throw new Error('Vendas de balcão mantêm o recibo para impedir cobrança duplicada e não podem ser excluídas');
       await OrderModel.findByIdAndDelete(req.params.id);
-      return res.json({ ok: true });
     } catch (error) { return res.status(400).json({ message: error.message }); }
+    try {
+      await recordAuditEvent({
+        AuditLogModel,
+        req,
+        action: 'pedido.excluido',
+        details: { pedidoId: String(order._id), numero: order.number || '' },
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'O pedido foi excluído, mas não foi possível registrar a auditoria' });
+    }
+    return res.json({ ok: true });
   };
 }
 router.delete('/:id', adminOnly, createOrderDeleteHandler());
+
+export function createOrderCancelHandler({
+  OrderModel = Order,
+  UserModel = User,
+  AuditLogModel = AuditLog,
+} = {}) {
+  return async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
+    const requestedReason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    const reason = requestedReason || (req.user?.role === 'admin'
+      ? 'Cancelamento realizado diretamente pelo administrador.'
+      : '');
+    if (!reason || reason.length > 500) return res.status(400).json({ message: 'Informe o motivo do cancelamento (até 500 caracteres)' });
+    const order = await OrderModel.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+    if (order.status === 'cancelado' || order.status === 'concluido') {
+      return res.status(409).json({ message: 'Este pedido não permite cancelamento' });
+    }
+    const hasPayments = Number(order.amountPaid || 0) !== 0
+      || (order.payments || []).length > 0
+      || (order.history || []).some((entry) => entry.action === 'pagamento');
+    if (hasPayments) return res.status(409).json({ message: 'Pedidos com pagamentos registrados não podem ser cancelados' });
+
+    const authorizedBy = await authorizeOrderAction({
+      requester: req.user,
+      adminAuthorization: req.body?.adminAuthorization,
+      UserModel,
+    });
+    if (!authorizedBy) {
+      try {
+        await recordAuditEvent({
+          AuditLogModel,
+          req,
+          action: 'autorizacao.cancelamento',
+          details: { pedidoId: String(order._id), numero: order.number || '', motivo: reason },
+          success: false,
+        });
+      } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Não foi possível registrar a tentativa de autorização' });
+      }
+      return res.status(401).json({ message: 'Credenciais de autorização administrativa inválidas' });
+    }
+
+    order.status = 'cancelado';
+    order.history.push({
+      action: 'cancelado',
+      by: req.user.name,
+      note: `Motivo: ${reason}. Autorizado por ${authorizedBy.name}.`,
+    });
+    try {
+      await order.save();
+    } catch (error) {
+      if (error?.name === 'VersionError') return res.status(409).json({ message: 'O pedido foi atualizado por outra operação; recarregue antes de cancelar' });
+      console.error(error);
+      return res.status(500).json({ message: 'Não foi possível cancelar o pedido' });
+    }
+    try {
+      await recordAuditEvent({
+        AuditLogModel,
+        req,
+        authorizedBy,
+        action: 'autorizacao.cancelamento',
+        details: { pedidoId: String(order._id), numero: order.number || '', motivo: reason },
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'O pedido foi cancelado, mas não foi possível registrar a auditoria' });
+    }
+    return res.json(order);
+  };
+}
+router.post('/:id/cancel', allowRoles('admin', 'atendente'), adminAuthorizationLimiter, createOrderCancelHandler());
 
 // ---- Ações de fluxo ----
 
@@ -862,65 +978,178 @@ router.post('/:id/complete', allowRoles('admin', 'producao'), async (req, res) =
   res.json(order);
 });
 
-// Registrar pagamento (parcial ou total) - desdobra nas parcelas
-router.post('/:id/payments', allowRoles('admin', 'atendente'), adminAuthorizationLimiter, async (req, res) => {
-  const { amount, date, installmentIndex, paymentMethod = 'pix', receiptUrl = '' } = req.body;
-  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
-  const order = await Order.findById(req.params.id);
-  const pay = Number(amount) || 0;
-  if (pay <= 0) return res.status(400).json({ message: 'Valor inválido' });
-  const methods = ['pix', 'dinheiro', 'debito', 'credito', 'parcelado'];
-  if (!methods.includes(paymentMethod)) return res.status(400).json({ message: 'Forma de pagamento inválida' });
-  if (typeof receiptUrl !== 'string') return res.status(400).json({ message: 'Link do comprovante inválido' });
-  if (receiptUrl) {
-    try {
-      if (!['http:', 'https:'].includes(new URL(receiptUrl).protocol)) throw new Error();
-    } catch {
-      return res.status(400).json({ message: 'Link do comprovante deve usar HTTP ou HTTPS' });
+export function createPaymentHandler({ OrderModel = Order, UserModel = User, AuditLogModel = AuditLog } = {}) {
+  return async (req, res) => {
+    const {
+      amount, date, installmentIndex, paymentMethod = 'pix', receiptUrl = '',
+      discount = 0, discountReason, adminAuthorization,
+    } = req.body || {};
+    if (!['admin', 'atendente'].includes(req.user?.role)) {
+      return res.status(403).json({ message: 'Perfil sem permissão para registrar pagamentos' });
     }
-  }
-  if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
-  if (!canReceivePayments(order)) {
-    return res.status(400).json({ message: 'Aprove o orçamento antes de registrar pagamentos' });
-  }
-  const balanceBefore = Math.max(0, (order.finalValue || 0) - (order.amountPaid || 0));
-  if (pay > balanceBefore + 0.01) return res.status(400).json({ message: `O pagamento não pode exceder o saldo de ${fmtMoney(balanceBefore)}` });
-  if (installmentIndex !== undefined && !order.installments[installmentIndex]) {
-    return res.status(400).json({ message: 'Parcela inválida' });
-  }
-
-  order.amountPaid = (order.amountPaid || 0) + pay;
-  order.paymentMethod = paymentMethod;
-  order.payments.push({ amount: pay, method: paymentMethod, paidAt: date || new Date(), receiptUrl });
-
-  // Se houver parcela indicada, marca ela
-  if (installmentIndex !== undefined) {
-    const inst = order.installments[installmentIndex];
-    if (inst.paid) return res.status(400).json({ message: 'Esta parcela já está paga' });
-    if (pay + 0.01 < inst.amount) return res.status(400).json({ message: 'O pagamento precisa quitar a parcela selecionada ou ser lançado sem selecionar parcela' });
-    inst.paid = true;
-    inst.paidAt = date || new Date();
-  } else {
-    // Desdobra automaticamente: paga as parcelas em ordem
-    let remaining = pay;
-    for (const inst of order.installments) {
-      if (remaining <= 0) break;
-      if (!inst.paid && inst.amount <= remaining) {
-        inst.paid = true;
-        inst.paidAt = date || new Date();
-        remaining -= inst.amount;
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Identificador de pedido inválido' });
+    const pay = Number(amount);
+    const discountAmount = Number(discount);
+    if (!Number.isFinite(pay) || pay <= 0) return res.status(400).json({ message: 'Valor recebido inválido' });
+    if (!Number.isFinite(discountAmount) || discountAmount < 0) return res.status(400).json({ message: 'Valor do desconto inválido' });
+    const reason = typeof discountReason === 'string' ? discountReason.trim() : '';
+    if (discountAmount > 0 && (!reason || reason.length > 500)) {
+      return res.status(400).json({ message: 'Informe o motivo do desconto (até 500 caracteres)' });
+    }
+    const methods = ['pix', 'dinheiro', 'debito', 'credito', 'parcelado'];
+    if (!methods.includes(paymentMethod)) return res.status(400).json({ message: 'Forma de pagamento inválida' });
+    if (typeof receiptUrl !== 'string') return res.status(400).json({ message: 'Link do comprovante inválido' });
+    if (receiptUrl) {
+      try {
+        if (!['http:', 'https:'].includes(new URL(receiptUrl).protocol)) throw new Error();
+      } catch {
+        return res.status(400).json({ message: 'Link do comprovante deve usar HTTP ou HTTPS' });
       }
     }
-  }
+    const paidAt = date ? new Date(date) : new Date();
+    if (!Number.isFinite(paidAt.getTime())) return res.status(400).json({ message: 'Data de pagamento inválida' });
 
-  const balance = order.finalValue - order.amountPaid;
-  if (balance <= 0.01) order.paymentStatus = 'quitado';
-  else if (order.amountPaid > 0) order.paymentStatus = 'parcial';
+    const order = await OrderModel.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+    if (order.status === 'cancelado') {
+      return res.status(409).json({ message: 'Pedidos cancelados não aceitam pagamentos' });
+    }
+    if (!canReceivePayments(order)) {
+      return res.status(400).json({ message: 'Aprove o orçamento antes de registrar pagamentos' });
+    }
+    const balanceBefore = getOrderBalance(order);
+    if (pay + discountAmount > balanceBefore + 1e-8) {
+      return res.status(400).json({ message: `Pagamento e desconto não podem exceder o saldo de ${fmtMoney(balanceBefore)}` });
+    }
+    if (installmentIndex !== undefined) {
+      if (!Number.isInteger(installmentIndex) || !order.installments?.[installmentIndex]) {
+        return res.status(400).json({ message: 'Parcela inválida' });
+      }
+      if (order.installments[installmentIndex].paid) return res.status(400).json({ message: 'Esta parcela já está paga' });
+      if (pay + 0.01 < order.installments[installmentIndex].amount) {
+        return res.status(400).json({ message: 'O pagamento precisa quitar a parcela selecionada ou ser lançado sem selecionar parcela' });
+      }
+    }
 
-  order.history.push({ action: 'pagamento', by: req.user.name, paymentMethod, note: `Recebido ${fmtMoney(pay)} via ${paymentMethod}` });
-  await order.save();
-  res.json(order);
-});
+    let authorizedBy = null;
+    if (discountAmount > 0) {
+      authorizedBy = await authorizeOrderAction({ requester: req.user, adminAuthorization, UserModel });
+      if (!authorizedBy) {
+        try {
+          await recordAuditEvent({
+            AuditLogModel,
+            req,
+            action: 'autorizacao.desconto',
+            details: { pedidoId: String(order._id), valor: discountAmount },
+            success: false,
+          });
+        } catch (error) {
+          console.error(error);
+          return res.status(500).json({ message: 'Não foi possível registrar a tentativa de autorização' });
+        }
+        return res.status(401).json({ message: 'Credenciais de autorização administrativa inválidas' });
+      }
+      try {
+        await recordAuditEvent({
+          AuditLogModel,
+          req,
+          authorizedBy,
+          action: 'autorizacao.desconto',
+          details: { pedidoId: String(order._id), valor: discountAmount },
+        });
+      } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Não foi possível registrar a autorização do desconto' });
+      }
+    }
+
+    const payments = order.payments || [];
+    const installments = order.installments || [];
+    order.amountPaid = (order.amountPaid || 0) + pay;
+    order.paymentMethod = paymentMethod;
+    payments.push({ amount: pay, method: paymentMethod, paidAt, receiptUrl });
+    order.payments = payments;
+
+    if (installmentIndex !== undefined) {
+      const installment = installments[installmentIndex];
+      installment.paid = true;
+      installment.paidAt = paidAt;
+    } else {
+      let remaining = pay;
+      for (const installment of installments) {
+        if (remaining <= 0) break;
+        if (!installment.paid && installment.amount <= remaining) {
+          installment.paid = true;
+          installment.paidAt = paidAt;
+          remaining -= installment.amount;
+        }
+      }
+    }
+
+    order.history.push({
+      action: 'pagamento',
+      by: req.user.name,
+      paymentMethod,
+      note: `Recebido ${fmtMoney(pay)} via ${paymentMethod}`,
+    });
+    if (discountAmount > 0) {
+      order.paymentDiscounts.push({
+        amount: discountAmount,
+        reason,
+        by: req.user.name,
+        authorizedBy: { userId: authorizedBy._id, name: authorizedBy.name },
+        at: paidAt,
+      });
+      order.history.push({
+        action: 'desconto_pagamento',
+        by: req.user.name,
+        note: `Desconto de ${fmtMoney(discountAmount)} autorizado por ${authorizedBy.name}: ${reason}`,
+      });
+    }
+
+    const balance = getOrderBalance(order);
+    if (balance <= 0.01) {
+      order.paymentStatus = 'quitado';
+      order.installments = installments.filter((installment) => installment.paid);
+    } else {
+      if (order.amountPaid > 0 || discountAmount > 0) order.paymentStatus = 'parcial';
+      recalculateUnpaidInstallments(installments, balance);
+      order.installments = installments;
+    }
+
+    try {
+      await order.save();
+      if (discountAmount > balanceBefore * 0.1) {
+        try {
+          await recordAuditEvent({
+            AuditLogModel,
+            req,
+            authorizedBy,
+            action: 'pagamento.desconto_acima_limite',
+            details: {
+              pedidoId: String(order._id),
+              desconto: discountAmount,
+              saldoAnterior: balanceBefore,
+              percentual: Number((discountAmount / balanceBefore * 100).toFixed(2)),
+            },
+          });
+        } catch (error) {
+          console.error(error);
+          return res.status(500).json({ message: 'O pagamento foi registrado, mas não foi possível registrar a auditoria do desconto' });
+        }
+      }
+      return res.json(order);
+    } catch (error) {
+      if (error?.name === 'VersionError') {
+        return res.status(409).json({ message: 'O saldo foi alterado por outra operação. Atualize o pedido e tente novamente.' });
+      }
+      console.error(error);
+      return res.status(500).json({ message: 'Não foi possível registrar o pagamento' });
+    }
+  };
+}
+
+router.post('/:id/payments', allowRoles('admin', 'atendente'), adminAuthorizationLimiter, createPaymentHandler());
 
 export function createWhatsappHandler({ OrderModel = Order } = {}) {
   return async (req, res) => {

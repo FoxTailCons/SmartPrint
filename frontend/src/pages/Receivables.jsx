@@ -13,6 +13,7 @@ import { buildBalanceReminderUrl } from './printshop.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import PeriodExport from '../components/PeriodExport.jsx';
 import { buildBalanceThermalHtml } from './thermalPrint.js';
+import { getOrderBalance } from './orderBalance.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -25,7 +26,7 @@ export default function Receivables() {
   const { items: orders, total, summary, loading, error, retry } = list;
   const listState = getListState({ loading, error, items: orders });
 
-  const withBalance = orders.map((o) => ({ ...o, balance: (o.finalValue || 0) - (o.amountPaid || 0) }));
+  const withBalance = orders.map((order) => ({ ...order, balance: getOrderBalance(order) }));
   const totalOpen = summary?.totalOpen || 0;
   const totalReceived = summary?.totalReceived || 0;
   const upcoming = summary?.upcoming || [];

@@ -4,6 +4,8 @@ import { normalizePriceTiers } from '../services/orderItemPricing.js';
 import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
 import { productCategories, saleUnits } from '../models/Product.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
+import AuditLog from '../models/AuditLog.js';
+import { recordAuditEvent } from '../services/auditLog.js';
 
 const normalizeInput = (body, { allowActive = false } = {}) => {
   const name = typeof body?.name === 'string' ? body.name.trim() : '';
@@ -80,6 +82,7 @@ const hideCost = (product, user) => {
 
 export function createProductsRouter({
   ProductModel = Product,
+  AuditLogModel = AuditLog,
   protectMiddleware = protect,
   adminMiddleware = adminOnly,
 } = {}) {
@@ -173,8 +176,31 @@ export function createProductsRouter({
       if (await duplicateCode(ProductModel, normalized.value.code, product._id)) {
         return res.status(409).json({ message: 'Já existe um produto com esse código' });
       }
+      const previousPrice = Number(product.price);
+      const previousCostPrice = product.costPrice == null ? null : Number(product.costPrice);
       Object.assign(product, normalized.value);
       await product.save();
+      const details = { produtoId: String(product._id), nome: product.name };
+      if (previousPrice !== Number(product.price)) {
+        details.preco = { antes: previousPrice, depois: Number(product.price) };
+      }
+      const currentCostPrice = product.costPrice == null ? null : Number(product.costPrice);
+      if (previousCostPrice !== currentCostPrice) {
+        details.custo = { antes: previousCostPrice, depois: currentCostPrice };
+      }
+      if (details.preco || details.custo) {
+        try {
+          await recordAuditEvent({
+            AuditLogModel,
+            req,
+            action: 'produto.preco_custo_alterado',
+            details,
+          });
+        } catch (error) {
+          console.error(error);
+          return res.status(500).json({ message: 'O produto foi alterado, mas não foi possível registrar a auditoria' });
+        }
+      }
       return res.json(product);
     } catch (error) {
       if (isDuplicateKeyError(error)) return res.status(409).json({ message: 'Já existe um produto com esse código' });

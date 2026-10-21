@@ -19,6 +19,7 @@ const orderTabs = [
   { status: 'pendente', label: 'Pendente aprovação' },
   { status: 'aprovado', label: 'Pendente execução' },
   { status: 'concluido', label: 'Concluído' },
+  { status: 'cancelado', label: 'Cancelados' },
 ];
 const filters = [
   { key: 'paymentStatus', label: 'Pagamento', options: ['', 'aberto', 'parcial', 'pago', 'quitado'], labels: ['Todos', 'Aberto', 'Parcial', 'Pago', 'Quitado'] },
@@ -136,18 +137,20 @@ export default function Orders() {
                   </td>
                   <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
                   <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
-                  <td className="px-5 py-3"><StatusBadge value={o.production} />
-                    <div className="mt-1 text-xs text-slate-500">{productionStages.find(([key]) => key === getProductionStage(o))?.[1]}</div>
-                    <div className={`mt-1 text-xs ${getDeadline(o).overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{getDeadline(o).label}</div>
+                  <td className="px-5 py-3"><StatusBadge value={o.status === 'cancelado' ? 'cancelado' : o.production} />
+                    {o.status !== 'cancelado' && <>
+                      <div className="mt-1 text-xs text-slate-500">{productionStages.find(([key]) => key === getProductionStage(o))?.[1]}</div>
+                      <div className={`mt-1 text-xs ${getDeadline(o).overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{getDeadline(o).label}</div>
+                    </>}
                   </td>
                   <td className="px-5 py-3"><StatusBadge value={o.paymentStatus} /></td>
                   <td className="px-5 py-3 text-right">{fmt(o.amountPaid)}</td>
                   <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
                   <td className="px-5 py-3 text-right">
                     <div className="inline-flex gap-2">
-                      <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
-                      <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />
-                      <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
+                      {o.status !== 'cancelado' && <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}
+                      {o.status !== 'cancelado' && <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />}
+                      {o.status !== 'cancelado' && <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}
                       <Link to={`/pedidos/${o._id}`} className="inline-flex items-center px-2.5 py-1.5 rounded-lg border text-xs hover:bg-slate-50">Detalhes</Link>
                     </div>
                   </td>

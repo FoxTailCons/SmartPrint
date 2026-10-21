@@ -3,7 +3,9 @@ import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import User from '../models/User.js';
+import AuditLog from '../models/AuditLog.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+import { recordAuditEvent } from '../services/auditLog.js';
 
 const router = Router();
 const loginLimiter = rateLimit({
@@ -25,7 +27,7 @@ const safeUser = (user) => ({
   active: user.active,
 });
 
-export function createUserManagementHandlers({ UserModel = User } = {}) {
+export function createUserManagementHandlers({ UserModel = User, AuditLogModel = AuditLog } = {}) {
   const listUsers = async (_req, res) => {
     const users = await UserModel.find().select('_id name email role active');
     return res.json(users.map(safeUser));
@@ -70,32 +72,91 @@ export function createUserManagementHandlers({ UserModel = User } = {}) {
       }
     }
 
+    const wasActive = user.active;
     user.active = req.body.active;
     await user.save();
+    if (wasActive === user.active) return res.json(safeUser(user));
+    try {
+      await recordAuditEvent({
+        AuditLogModel,
+        req,
+        action: 'usuario.status_alterado',
+        details: { usuarioId: String(user._id), ativo: { antes: wasActive, depois: user.active } },
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'O acesso foi alterado, mas não foi possível registrar a auditoria' });
+    }
     return res.json(safeUser(user));
   };
 
   return { listUsers, createUser, setUserActive };
 }
 
-// POST /api/auth/login
-router.post('/login', loginLimiter, async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email: email?.toLowerCase() }).select('+password');
-    if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ message: 'E-mail ou senha inválidos' });
+export function createLoginHandler({
+  UserModel = User,
+  AuditLogModel = AuditLog,
+  signTokenFn = signToken,
+} = {}) {
+  return async (req, res) => {
+    try {
+      const { email, password } = req.body || {};
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+      const user = await UserModel.findOne({ email: normalizedEmail }).select('+password');
+      if (!user || typeof password !== 'string' || !password || !(await user.matchPassword(password))) {
+        await recordAuditEvent({
+          AuditLogModel,
+          req,
+          requester: user,
+          action: 'auth.login',
+          details: { email: normalizedEmail },
+          success: false,
+        });
+        return res.status(401).json({ message: 'E-mail ou senha inválidos' });
+      }
+      if (!user.active) {
+        await recordAuditEvent({
+          AuditLogModel,
+          req,
+          requester: user,
+          action: 'auth.login',
+          details: { email: normalizedEmail, motivo: 'usuario_inativo' },
+          success: false,
+        });
+        return res.status(403).json({ message: 'Usuário inativo' });
+      }
+      await recordAuditEvent({
+        AuditLogModel,
+        req,
+        requester: user,
+        action: 'auth.login',
+        details: { email: user.email },
+      });
+      return res.json({
+        token: signTokenFn(user._id),
+        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Não foi possível realizar o login' });
     }
-    if (!user.active) return res.status(403).json({ message: 'Usuário inativo' });
-    res.json({
-      token: signToken(user._id),
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Não foi possível realizar o login' });
-  }
-});
+  };
+}
+
+export function createLogoutHandler({ AuditLogModel = AuditLog } = {}) {
+  return async (req, res) => {
+    try {
+      await recordAuditEvent({ AuditLogModel, req, action: 'auth.logout' });
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'Não foi possível registrar a auditoria do logout' });
+    }
+  };
+}
+
+router.post('/login', loginLimiter, createLoginHandler());
+router.post('/logout', protect, createLogoutHandler());
 
 // GET /api/auth/me
 router.get('/me', protect, (req, res) => {

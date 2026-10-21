@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCashReport, getSaoPauloDateKey, getSaoPauloDayRange, isValidDateKey } from '../routes/cash.js';
+import cashRouter, { buildCashReport, createCashRouter, getSaoPauloDateKey, getSaoPauloDayRange, isValidDateKey } from '../routes/cash.js';
 
 test('cash report groups actual payments by method, applies opening and sangria to cash', () => {
   const dateKey = '2026-10-20';
@@ -24,6 +24,57 @@ test('cash report groups actual payments by method, applies opening and sangria 
   assert.equal(report.differences.dinheiro, 0);
   assert.equal(report.differences.pix, 5);
   assert.equal(report.differences.debito, 0);
+});
+
+test('cash report applies supplies and withdrawals to expected cash', () => {
+  const report = buildCashReport({
+    openingAmount: 100,
+    supplies: [{ amount: 50 }],
+    withdrawals: [{ amount: 20 }],
+  }, [], '2026-10-20');
+
+  assert.equal(report.supplies, 50);
+  assert.equal(report.withdrawals, 20);
+  assert.equal(report.expected.dinheiro, 130);
+});
+
+test('cash router exposes a dedicated supply operation', () => {
+  assert.ok(cashRouter.stack.some((layer) => layer.route?.path === '/supply' && layer.route.methods.post));
+});
+
+test('cash supply updates expected cash and writes an audit event', async () => {
+  const events = [];
+  const session = {
+    status: 'open',
+    openingAmount: 100,
+    withdrawals: [],
+    supplies: [],
+    async save() { return this; },
+  };
+  const router = createCashRouter({
+    CashSessionModel: { findOne: async () => session },
+    OrderModel: { find: () => ({ select: async () => [] }) },
+    AuditLogModel: { async create(event) { events.push(event); } },
+    protectMiddleware: (_req, _res, next) => next(),
+    allowRolesMiddleware: () => (_req, _res, next) => next(),
+  });
+  const route = router.stack.find((layer) => layer.route?.path === '/supply');
+  const res = {
+    statusCode: 200,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  };
+
+  await route.route.stack[0].handle({
+    body: { amount: 50, note: 'Troco' },
+    user: { _id: '507f1f77bcf86cd799439011' },
+    ip: '192.0.2.15',
+  }, res, (error) => { throw error; });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.report.expected.dinheiro, 150);
+  assert.equal(events[0].acao, 'caixa.suprimento');
+  assert.equal(events[0].detalhes.amount, 50);
 });
 
 test('cash business date follows Sao Paulo time', () => {

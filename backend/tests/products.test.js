@@ -46,6 +46,7 @@ test('Product declares sparse uniqueness for optional product codes', () => {
 
 function createApp() {
   const records = [];
+  const auditEvents = [];
   let nextId = 1;
   const matches = (entry, filter) => Object.entries(filter).every(([field, condition]) => {
     if (field === '$and') return condition.every((part) => matches(entry, part));
@@ -114,17 +115,18 @@ function createApp() {
     ProductModel: MemoryProduct,
     protectMiddleware: requireTestRole,
     adminMiddleware: adminOnly,
+    AuditLogModel: { async create(event) { auditEvents.push(event); } },
   }));
-  return { app, records };
+  return { app, records, auditEvents };
 }
 
 async function withApi(t, callback) {
-  const { app, records } = createApp();
+  const { app, records, auditEvents } = createApp();
   const server = createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
   const address = server.address();
-  await callback(`http://127.0.0.1:${address.port}/api/products`, records);
+  await callback(`http://127.0.0.1:${address.port}/api/products`, records, auditEvents);
 }
 
 test('product routes require authentication and hide inactive products from regular users', async (t) => {
@@ -197,7 +199,7 @@ test('product routes filter by category while keeping uncategorized legacy produ
 });
 
 test('product routes create and update products only for administrators', async (t) => {
-  await withApi(t, async (url) => {
+  await withApi(t, async (url, _records, auditEvents) => {
     const payload = { name: '  Banner  ', code: 'BNR-1', saleUnit: 'square_meter', price: 95, costPrice: 40, imageUrl: 'https://example.test/material.jpg', category: 'grande_formato' };
     const forbidden = await fetch(url, {
       method: 'POST',
@@ -226,6 +228,10 @@ test('product routes create and update products only for administrators', async 
     });
     assert.equal(updated.status, 200);
     assert.equal((await updated.json()).price, 105);
+    assert.equal(auditEvents.length, 1);
+    assert.equal(auditEvents[0].acao, 'produto.preco_custo_alterado');
+    assert.deepEqual(auditEvents[0].detalhes.preco, { antes: 95, depois: 105 });
+    assert.equal('custo' in auditEvents[0].detalhes, false);
     assert.equal((await fetch(`${url}/${product._id}`, { headers: { 'x-test-role': 'admin' } }).then((response) => response.json())).costPrice, 40);
 
     const clearedCost = await fetch(`${url}/${product._id}`, {

@@ -1,3 +1,5 @@
+import { getOrderBalance, getOrderDiscountTotal } from './orderBalance.js';
+
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const spreadsheetFormulaPrefix = /^\s*[=+\-@]/;
 
@@ -51,7 +53,8 @@ export const buildOrderExportRows = (orders) => orders.map((order) => ({
   items: (order.items || []).map((item) => `${item.description} (${item.quantity})`).join(' | '),
   total: Number(order.finalValue || 0),
   received: Number(order.amountPaid || 0),
-  balance: Math.max(0, Number(order.finalValue || 0) - Number(order.amountPaid || 0)),
+  paymentDiscounts: getOrderDiscountTotal(order),
+  balance: getOrderBalance(order),
   status: order.status || '',
   production: order.productionStage || order.production || '',
   deadline: order.deliveryDate || '',
@@ -60,6 +63,7 @@ export const buildOrderExportRows = (orders) => orders.map((order) => ({
 export const buildFinanceExportRows = ({ orders = [], payables = [], sessions = [], from, endExclusive }) => {
   const rows = [];
   for (const order of orders) {
+    if (order.status === 'cancelado') continue;
     const payments = Array.isArray(order.payments) && order.payments.length
       ? order.payments.map((payment) => ({ ...payment.toObject?.() ?? payment, kind: payment.type || 'pagamento' }))
       : (order.history || [])
@@ -94,6 +98,17 @@ export const buildFinanceExportRows = ({ orders = [], payables = [], sessions = 
     });
   }
   for (const session of sessions) {
+    for (const supply of session.supplies || []) {
+      if (!isInRange(supply.createdAt, from, endExclusive)) continue;
+      rows.push({
+        date: new Date(supply.createdAt).toISOString(),
+        type: 'Suprimento',
+        reference: session.dateKey || '',
+        description: supply.note || '',
+        method: 'dinheiro',
+        amount: Number(supply.amount || 0),
+      });
+    }
     for (const withdrawal of session.withdrawals || []) {
       if (!isInRange(withdrawal.createdAt, from, endExclusive)) continue;
       rows.push({
@@ -107,4 +122,4 @@ export const buildFinanceExportRows = ({ orders = [], payables = [], sessions = 
     }
   }
   return rows.sort((left, right) => left.date.localeCompare(right.date));
-};
+}

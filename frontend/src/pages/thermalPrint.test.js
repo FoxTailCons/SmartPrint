@@ -52,6 +52,25 @@ test('balance document shows open amount and the original installment numbers', 
     ],
   });
 
+  test('thermal order and balance documents subtract payment discounts separately', () => {
+    const order = {
+      number: '00044',
+      status: 'aprovado',
+      finalValue: 300,
+      amountPaid: 50,
+      paymentDiscounts: [{ amount: 20 }],
+      items: [],
+    };
+
+    const orderHtml = buildOrderThermalHtml(order);
+    assert.match(orderHtml, /Descontos no pagamento/);
+    assert.match(orderHtml, /Saldo<\/span><span>R\$\s?230,00/);
+
+    const balanceHtml = buildBalanceThermalHtml(order);
+    assert.match(balanceHtml, /Descontos aplicados/);
+    assert.match(balanceHtml, /Saldo em aberto<\/span><span>R\$\s?230,00/);
+  });
+
   assert.match(html, /PENDÊNCIA · PEDIDO #00042/);
   assert.match(html, /Saldo em aberto/);
   assert.match(html, /R\$\s?200,00/);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package, Zap, Columns3, Banknote, Menu, X,
+  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package, Zap, Columns3, Banknote, Menu, X, ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import BrandMark from './BrandMark.jsx';
@@ -15,6 +15,7 @@ const menu = [
   { to: '/clientes', label: 'Clientes', icon: Users, permission: 'clients' },
   { to: '/produtos', label: 'Produtos', icon: Package, permission: 'products' },
   { to: '/usuarios', label: 'Usuários', icon: Users, permission: 'users' },
+  { to: '/auditoria', label: 'Auditoria', icon: ScrollText, permission: 'audit' },
   { to: '/contas-receber', label: 'Contas a Receber', icon: Wallet, permission: 'receivables' },
   { to: '/caixa', label: 'Fechamento de caixa', icon: Banknote, permission: 'cash' },
   { to: '/contas-pagar', label: 'Contas a Pagar', icon: TrendingDown, permission: 'payables' },
@@ -26,6 +27,17 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
+
+  const handleLogout = async () => {
+    setLogoutError('');
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      setLogoutError(error.message);
+    }
+  };
 
   useEffect(() => {
     const shortcut = (event) => {
@@ -76,8 +88,9 @@ export default function Layout({ children }) {
             <div className="font-semibold text-white text-sm">{user?.name}</div>
             {roleLabel[user?.role]}
           </div>
+          {logoutError && <p role="alert" className="px-2 text-xs text-red-300">{logoutError}</p>}
           <button
-            onClick={() => { logout(); navigate('/login'); }}
+            onClick={handleLogout}
             className="w-full mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:bg-red-500/20 hover:text-red-200 transition"
           >
             <LogOut size={16} /> Sair

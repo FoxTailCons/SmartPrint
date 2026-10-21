@@ -50,6 +50,16 @@ const paymentSchema = new mongoose.Schema({
   paidAt: { type: Date, default: Date.now },
   receiptUrl: { type: String, default: '' },
 });
+const paymentDiscountSchema = new mongoose.Schema({
+  amount: { type: Number, required: true, min: 0, validate: Number.isFinite },
+  reason: { type: String, required: true, trim: true, maxlength: 500 },
+  by: { type: String, required: true },
+  authorizedBy: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    name: { type: String, required: true },
+  },
+  at: { type: Date, default: Date.now },
+});
 const attachmentSchema = new mongoose.Schema({
   label: { type: String, trim: true, maxlength: 100, required: true },
   url: { type: String, trim: true, maxlength: 2048, required: true },
@@ -76,6 +86,7 @@ const orderSchema = new mongoose.Schema(
     downPayment: { type: Number, default: 0, min: 0 },
     amountPaid: { type: Number, default: 0, min: 0 },
     payments: [paymentSchema],
+    paymentDiscounts: { type: [paymentDiscountSchema], default: [] },
     paymentMethod: {
       type: String,
       enum: ['pix', 'dinheiro', 'debito', 'credito', 'parcelado'],
@@ -84,7 +95,7 @@ const orderSchema = new mongoose.Schema(
     // Status do pedido/orçamento
     status: {
       type: String,
-      enum: ['pendente', 'aprovado', 'concluido'],
+      enum: ['pendente', 'aprovado', 'concluido', 'cancelado'],
       default: 'pendente',
       index: true,
     },
@@ -116,7 +127,7 @@ const orderSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     whatsappSentAt: { type: Date },
   },
-  { timestamps: true }
+  { timestamps: true, optimisticConcurrency: true }
 );
 
 orderSchema.index({ quickSaleKey: 1 }, { unique: true, sparse: true });

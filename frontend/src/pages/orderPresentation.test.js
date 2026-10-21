@@ -13,6 +13,11 @@ test('legacy pending records with payments remain confirmed orders', () => {
   assert.equal(getOrderDocumentLabel({ status: 'pendente', amountPaid: 25 }), 'Pedido');
 });
 
+test('cancelled records are never treated as confirmed orders', () => {
+  assert.equal(isConfirmedOrder({ status: 'cancelado', amountPaid: 25 }), false);
+  assert.equal(getOrderDocumentLabel({ status: 'cancelado', amountPaid: 0 }), 'Cancelado');
+});
+
 test('order total rounds up fractional reais after discount and leaves whole reais unchanged', () => {
   assert.equal(roundOrderTotalUp(10.25), 11);
   assert.equal(roundOrderTotalUp(10.25, 0.25), 10);

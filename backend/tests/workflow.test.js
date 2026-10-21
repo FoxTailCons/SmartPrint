@@ -161,6 +161,34 @@ test('quick-sale receipt cannot be deleted and lose its retry key',async()=>{
   const handler=createOrderDeleteHandler({OrderModel:{findById:async()=>({quickSaleKey:'sale'}),findByIdAndDelete:async()=>{deletes++;}}});
   const res=response();await handler({params:{id:product._id}},res);assert.equal(res.statusCode,400);assert.equal(deletes,0);
 });
+test('successful order deletion is audited and audit failure is explicit',async()=>{
+  const events=[];
+  const order={_id:product._id,number:'00042'};
+  const handler=createOrderDeleteHandler({
+    OrderModel:{findById:async()=>order,findByIdAndDelete:async()=>order},
+    AuditLogModel:{async create(event){events.push(event);}},
+  });
+  const res=response();
+  await handler({params:{id:product._id},user:{_id:product._id,role:'admin'}},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(events[0].acao,'pedido.excluido');
+  assert.equal(events[0].detalhes.numero,'00042');
+
+  const failed=createOrderDeleteHandler({
+    OrderModel:{findById:async()=>order,findByIdAndDelete:async()=>order},
+    AuditLogModel:{async create(){throw new Error('audit unavailable');}},
+  });
+  const failedResponse=response();
+  const originalConsoleError=console.error;
+  console.error=()=>{};
+  try {
+    await failed({params:{id:product._id},user:{_id:product._id,role:'admin'}},failedResponse);
+  } finally {
+    console.error=originalConsoleError;
+  }
+  assert.equal(failedResponse.statusCode,500);
+  assert.match(failedResponse.body.message,/excluído, mas não foi possível registrar/);
+});
 import { initialProductionStage } from '../services/productionWorkflow.js';
 import { createProductionBoardHandler } from '../routes/orders.js';
 test('new quotes start at first configured applicable stage',()=>{

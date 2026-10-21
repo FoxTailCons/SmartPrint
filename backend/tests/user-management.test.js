@@ -109,17 +109,20 @@ test('user management maps duplicate account email to conflict', async () => {
 
 test('user management activates and deactivates accounts by valid identifier', async () => {
   const { UserModel, records } = createUsers([{ _id: validId, name: 'Ana', email: 'ana@example.com', role: 'atendente', active: false, password: 'hash' }]);
-  const { setUserActive } = createUserManagementHandlers({ UserModel });
+  const auditEvents = [];
+  const { setUserActive } = createUserManagementHandlers({ UserModel, AuditLogModel: { async create(event) { auditEvents.push(event); } } });
   const activated = createResponse();
 
-  await setUserActive({ params: { id: validId }, body: { active: true }, user: { _id: 'admin-1', role: 'admin' } }, activated);
+  await setUserActive({ params: { id: validId }, body: { active: true }, user: { _id: validId, role: 'admin' } }, activated);
 
   assert.equal(activated.statusCode, 200);
   assert.equal(records[0].active, true);
+  assert.equal(auditEvents[0].acao, 'usuario.status_alterado');
+  assert.deepEqual(auditEvents[0].detalhes, { usuarioId: validId, ativo: { antes: false, depois: true } });
   assert.equal('password' in activated.body, false);
 
   const deactivated = createResponse();
-  await setUserActive({ params: { id: validId }, body: { active: false }, user: { _id: 'admin-1', role: 'admin' } }, deactivated);
+  await setUserActive({ params: { id: validId }, body: { active: false }, user: { _id: validId, role: 'admin' } }, deactivated);
   assert.equal(deactivated.statusCode, 200);
   assert.equal(records[0].active, false);
 });
