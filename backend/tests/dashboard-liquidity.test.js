@@ -8,6 +8,7 @@ import {
   buildServiceMargins,
   filterOrdersForDashboard,
   buildMonthlyComparison,
+  buildDailyUrgencies,
 } from '../routes/dashboard.js';
 
 test('buildCashflowSummary calculates net cash from receivables and payables', () => {
@@ -35,6 +36,37 @@ test('buildCashflowSummary excludes unapproved quotes but preserves legacy recei
   ]);
 
   assert.equal(summary.receivables, 220);
+});
+
+test('buildDailyUrgencies includes due open payables and active approved orders requiring attention', () => {
+  const now = new Date('2026-04-17T15:00:00-03:00');
+  const { payables, orders } = buildDailyUrgencies([
+    { _id: 'overdue', number: 1, status: 'aprovado', deliveryDate: '2026-04-16', priority: 'normal' },
+    { _id: 'urgent', number: 2, status: 'aprovado', deliveryDate: '2026-04-20', priority: 'urgente' },
+    { _id: 'today', number: 3, status: 'aprovado', deliveryDate: '2026-04-17', priority: 'normal' },
+    { _id: 'high', number: 4, status: 'aprovado', priority: 'alta' },
+    { _id: 'future', number: 5, status: 'aprovado', deliveryDate: '2026-04-18', priority: 'normal' },
+    { _id: 'quote', number: 6, status: 'pendente', priority: 'urgente' },
+    { _id: 'completed', number: 7, status: 'concluido', priority: 'urgente' },
+    { _id: 'delivered', number: 8, status: 'aprovado', productionStage: 'entregue', priority: 'urgente' },
+    { _id: 'quick-sale', number: 9, status: 'aprovado', quickSaleKey: 'sale-1', priority: 'urgente' },
+  ], [
+    { _id: 'payable-overdue', description: 'Vencida', dueDate: '2026-04-16', value: 10, paid: false },
+    { _id: 'payable-today', description: 'Hoje', dueDate: '2026-04-17', value: 20, paid: false },
+    { _id: 'payable-future', description: 'Futura', dueDate: '2026-04-18', value: 30, paid: false },
+    { _id: 'payable-paid', description: 'Paga', dueDate: '2026-04-16', value: 40, paid: true },
+  ], now);
+
+  assert.deepEqual(payables.map((payable) => [payable._id, payable.urgency]), [
+    ['payable-overdue', 'overdue'],
+    ['payable-today', 'today'],
+  ]);
+  assert.deepEqual(orders.map((order) => [order._id, order.urgency]), [
+    ['overdue', 'overdue'],
+    ['urgent', 'urgente'],
+    ['today', 'today'],
+    ['high', 'alta'],
+  ]);
 });
 
 test('buildClientPerformance groups revenue by customer and keeps no-client orders', () => {

@@ -22,6 +22,7 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - **Agrupar pedidos por cliente** (tela de Clientes, expansível)
 - **Desdobramento de pagamento em parcelas** (vencimentos individuais, baixa automática ou por parcela)
 - **Contas a pagar** (consumo/insumos/aluguel etc.) com **aviso visual no Dashboard** (vencidas em vermelho, vencendo em até 3 dias em amarelo)
+- **Urgências do dia no Dashboard:** contas vencidas ou com vencimento hoje e pedidos aprovados não entregues com prazo vencido/hoje ou prioridade alta/urgente
 - **Contas a receber** com saldo devedor e próximos vencimentos dos pedidos aprovados; orçamentos pendentes não entram nos saldos financeiros
 - Dashboard com KPIs e feed de pedidos recentes
 - Catálogo de produtos por unidade, metro linear ou metro quadrado, com cadastro restrito a administradores

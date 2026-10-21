@@ -13,6 +13,7 @@ import ListSkeleton from '../components/ListSkeleton.jsx';
 import Pagination from '../components/Pagination.jsx';
 import { getListState } from '../hooks/listState.js';
 import { usePagination } from '../hooks/usePagination.js';
+import { getDeadline, priorityLabels } from './printshop.js';
 import OrderForm from './OrderForm.jsx';
 import { toggleSelectedOrder } from './listPagination.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
@@ -144,7 +145,7 @@ export default function Dashboard() {
   }
   if (initialListState === 'empty') return null;
 
-  const { counts, finance, warnings, recentOrders, details } = data;
+  const { counts, finance, warnings, recentOrders, details, dailyUrgencies } = data;
   const cards = [
     { key: 'orders', icon: ClipboardList, label: 'Total de Pedidos', value: counts.orders, color: 'bg-cyan-50 text-cyan-700', items: details.orders, title: 'Todos os pedidos', kind: 'order' },
     { key: 'pending', icon: Clock, label: 'Orçamentos', value: counts.pending, color: 'bg-yellow-50 text-yellow-700', items: details.pending, title: 'Orçamentos pendentes', kind: 'order' },
@@ -239,6 +240,58 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      <section className="rounded-2xl border border-amber-200 bg-white shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b bg-amber-50">
+          <h2 className="font-semibold text-slate-800">Urgências do dia</h2>
+          <p className="mt-1 text-xs text-slate-500">Contas vencidas ou de hoje e pedidos que precisam de atenção.</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x">
+          <div className="p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-semibold text-slate-700">Contas a pagar</h3>
+              <Link to="/contas-pagar" className="text-xs font-semibold text-brand-600 hover:underline">Ver contas</Link>
+            </div>
+            {dailyUrgencies?.payables?.length ? (
+              <div className="divide-y">
+                {dailyUrgencies.payables.map((payable) => (
+                  <Link key={payable._id} to="/contas-pagar" className="flex items-center justify-between gap-3 py-3 text-sm hover:bg-slate-50">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-slate-700">{payable.description}</div>
+                      <div className={`text-xs ${payable.urgency === 'overdue' ? 'text-red-600' : 'text-amber-600'}`}>
+                        {payable.urgency === 'overdue' ? 'Vencida' : 'Vence hoje'} · {fmtDate(payable.dueDate)}
+                      </div>
+                    </div>
+                    <span className="shrink-0 font-semibold text-slate-700">{fmt(payable.value)}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : <p className="py-4 text-sm text-slate-400">Nenhuma conta vencida ou com vencimento hoje.</p>}
+          </div>
+          <div className="p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-semibold text-slate-700">Pedidos pendentes de execução</h3>
+              <Link to="/producao" className="text-xs font-semibold text-brand-600 hover:underline">Ver produção</Link>
+            </div>
+            {dailyUrgencies?.orders?.length ? (
+              <div className="divide-y">
+                {dailyUrgencies.orders.map((order) => (
+                  <Link key={order._id} to={`/pedidos/${order._id}`} className="block py-3 text-sm hover:bg-slate-50">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate font-medium text-slate-700">Pedido #{order.number} · {order.client?.name || 'Cliente não informado'}</span>
+                      <span className="shrink-0 font-semibold text-slate-700">{fmt(order.finalValue)}</span>
+                    </div>
+                    <div className={`mt-1 text-xs ${order.urgency === 'overdue' ? 'text-red-600' : order.urgency === 'today' || order.urgency === 'urgente' ? 'text-amber-700' : 'text-slate-500'}`}>
+                      {order.urgency === 'overdue' ? 'Prazo atrasado' : order.urgency === 'today' ? 'Entrega hoje' : `Prioridade ${priorityLabels[order.urgency] || 'alta'}`}
+                      {' · '}Prazo: {getDeadline(order).label}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : <p className="py-4 text-sm text-slate-400">Nenhum pedido urgente pendente de execução.</p>}
+          </div>
+        </div>
+      </section>
 
       {/* Cards de estatísticas */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

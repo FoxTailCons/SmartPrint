@@ -4,6 +4,7 @@ import Payable from '../models/Payable.js';
 import Client from '../models/Client.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
+import { calendarDate, effectiveStage, orderDeadline } from '../services/productionWorkflow.js';
 import { productCategoryLabels } from '../models/Product.js';
 
 const router = Router();
@@ -45,6 +46,55 @@ export const buildCashflowSummary = (orders = [], payables = []) => {
     payables: openPayables,
     netCash: receivables - openPayables,
   };
+};
+
+export const buildDailyUrgencies = (orders = [], payables = [], now = new Date()) => {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  const urgencyRank = { overdue: 0, urgent: 1, today: 2, high: 3 };
+
+  const urgentPayables = payables
+    .filter((payable) => {
+      const dueDate = calendarDate(payable.dueDate);
+      return !payable.paid && dueDate && dueDate <= today;
+    })
+    .map((payable) => {
+      const dueDate = calendarDate(payable.dueDate);
+      const value = typeof payable.toObject === 'function' ? payable.toObject() : payable;
+      return { ...value, urgency: dueDate < today ? 'overdue' : 'today' };
+    })
+    .sort((a, b) => calendarDate(a.dueDate).localeCompare(calendarDate(b.dueDate)));
+
+  const urgentOrders = orders
+    .filter((order) => {
+      if (order.quickSaleKey || order.status !== 'aprovado' || effectiveStage(order) === 'entregue') return false;
+      const deadline = orderDeadline(order);
+      return (deadline && deadline <= today) || ['alta', 'urgente'].includes(order.priority);
+    })
+    .sort((a, b) => {
+      const aDeadline = orderDeadline(a);
+      const bDeadline = orderDeadline(b);
+      const rank = (order) => {
+        const deadline = orderDeadline(order);
+        if (deadline && deadline < today) return urgencyRank.overdue;
+        if (order.priority === 'urgente') return urgencyRank.urgent;
+        if (deadline === today) return urgencyRank.today;
+        return urgencyRank.high;
+      };
+      return rank(a) - rank(b)
+        || (aDeadline || '9999-12-31').localeCompare(bDeadline || '9999-12-31')
+        || new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    })
+    .map((order) => {
+      const value = typeof order.toObject === 'function' ? order.toObject() : order;
+      return { ...value, urgency: orderDeadline(order) && orderDeadline(order) < today ? 'overdue' : orderDeadline(order) === today ? 'today' : order.priority };
+    });
+
+  return { payables: urgentPayables, orders: urgentOrders };
 };
 
 export const buildClientPerformance = (orders = []) => {
@@ -216,6 +266,7 @@ router.get('/', async (req, res) => {
   const filteredOrders = filterOrdersForDashboard(orders, { clientId, period });
   const salesOrders = filteredOrders.filter(isConfirmedOrder);
   const payables = allPayables.filter((p) => !p.paid);
+  const dailyUrgencies = buildDailyUrgencies(orders, allPayables, new Date());
 
   const today = new Date();
   const in3days = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
@@ -355,6 +406,7 @@ router.get('/', async (req, res) => {
       overdueList: payablesOverdue,
       dueSoonList: payablesDueSoon,
     },
+    dailyUrgencies,
     details: {
       orders: salesOrders,
       pending: filteredOrders.filter((o) => o.status === 'pendente' && !isConfirmedOrder(o)),
