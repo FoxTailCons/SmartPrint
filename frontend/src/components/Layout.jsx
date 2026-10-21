@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package, Zap, Columns3, Banknote, Menu, X, ScrollText,
+  LayoutDashboard, ClipboardList, Users, Wallet, TrendingDown, LogOut, Package, Zap, Columns3, Banknote, Menu, X, ScrollText, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import BrandMark from './BrandMark.jsx';
 import { getVisibleMenu } from '../roleAccess.js';
 
-const menu = [
+export const navigationMenu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, permission: 'dashboard' },
   { to: '/pedidos', label: 'Pedidos / Orçamentos', icon: ClipboardList, permission: 'orders' },
   { to: '/pedido-rapido', label: 'Pedido rápido · F2', icon: Zap, permission: 'quickOrder' },
-  { to: '/producao', label: 'Produção', icon: Columns3, permission: 'production' },
+  { to: '/producao', label: 'Dashboard de Produção', icon: Columns3, permission: 'production' },
   { to: '/clientes', label: 'Clientes', icon: Users, permission: 'clients' },
   { to: '/produtos', label: 'Produtos', icon: Package, permission: 'products' },
   { to: '/usuarios', label: 'Usuários', icon: Users, permission: 'users' },
@@ -27,6 +27,7 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [logoutError, setLogoutError] = useState('');
 
   const handleLogout = async () => {
@@ -59,43 +60,60 @@ export default function Layout({ children }) {
           className="fixed inset-0 z-30 bg-slate-950/50 lg:hidden"
         />
       )}
-      <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col bg-brand-900 text-white transition-transform lg:static lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-5 border-b border-white/10">
-          <BrandMark dark />
+      <aside id="primary-sidebar" className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col bg-brand-900 text-white transition-all duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-56'} ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className={`border-b border-white/10 ${sidebarCollapsed ? 'p-2 lg:flex lg:justify-center' : 'p-4'}`}>
+          <BrandMark dark compact={sidebarCollapsed} />
+          {sidebarCollapsed && <div className="hidden min-w-0 flex-1 lg:block" aria-hidden="true" />}
         </div>
-        <nav className="flex-1 overflow-y-auto p-3">
+        <nav aria-label="Navegação principal" className={`flex-1 overflow-y-auto ${sidebarCollapsed ? 'p-2 lg:px-1.5' : 'p-3'}`}>
           <div className="space-y-1">
-          {getVisibleMenu(menu, user?.role).map((m) => (
+          {getVisibleMenu(navigationMenu, user?.role).map((m) => (
             <NavLink
               key={m.to}
               to={m.to}
               end={m.end}
               onClick={() => setMobileMenuOpen(false)}
+              title={sidebarCollapsed ? m.label : undefined}
+              aria-label={sidebarCollapsed ? m.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${
+                `flex items-center rounded-lg text-sm transition ${
+                  sidebarCollapsed ? 'justify-center px-2 py-2.5 lg:px-1' : 'gap-3 px-3 py-2.5'
+                } ${
                   isActive ? 'bg-brand-500 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
-              <m.icon size={18} />
-              {m.label}
+              <m.icon size={18} className="shrink-0" />
+              <span className={`${sidebarCollapsed ? 'lg:hidden' : ''} min-w-0 break-words`}>{m.label}</span>
             </NavLink>
           ))}
           </div>
         </nav>
-        <div className="p-3 border-t border-white/10">
-          <div className="px-2 py-2 text-xs text-white/60">
-            <div className="font-semibold text-white text-sm">{user?.name}</div>
+        <div className={`border-t border-white/10 ${sidebarCollapsed ? 'p-2' : 'p-3'}`}>
+          <div className={`${sidebarCollapsed ? 'lg:hidden' : ''} min-w-0 break-words px-2 py-2 text-xs text-white/60`}>
+            <div className="break-words text-sm font-semibold text-white">{user?.name}</div>
             {roleLabel[user?.role]}
           </div>
           {logoutError && <p role="alert" className="px-2 text-xs text-red-300">{logoutError}</p>}
           <button
             onClick={handleLogout}
-            className="w-full mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:bg-red-500/20 hover:text-red-200 transition"
+            aria-label="Sair"
+            title={sidebarCollapsed ? 'Sair' : undefined}
+            className={`mt-2 flex w-full items-center rounded-lg text-sm text-white/70 transition hover:bg-red-500/20 hover:text-red-200 ${sidebarCollapsed ? 'justify-center px-2 py-2 lg:mx-auto lg:w-auto' : 'gap-2 px-3 py-2'}`}
           >
-            <LogOut size={16} /> Sair
+            <LogOut size={16} className="shrink-0" /> <span className={sidebarCollapsed ? 'lg:hidden' : ''}>Sair</span>
           </button>
         </div>
+        <button
+          type="button"
+          aria-label={sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+          aria-expanded={!sidebarCollapsed}
+          aria-controls="primary-sidebar"
+          onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          className="absolute right-0 top-1/2 z-50 hidden h-10 w-5 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-md hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 lg:flex"
+        >
+          {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
       </aside>
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-white px-4 py-2 lg:hidden">

@@ -18,19 +18,47 @@ const DEFAULT_PAGE_SIZE = 20;
 export function ProductionStageTracker({ order }) {
   const currentStage = getProductionStage(order);
   const currentIndex = productionStages.findIndex(([key]) => key === currentStage);
+  const skippedStages = order.skippedStages || [];
+  const requiredStages = productionStages.filter(([key]) => !skippedStages.includes(key));
+  const completedCount = currentStage === 'entregue'
+    ? requiredStages.length
+    : requiredStages.filter(([key]) => productionStages.findIndex(([stage]) => stage === key) < currentIndex).length;
   return (
-    <ol aria-label="Acompanhamento das etapas de produção" className="flex min-w-64 flex-wrap gap-1">
+    <div>
+      <div
+        role="progressbar"
+        aria-label="Progresso das etapas de produção"
+        aria-valuemin={0}
+        aria-valuemax={requiredStages.length}
+        aria-valuenow={completedCount}
+        aria-valuetext={`${completedCount} de ${requiredStages.length} etapas concluídas${currentStage !== 'entregue' ? `; etapa atual: ${productionStages[currentIndex]?.[1] || currentStage}` : '; pedido entregue'}`}
+        className="flex min-w-64 gap-1"
+      >
+        {productionStages.map(([key, label], index) => {
+          const skipped = skippedStages.includes(key);
+          const completed = !skipped && (index < currentIndex || currentStage === 'entregue');
+          const current = !skipped && index === currentIndex && currentStage !== 'entregue';
+          return (
+            <span
+              key={key}
+              title={`${label}: ${skipped ? 'dispensada' : completed ? 'concluída' : current ? 'atual' : 'pendente'}`}
+              className={`h-2 flex-1 rounded-full ${skipped ? 'bg-slate-200' : completed ? 'bg-emerald-500' : current ? 'bg-blue-600' : 'bg-slate-200'}`}
+            />
+          );
+        })}
+      </div>
+      <ol aria-label="Etapas de produção" className="mt-1 flex min-w-64 gap-1">
       {productionStages.map(([key, label], index) => {
-        const skipped = order.skippedStages?.includes(key);
-        const state = skipped ? 'dispensada' : index < currentIndex ? 'concluída' : index === currentIndex ? 'atual' : 'pendente';
+        const skipped = skippedStages.includes(key);
+        const state = skipped ? 'dispensada' : index < currentIndex || currentStage === 'entregue' ? 'concluída' : index === currentIndex ? 'atual' : 'pendente';
         return (
-          <li key={key} title={`${label}: ${state}`} className={`rounded-md px-1.5 py-1 text-[10px] ${state === 'concluída' ? 'bg-emerald-50 text-emerald-700' : state === 'atual' ? 'bg-blue-100 font-semibold text-blue-800' : state === 'dispensada' ? 'bg-slate-100 text-slate-400 line-through' : 'bg-slate-50 text-slate-500'}`}>
-            <span aria-hidden="true">{state === 'concluída' ? '✓ ' : state === 'dispensada' ? '— ' : state === 'atual' ? '● ' : '○ '}</span>
+          <li key={key} title={`${label}: ${state}`} className={`min-w-0 flex-1 break-words rounded-md px-1 py-1 text-[10px] leading-tight ${state === 'concluída' ? 'bg-emerald-50 text-emerald-700' : state === 'atual' ? 'bg-blue-100 font-semibold text-blue-800' : state === 'dispensada' ? 'bg-slate-100 text-slate-400 line-through' : 'bg-slate-50 text-slate-500'}`}>
             {label}
           </li>
         );
       })}
-    </ol>
+      </ol>
+    </div>
   );
 }
 
