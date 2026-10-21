@@ -73,7 +73,7 @@ test('commercial, finance, catalog and production routes enforce the role matrix
   assertRouteRoles(ordersRouter, 'post', '/:id/payments', ['admin', 'atendente'], ['producao']);
   assertRouteRoles(ordersRouter, 'get', '/receivables', ['admin', 'atendente'], ['producao']);
   assertRouteRoles(ordersRouter, 'get', '/production-board', ['admin', 'atendente', 'producao'], []);
-  assertRouteRoles(ordersRouter, 'get', '/production-assignees', ['admin'], ['atendente', 'producao']);
+  assertRouteRoles(ordersRouter, 'get', '/production-assignees', ['admin', 'atendente', 'producao'], []);
   assertRouteRoles(ordersRouter, 'post', '/:id/production/assignment', ['admin'], ['atendente', 'producao']);
   assertRouteRoles(ordersRouter, 'post', '/:id/production/task', ['admin', 'atendente', 'producao'], []);
   assertRouteRoles(ordersRouter, 'get', '/:id', ['admin', 'atendente', 'producao'], []);

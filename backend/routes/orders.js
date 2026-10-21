@@ -758,7 +758,7 @@ export function createQuickSaleHandler({ OrderModel = Order, ProductModel = Prod
 }
 
 router.get('/production-board', allowRoles('admin', 'atendente', 'producao'), createProductionBoardHandler());
-router.get('/production-assignees', allowRoles('admin'), async (_req, res) => {
+router.get('/production-assignees', allowRoles('admin', 'atendente', 'producao'), async (_req, res) => {
   try {
     const users = await User.find({ active: true, archivedAt: null, role: { $in: ['atendente', 'producao'] } }).select('_id name role').sort({ name: 1 }).lean();
     return res.json(users);

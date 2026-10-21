@@ -5,6 +5,29 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom';
 import { createServer } from 'vite';
 
+test('employee filter shows only that employee’s open assigned production tasks', async () => {
+  const server = await createServer({ server: { middlewareMode: true, ws: false } });
+  try {
+    const { filterProductionOrders } = await server.ssrLoadModule('/src/pages/Production.jsx');
+    const orders = [
+      { _id: 'assigned-new', status: 'aprovado', production: 'nao_iniciado', productionStage: 'arte', productionAssignee: { _id: 'worker-1' } },
+      { _id: 'assigned-running', status: 'aprovado', production: 'em_producao', productionStage: 'impressao', productionAssignee: { _id: 'worker-1' } },
+      { _id: 'assigned-paused', status: 'aprovado', production: 'pausado', productionStage: 'instalacao', productionAssignee: { _id: 'worker-1' } },
+      { _id: 'other-worker', status: 'aprovado', production: 'nao_iniciado', productionStage: 'arte', productionAssignee: { _id: 'worker-2' } },
+      { _id: 'unassigned', status: 'aprovado', production: 'nao_iniciado', productionStage: 'arte', productionAssignee: null },
+      { _id: 'delivered', status: 'concluido', production: 'concluido', productionStage: 'entregue', productionAssignee: { _id: 'worker-1' } },
+    ];
+
+    assert.deepEqual(
+      filterProductionOrders(orders, 'worker-1').map((order) => order._id),
+      ['assigned-new', 'assigned-running', 'assigned-paused'],
+    );
+    assert.equal(filterProductionOrders(orders, 'all').length, orders.length);
+  } finally {
+    await server.close();
+  }
+});
+
 test('production stages render as independently expandable panels with order counts', async () => {
   const server = await createServer({ server: { middlewareMode: true, ws: false } });
   try {

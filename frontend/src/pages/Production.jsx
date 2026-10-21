@@ -6,6 +6,15 @@ import ProductionTaskControls from '../components/ProductionTaskControls.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { getDeadline, getProductionStage, priorityLabels, productionStages } from './printshop.js';
 
+export function filterProductionOrders(orders, assigneeId) {
+  if (assigneeId === 'all') return orders;
+  return orders.filter((order) => (
+    order.status === 'aprovado'
+    && ['nao_iniciado', 'em_producao', 'pausado'].includes(order.production)
+    && String(order.productionAssignee?._id || order.productionAssignee || '') === assigneeId
+  ));
+}
+
 export function ProductionStagePanel({ stage, title, orders, user, users, onChanged }) {
   const cards = orders.filter((order) => getProductionStage(order) === stage);
   return (
@@ -44,6 +53,7 @@ export default function Production() {
   const [orders, setOrders] = useState([]);
   const [deadline, setDeadline] = useState('all');
   const [priority, setPriority] = useState('');
+  const [assigneeId, setAssigneeId] = useState('all');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,7 +71,6 @@ export default function Production() {
     return () => { active = false; };
   }, [deadline, priority, revision]);
   useEffect(() => {
-    if (user?.role !== 'admin') return undefined;
     let active = true;
     api('/api/orders/production-assignees')
       .then((data) => { if (active) setUsers(data); })
@@ -87,6 +96,12 @@ export default function Production() {
             <option value="">Todas</option>{Object.entries(priorityLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </select>
         </label>
+        <label className="text-sm">Funcionário
+          <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="ml-2 rounded-lg border px-3 py-2">
+            <option value="all">Todos</option>
+            {users.map((person) => <option key={person._id} value={person._id}>{person.name} · {person.role === 'atendente' ? 'Atendente' : 'Produção'}</option>)}
+          </select>
+        </label>
       </div>
       {loading ? <p role="status">Carregando produção...</p> : error ? <p role="alert" className="text-red-700">{error} Use Atualizar para tentar novamente.</p> : (
         <div className="min-w-0 space-y-3">
@@ -95,7 +110,7 @@ export default function Production() {
               key={stage}
               stage={stage}
               title={title}
-              orders={orders}
+              orders={filterProductionOrders(orders, assigneeId)}
               user={user}
               users={users}
               onChanged={() => setRevision((value) => value + 1)}
