@@ -50,6 +50,30 @@ test('quick sale saves paid and delivered order once, ignores submitted prices, 
   const res=response();await handler(req,res);assert.equal(res.statusCode,201);assert.equal(res.body.amountPaid,17);assert.equal(res.body.items[0].unitPrice,.8);assert.equal(res.body.items[0].category,'xerox_impressao');
   const retry=response();await handler(req,retry);assert.equal(retry.statusCode,200);assert.equal(retry.body._id,'sale');assert.equal(calls,1);
 });
+test('quick sale combines multiple products and quantities into one paid receipt',async()=>{
+  let saved;
+  const secondProduct = {
+    _id: '507f1f77bcf86cd799439012', name: 'Papel', saleUnit: 'unit', price: 3, category: 'papelaria',
+  };
+  const handler=createQuickSaleHandler({
+    OrderModel:{findOne:async()=>saved,create:async(value)=>{saved={...value,_id:'multi-sale'};return saved;}},
+    ProductModel:{findById:async(id)=>({... (id===product._id?product:secondProduct),active:true})},
+  });
+  const res=response();
+  await handler({user,body:{
+    items:[
+      {productId:product._id,quantity:1},
+      {productId:secondProduct._id,quantity:3},
+      {productId:product._id,quantity:20},
+    ],
+    paymentMethod:'pix',requestId:'multi-items',
+  }},res);
+  assert.equal(res.statusCode,201);
+  assert.equal(res.body.items.length,2);
+  assert.deepEqual(res.body.items.map(({quantity})=>quantity),[21,3]);
+  assert.equal(res.body.finalValue,26);
+  assert.equal(res.body.payments[0].amount,26);
+});
 test('quick sale failure never performs a second partial payment write',async()=>{
   let writes=0;
   const handler=createQuickSaleHandler({OrderModel:{findOne:async()=>null,create:async()=>{writes++;throw new Error('save failed');}},ProductModel:{findById:async()=>({...product,active:true})}});

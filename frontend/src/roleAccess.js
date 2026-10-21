@@ -7,7 +7,7 @@ export const rolePermissions = Object.freeze({
   production: ['admin', 'atendente', 'producao'],
   productionActions: ['admin', 'producao'],
   clients: ['admin', 'atendente'],
-  products: ['admin'],
+  products: ['admin', 'atendente'],
   users: ['admin'],
   audit: ['admin'],
   payables: ['admin'],

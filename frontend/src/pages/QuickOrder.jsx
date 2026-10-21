@@ -12,6 +12,13 @@ import { normalizeQuickOrderProducts } from './quickOrderProducts.js';
 
 const inputClass = 'mt-1 w-full rounded-lg border bg-white px-3 py-2';
 
+export function addQuickOrderItem(items, productId, quantity) {
+  const existing = items.find((item) => item.productId === productId);
+  return existing
+    ? items.map((item) => item.productId === productId ? { ...item, quantity: Number(item.quantity) + quantity } : item)
+    : [...items, { productId, quantity }];
+}
+
 export function QuickSaleResult({ order, onNewSale }) {
   const receipt = createPaymentReceipt(order, (order.payments?.length || 0) - 1);
   return (
@@ -34,6 +41,7 @@ export default function QuickOrder() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [reload, setReload] = useState(0);
+  const [cart, setCart] = useState([]);
   const [productId, setProductId] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -50,6 +58,7 @@ export default function QuickOrder() {
     setCheckoutReady(false);
     setAttempted(false);
     setOrder(null);
+    setCart([]);
     setProductId('');
     setProductSearch('');
     setQuantity('1');
@@ -63,8 +72,10 @@ export default function QuickOrder() {
       });
       const pending = checkout.current.getPending();
       if (pending) {
-        setProductId(pending.items[0].productId);
-        setQuantity(String(pending.items[0].quantity));
+        setCart(pending.items.map(({ productId: pendingProductId, quantity: pendingQuantity }) => ({
+          productId: pendingProductId,
+          quantity: pendingQuantity,
+        })));
         setPaymentMethod(pending.paymentMethod);
         setAttempted(true);
         setError('Há uma venda aguardando confirmação. Tente novamente para recuperar o resultado da mesma venda.');
@@ -91,6 +102,7 @@ export default function QuickOrder() {
     setOrder(null);
     setAttempted(false);
     setError('');
+    setCart([]);
     setProductId('');
     setProductSearch('');
     setQuantity('1');
@@ -110,13 +122,38 @@ export default function QuickOrder() {
   const product = products.find((entry) => entry._id === productId);
   const validQuantity = Number.isSafeInteger(Number(quantity)) && Number(quantity) > 0;
   const price = product && validQuantity ? getQuantityPrice(product, Number(quantity)) : null;
+  const cartTotal = cart.reduce((total, item) => {
+    const cartProduct = products.find((entry) => entry._id === item.productId);
+    if (!cartProduct || !Number.isSafeInteger(Number(item.quantity)) || Number(item.quantity) <= 0) return total;
+    return total + getQuantityPrice(cartProduct, Number(item.quantity)).total;
+  }, 0);
+  const cartReady = cart.length > 0 && cart.every((item) => {
+    const cartProduct = products.find((entry) => entry._id === item.productId);
+    return cartProduct?.active !== false && cartProduct?.saleUnit === 'unit'
+      && Number.isSafeInteger(Number(item.quantity)) && Number(item.quantity) > 0;
+  });
+  const addProduct = () => {
+    if (!product || !validQuantity) return;
+    const count = Number(quantity);
+    setCart((current) => addQuickOrderItem(current, product._id, count));
+    setProductId('');
+    setProductSearch('');
+    setQuantity('1');
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     if (saving) return;
     setSaving(true);
     setError('');
     try {
-      const pending = checkout.current.submit({ product, quantity, paymentMethod });
+      const pending = checkout.current.submit({
+        items: cart.map((item) => ({
+          product: products.find((entry) => entry._id === item.productId),
+          quantity: item.quantity,
+        })),
+        paymentMethod,
+      });
       setAttempted(true);
       setOrder(await pending);
     } catch (requestError) {
@@ -134,7 +171,7 @@ export default function QuickOrder() {
         <form onSubmit={submit} className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
           {loadError && <div role="alert" className="text-sm text-red-700">{loadError} <button type="button" onClick={() => setReload((value) => value + 1)} className="underline">Tentar carregar novamente</button></div>}
           <fieldset disabled={!checkoutReady || attempted || loading || !!loadError} className="space-y-4 disabled:opacity-70">
-            <label className="block text-sm font-medium">Produto por unidade
+            <label className="block text-sm font-medium">Adicionar produto por unidade
               <ProductCombobox
                 products={products}
                 value={productId}
@@ -145,18 +182,67 @@ export default function QuickOrder() {
                 inputRef={productSelect}
               />
             </label>
-            <label className="block text-sm font-medium" htmlFor="quick-quantity">Quantidade
-              <input id="quick-quantity" type="number" required min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} className={inputClass} />
-            </label>
+            <div className="flex items-end gap-3">
+              <label className="min-w-0 flex-1 text-sm font-medium" htmlFor="quick-quantity">Quantidade
+                <input id="quick-quantity" type="number" required min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} className={inputClass} />
+              </label>
+              <button type="button" disabled={!price} onClick={addProduct} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50">Adicionar</button>
+            </div>
+            {price && <p className="text-xs text-slate-500">{price.minQuantity === null ? 'Preço base' : `Faixa a partir de ${price.minQuantity}`} · {fmt(price.unitPrice)} / un. · {fmt(price.total)}</p>}
             <label className="block text-sm font-medium" htmlFor="quick-payment">Pagamento
               <select id="quick-payment" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className={inputClass}>
                 <option value="pix">PIX</option><option value="dinheiro">Dinheiro</option><option value="debito">Cartão de débito</option><option value="credito">Cartão de crédito</option>
               </select>
             </label>
           </fieldset>
-          {price && <div aria-live="polite" className="rounded-lg bg-slate-50 p-4"><p className="text-sm">{price.minQuantity === null ? 'Preço base' : `Faixa a partir de ${price.minQuantity}`} · {fmt(price.unitPrice)} / un.</p><p className="text-2xl font-bold">Total: {fmt(roundOrderTotalUp(price.total, 0))}</p><p className="text-xs text-slate-500">Total arredondado. O servidor confirma o valor ao concluir.</p></div>}
+          {cart.length > 0 && (
+            <section aria-label="Produtos da venda" className="space-y-3 rounded-lg border p-4">
+              <h2 className="font-semibold">Produtos adicionados</h2>
+              <ul className="divide-y">
+                {cart.map((item) => {
+                  const cartProduct = products.find((entry) => entry._id === item.productId);
+                  const linePrice = cartProduct && Number.isSafeInteger(Number(item.quantity)) && Number(item.quantity) > 0
+                    ? getQuantityPrice(cartProduct, Number(item.quantity))
+                    : null;
+                  return (
+                    <li key={item.productId} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm font-medium">{cartProduct?.name || 'Produto não disponível'}</p>
+                        {linePrice && <p className="text-xs text-slate-500">{fmt(linePrice.unitPrice)} / un. · {fmt(linePrice.total)}</p>}
+                      </div>
+                      <label className="text-xs text-slate-600">Qtd.
+                        <input
+                          aria-label={`Quantidade de ${cartProduct?.name || 'produto'}`}
+                          type="number"
+                          min="1"
+                          step="1"
+                          disabled={attempted}
+                          value={item.quantity}
+                          onChange={(event) => setCart((current) => current.map((entry) => entry.productId === item.productId ? { ...entry, quantity: event.target.value } : entry))}
+                          className="ml-2 w-20 rounded-lg border px-2 py-1.5 text-sm"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        aria-label={`Remover ${cartProduct?.name || 'produto'}`}
+                        disabled={attempted}
+                        onClick={() => setCart((current) => current.filter((entry) => entry.productId !== item.productId))}
+                        className="rounded-lg border px-3 py-1.5 text-sm text-red-700 disabled:opacity-50"
+                      >
+                        Remover
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div aria-live="polite" className="border-t pt-3">
+                <p className="text-2xl font-bold">Total: {fmt(roundOrderTotalUp(cartTotal, 0))}</p>
+                <p className="text-xs text-slate-500">Total arredondado. O servidor confirma o valor ao concluir.</p>
+              </div>
+            </section>
+          )}
           {error && <div role="alert" className="space-y-1 text-sm text-red-700"><p>{error}</p>{attempted && <p>A venda pode ter sido registrada. Tente novamente para consultar ou concluir a mesma venda, sem cobrar duas vezes.</p>}</div>}
-          <button type="submit" disabled={!checkoutReady || saving || (!attempted && (loading || !!loadError || !price))} className="w-full rounded-lg bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50">{saving ? 'Registrando...' : attempted ? 'Tentar a mesma venda novamente' : 'Receber e entregar'}</button>
+          <button type="submit" disabled={!checkoutReady || saving || (!attempted && (loading || !!loadError || !cartReady))} className="w-full rounded-lg bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50">{saving ? 'Registrando...' : attempted ? 'Tentar a mesma venda novamente' : 'Receber e entregar'}</button>
         </form>
       )}
     </div>

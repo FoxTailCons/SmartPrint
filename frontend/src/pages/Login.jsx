@@ -7,7 +7,7 @@ import BrandMark from '../components/BrandMark.jsx';
 export default function Login() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState(import.meta.env.PROD ? '' : 'admin@smartprint.com');
+  const [identifier, setIdentifier] = useState(import.meta.env.PROD ? '' : 'admin');
   const [password, setPassword] = useState(import.meta.env.PROD ? '' : 'admin123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -28,7 +28,7 @@ export default function Login() {
     }
   };
 
-  const quick = (em, pw) => { setEmail(em); setPassword(pw); };
+  const quick = (username, pw) => { setIdentifier(username); setPassword(pw); };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f6f7f5] p-4">
@@ -37,11 +37,13 @@ export default function Login() {
           <div className="flex justify-center mb-8"><BrandMark /></div>
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-slate-600">E-mail</label>
+              <label className="text-sm font-medium text-slate-600">Nome de usuário ou e-mail</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                autoComplete="username"
+                placeholder="Digite seu nome de usuário ou e-mail"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="mt-1 w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
                 required
               />
@@ -68,9 +70,9 @@ export default function Login() {
           {!import.meta.env.PROD && <div className="mt-6 pt-4 border-t">
             <p className="text-xs text-slate-500 mb-2">Acesso rápido (3 usuários):</p>
             <div className="grid grid-cols-3 gap-2 text-xs">
-              <button onClick={() => quick('admin@smartprint.com', 'admin123')} className="px-2 py-1.5 border rounded hover:bg-slate-50">Admin</button>
-              <button onClick={() => quick('atendente@smartprint.com', 'atend123')} className="px-2 py-1.5 border rounded hover:bg-slate-50">Atendente</button>
-              <button onClick={() => quick('producao@smartprint.com', 'prod123')} className="px-2 py-1.5 border rounded hover:bg-slate-50">Produção</button>
+              <button onClick={() => quick('admin', 'admin123')} className="px-2 py-1.5 border rounded hover:bg-slate-50">Admin</button>
+              <button onClick={() => quick('atendente', 'atend123')} className="px-2 py-1.5 border rounded hover:bg-slate-50">Atendente</button>
+              <button onClick={() => quick('producao', 'prod123')} className="px-2 py-1.5 border rounded hover:bg-slate-50">Produção</button>
             </div>
           </div>}
         </div>

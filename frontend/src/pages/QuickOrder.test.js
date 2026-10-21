@@ -31,5 +31,23 @@ test('quick order exposes a searchable product selector', async () => {
     assert.match(html, /role="combobox"/);
     assert.match(html, /aria-label="Buscar produto"/);
     assert.doesNotMatch(html, /<select id="quick-product"/);
+    assert.match(html, /Adicionar produto por unidade/);
+    assert.match(html, />Adicionar</);
+  } finally { await server.close(); }
+});
+
+test('adding an existing product increases its quantity without duplicating the cart line', async () => {
+  const server = await createServer({ server: { middlewareMode: true, ws: false } });
+  try {
+    const { addQuickOrderItem } = await server.ssrLoadModule('/src/pages/QuickOrder.jsx');
+    const initial = [{ productId: 'p1', quantity: 2 }];
+    const added = addQuickOrderItem(initial, 'p1', 3);
+
+    assert.deepEqual(added, [{ productId: 'p1', quantity: 5 }]);
+    assert.deepEqual(initial, [{ productId: 'p1', quantity: 2 }]);
+    assert.deepEqual(addQuickOrderItem(added, 'p2', 1), [
+      { productId: 'p1', quantity: 5 },
+      { productId: 'p2', quantity: 1 },
+    ]);
   } finally { await server.close(); }
 });

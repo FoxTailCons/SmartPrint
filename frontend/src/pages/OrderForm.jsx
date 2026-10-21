@@ -9,7 +9,7 @@ import { calculateAreaPerPiece } from './measurements.js';
 import { splitInstallmentAmounts } from './installmentMath.js';
 import { getOrderDocumentLabel, roundOrderTotalUp } from './orderPresentation.js';
 import { getQuantityPrice } from './catalogPricing.js';
-import { getCategoryLabel, itemTotal, priorityLabels, productCategories, productionStages, requiresQuoteClient, serializeOrderItems } from './printshop.js';
+import { getCategoryLabel, itemTotal, priorityLabels, productCategories, productionStages, requiresQuoteClient, serializeOrderItems, updateSkippedStagesForRequirement } from './printshop.js';
 import GraphicItemFields from '../components/GraphicItemFields.jsx';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
@@ -536,10 +536,10 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
             </select>
           </label>
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Etapas dispensadas neste serviço</legend>
+            <legend className="text-sm font-medium">Etapas necessárias neste serviço</legend>
             <div className="flex flex-wrap gap-4">
               {productionStages.filter(([key]) => !['entregue', 'impressao'].includes(key)).map(([key, label]) => <label key={key} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={skippedStages.includes(key)} onChange={(event) => setSkippedStages((current) => event.target.checked ? [...current, key] : current.filter((value) => value !== key))} />{label}
+                <input type="checkbox" checked={!skippedStages.includes(key)} onChange={(event) => setSkippedStages((current) => updateSkippedStagesForRequirement(current, key, event.target.checked))} />{label}
               </label>)}
             </div>
           </fieldset>

@@ -12,6 +12,7 @@ import payableRoutes from './routes/payables.js';
 import dashboardRoutes from './routes/dashboard.js';
 import productRoutes from './routes/products.js';
 import User from './models/User.js';
+import { findAvailableUsername, migrateUsernames } from './services/usernames.js';
 import { getOrderSettings } from './config/orderSettings.js';
 import cashRoutes from './routes/cash.js';
 import exportRoutes from './routes/exports.js';
@@ -51,22 +52,31 @@ app.use((err, req, res, next) => {
 // Garante que os usuários padrão existam sem sobrescrever senhas existentes.
 const seedUsers = async () => {
   const users = [
-    { name: 'Administrador', email: 'admin@smartprint.com', password: 'admin123', role: 'admin' },
-    { name: 'Atendente', email: 'atendente@smartprint.com', password: 'atend123', role: 'atendente' },
-    { name: 'Produção', email: 'producao@smartprint.com', password: 'prod123', role: 'producao' },
+    { name: 'Administrador', username: 'admin', email: 'admin@smartprint.com', password: 'admin123', role: 'admin' },
+    { name: 'Atendente', username: 'atendente', email: 'atendente@smartprint.com', password: 'atend123', role: 'atendente' },
+    { name: 'Produção', username: 'producao', email: 'producao@smartprint.com', password: 'prod123', role: 'producao' },
   ];
 
   for (const user of users) {
     const exists = await User.exists({ email: user.email });
     if (!exists) {
-      await User.create(user);
-      console.log(`Usuário inicial criado: ${user.email}`);
+      const username = await findAvailableUsername(user.username, async (value) => (
+        Boolean(await User.exists({ username: value }))
+      ));
+      await User.create({ ...user, username });
+      console.log(`Usuário inicial criado: ${user.email} (${username})`);
     }
   }
 };
 
 const PORT = process.env.PORT || 5000;
-connectDB().then(() => {
-  seedUsers().catch(() => {});
+connectDB().then(async () => {
+  await User.init();
+  const migrated = await migrateUsernames(User);
+  if (migrated) console.log(`Nomes de usuário migrados: ${migrated}`);
+  await seedUsers();
   app.listen(PORT, () => console.log(`API rodando na porta ${PORT}`));
+}).catch((error) => {
+  console.error('Falha ao preparar usuários antes de iniciar a API:', error);
+  process.exit(1);
 });

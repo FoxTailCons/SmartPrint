@@ -6,6 +6,7 @@ import User from '../models/User.js';
 import AuditLog from '../models/AuditLog.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { recordAuditEvent } from '../services/auditLog.js';
+import { findAvailableUsername, isValidUsername, normalizeUsername, usernameFromEmail } from '../services/usernames.js';
 
 const router = Router();
 const loginLimiter = rateLimit({
@@ -22,6 +23,7 @@ const signToken = (id) =>
 const safeUser = (user) => ({
   _id: user._id,
   name: user.name,
+  username: user.username || '',
   email: user.email,
   role: user.role,
   active: user.active,
@@ -29,25 +31,30 @@ const safeUser = (user) => ({
 
 export function createUserManagementHandlers({ UserModel = User, AuditLogModel = AuditLog } = {}) {
   const listUsers = async (_req, res) => {
-    const users = await UserModel.find({ archivedAt: null }).select('_id name email role active');
+    const users = await UserModel.find({ archivedAt: null }).select('_id name username email role active');
     return res.json(users.map(safeUser));
   };
 
   const createUser = async (req, res) => {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const requestedUsername = normalizeUsername(req.body?.username);
     const { password, role } = req.body || {};
     if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-      || typeof password !== 'string' || password.length < 12
+      || (requestedUsername && !isValidUsername(requestedUsername))
+      || typeof password !== 'string' || password.length !== 6
       || !['atendente', 'producao'].includes(role)) {
-      return res.status(400).json({ message: 'Informe nome, e-mail válido, senha com pelo menos 12 caracteres e perfil permitido' });
+      return res.status(400).json({ message: 'Informe nome, e-mail válido, usuário com 3 a 40 caracteres válidos, senha com exatamente 6 caracteres e perfil permitido' });
     }
 
     try {
-      const user = await new UserModel({ name, email, password, role, active: true }).save();
+      const username = requestedUsername || await findAvailableUsername(usernameFromEmail(email), async (value) => (
+        Boolean(await UserModel.findOne({ username: value }).select('_id'))
+      ));
+      const user = await new UserModel({ name, username, email, password, role, active: true }).save();
       return res.status(201).json(safeUser(user));
     } catch (error) {
-      if (error?.code === 11000) return res.status(409).json({ message: 'Já existe um usuário com este e-mail' });
+      if (error?.code === 11000) return res.status(409).json({ message: 'Já existe uma conta com este nome de usuário ou e-mail' });
       console.error(error);
       return res.status(500).json({ message: 'Não foi possível criar o usuário' });
     }
@@ -96,25 +103,34 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       return res.status(400).json({ message: 'Identificador de usuário inválido' });
     }
     const body = req.body || {};
-    const fields = ['name', 'email', 'role', 'password'].filter((field) => Object.hasOwn(body, field));
+    const fields = ['name', 'username', 'email', 'role', 'password'].filter((field) => Object.hasOwn(body, field));
     if (!fields.length) return res.status(400).json({ message: 'Informe ao menos um campo para alterar' });
     if ('name' in body && (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 120)) {
       return res.status(400).json({ message: 'Informe um nome com até 120 caracteres' });
     }
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const username = normalizeUsername(body.username);
+    if ('username' in body && !isValidUsername(username)) {
+      return res.status(400).json({ message: 'O nome de usuário deve ter de 3 a 40 caracteres: letras, números, ponto, hífen ou sublinhado' });
+    }
     if ('email' in body && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ message: 'Informe um e-mail válido' });
     }
     if ('role' in body && !['atendente', 'producao'].includes(body.role)) {
       return res.status(400).json({ message: 'O perfil deve ser Atendente ou Produção' });
     }
-    if ('password' in body && (typeof body.password !== 'string' || body.password.length < 12)) {
-      return res.status(400).json({ message: 'A nova senha deve ter pelo menos 12 caracteres' });
+    if ('password' in body && (typeof body.password !== 'string' || body.password.length !== 6)) {
+      return res.status(400).json({ message: 'A nova senha deve ter exatamente 6 caracteres' });
     }
 
     const user = await UserModel.findById(req.params.id);
     if (!user || user.archivedAt) return res.status(404).json({ message: 'Usuário não encontrado' });
-    if (user.role === 'admin') return res.status(403).json({ message: 'Contas de administrador não podem ser alteradas por esta tela' });
+    if (user.role === 'admin') {
+      const isSelf = String(user._id) === String(req.user?._id);
+      if (!isSelf || fields.some((field) => !['username', 'email'].includes(field))) {
+        return res.status(403).json({ message: 'Contas de administrador só podem alterar o próprio nome de usuário e e-mail' });
+      }
+    }
 
     const changes = {};
     if ('name' in body && user.name !== body.name.trim()) {
@@ -124,6 +140,10 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
     if ('email' in body && user.email !== email) {
       changes.email = { antes: user.email, depois: email };
       user.email = email;
+    }
+    if ('username' in body && user.username !== username) {
+      changes.nomeUsuario = { antes: user.username || '', depois: username };
+      user.username = username;
     }
     if ('role' in body && user.role !== body.role) {
       changes.perfil = { antes: user.role, depois: body.role };
@@ -138,7 +158,7 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
     try {
       await user.save();
     } catch (error) {
-      if (error?.code === 11000) return res.status(409).json({ message: 'Já existe um usuário com este e-mail' });
+      if (error?.code === 11000) return res.status(409).json({ message: 'Já existe uma conta com este nome de usuário ou e-mail' });
       if (error?.name === 'VersionError') return res.status(409).json({ message: 'O usuário foi alterado por outra operação; atualize e tente novamente' });
       console.error(error);
       return res.status(500).json({ message: 'Não foi possível alterar o usuário' });
@@ -198,19 +218,27 @@ export function createLoginHandler({
 } = {}) {
   return async (req, res) => {
     try {
-      const { email, password } = req.body || {};
-      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-      const user = await UserModel.findOne({ email: normalizedEmail }).select('+password');
+      const { email, username, identifier, password } = req.body || {};
+      const loginIdentifier = typeof identifier === 'string'
+        ? identifier.trim().toLowerCase()
+        : typeof username === 'string'
+          ? username.trim().toLowerCase()
+          : typeof email === 'string'
+            ? email.trim().toLowerCase()
+            : '';
+      const user = await UserModel.findOne({
+        $or: [{ username: loginIdentifier }, { email: loginIdentifier }],
+      }).select('+password');
       if (!user || typeof password !== 'string' || !password || !(await user.matchPassword(password))) {
         await recordAuditEvent({
           AuditLogModel,
           req,
           requester: user,
           action: 'auth.login',
-          details: { email: normalizedEmail },
+          details: { identificador: loginIdentifier },
           success: false,
         });
-        return res.status(401).json({ message: 'E-mail ou senha inválidos' });
+        return res.status(401).json({ message: 'Nome de usuário, e-mail ou senha inválidos' });
       }
       if (!user.active) {
         await recordAuditEvent({
@@ -218,7 +246,7 @@ export function createLoginHandler({
           req,
           requester: user,
           action: 'auth.login',
-          details: { email: normalizedEmail, motivo: 'usuario_inativo' },
+          details: { identificador: loginIdentifier, motivo: 'usuario_inativo' },
           success: false,
         });
         return res.status(403).json({ message: 'Usuário inativo' });
@@ -232,7 +260,7 @@ export function createLoginHandler({
       });
       return res.json({
         token: signTokenFn(user._id),
-        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        user: { id: user._id, name: user.name, username: user.username || '', email: user.email, role: user.role },
       });
     } catch (err) {
       console.error(err);
@@ -258,7 +286,7 @@ router.post('/logout', protect, createLogoutHandler());
 
 // GET /api/auth/me
 router.get('/me', protect, (req, res) => {
-  res.json({ id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role });
+  res.json({ id: req.user._id, name: req.user.name, username: req.user.username || '', email: req.user.email, role: req.user.role });
 });
 
 const userManagement = createUserManagementHandlers();

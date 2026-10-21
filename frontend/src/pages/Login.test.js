@@ -18,10 +18,11 @@ for (const production of [true, false]) {
         React.createElement(AuthProvider, null, React.createElement(Login))));
 
       assert.equal(html.includes('Acesso rápido'), !production);
-      assert.equal(html.includes('admin@smartprint.com'), !production);
+      assert.equal(html.includes('admin'), !production);
       assert.equal(html.includes('admin123'), !production);
       if (production) {
-        assert.match(html, /type="email"[^>]*value=""/);
+        assert.match(html, /type="text"[^>]*value=""/);
+        assert.match(html, /Nome de usuário ou e-mail/);
         assert.match(html, /type="password"[^>]*value=""/);
       }
     } finally {

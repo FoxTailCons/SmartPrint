@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext.jsx';
 
-const emptyForm = { name: '', email: '', password: '', role: 'atendente' };
+const emptyForm = { name: '', username: '', email: '', password: '', role: 'atendente' };
 
-export const buildUserUpdatePayload = ({ name, email, password, role }) => ({
+export const buildUserUpdatePayload = ({ name, username, email, password, role }) => ({
   name: name.trim(),
+  username: username.trim().toLowerCase(),
   email: email.trim().toLowerCase(),
   role,
   ...(password ? { password } : {}),
 });
 
+export const buildAdminIdentityPayload = ({ username, email }) => ({
+  username: username.trim().toLowerCase(),
+  email: email.trim().toLowerCase(),
+});
+
 export default function Users() {
+  const currentUser = useAuth()?.user;
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
@@ -54,7 +62,7 @@ export default function Users() {
 
   const startEditing = (user) => {
     setEditingId(user._id);
-    setEditForm({ name: user.name, email: user.email, password: '', role: user.role });
+    setEditForm({ name: user.name, username: user.username || '', email: user.email, password: '', role: user.role });
     setError('');
   };
 
@@ -65,7 +73,9 @@ export default function Users() {
     try {
       await api(`/api/auth/users/${user._id}`, {
         method: 'PATCH',
-        body: buildUserUpdatePayload(editForm),
+        body: user.role === 'admin'
+          ? buildAdminIdentityPayload(editForm)
+          : buildUserUpdatePayload(editForm),
       });
       setEditingId(null);
       setEditForm(emptyForm);
@@ -95,12 +105,16 @@ export default function Users() {
         <input required maxLength="120" value={value.name} onChange={(event) => setValue({ ...value, name: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
       <label className="text-sm font-medium text-slate-700">
+        Nome de usuário
+        <input required minLength="3" maxLength="40" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,39}" autoComplete="username" value={value.username} onChange={(event) => setValue({ ...value, username: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
+      </label>
+      <label className="text-sm font-medium text-slate-700">
         E-mail
         <input required type="email" autoComplete="email" value={value.email} onChange={(event) => setValue({ ...value, email: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
       <label className="text-sm font-medium text-slate-700">
-        {editing ? 'Nova senha (opcional, mínimo 12 caracteres)' : 'Senha inicial (mínimo 12 caracteres)'}
-        <input required={!editing} type="password" minLength="12" autoComplete="new-password" value={value.password} onChange={(event) => setValue({ ...value, password: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
+        {editing ? 'Nova senha (opcional, exatamente 6 caracteres)' : 'Senha inicial (exatamente 6 caracteres)'}
+        <input required={!editing} type="password" minLength="6" maxLength="6" autoComplete="new-password" value={value.password} onChange={(event) => setValue({ ...value, password: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
       <label className="text-sm font-medium text-slate-700">
         Perfil
@@ -108,6 +122,18 @@ export default function Users() {
           <option value="atendente">Atendente</option>
           <option value="producao">Produção</option>
         </select>
+      </label>
+    </div>
+  );
+  const adminIdentityFields = (value, setValue) => (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <label className="text-sm font-medium text-slate-700">
+        Nome de usuário
+        <input required minLength="3" maxLength="40" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,39}" autoComplete="username" value={value.username} onChange={(event) => setValue({ ...value, username: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
+      </label>
+      <label className="text-sm font-medium text-slate-700">
+        E-mail
+        <input required type="email" autoComplete="email" value={value.email} onChange={(event) => setValue({ ...value, email: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
     </div>
   );
@@ -140,7 +166,7 @@ export default function Users() {
                 {editingId === user._id ? (
                   <form onSubmit={(event) => updateUser(event, user)} className="w-full space-y-4">
                     <h3 className="font-medium text-slate-800">Editar {user.name}</h3>
-                    {userFields(editForm, setEditForm, true)}
+                    {user.role === 'admin' ? adminIdentityFields(editForm, setEditForm) : userFields(editForm, setEditForm, true)}
                     <div className="flex gap-2">
                       <button type="submit" disabled={saving} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
                         {saving ? 'Salvando...' : 'Salvar alterações'}
@@ -152,7 +178,7 @@ export default function Users() {
                   <>
                     <div>
                       <div className="font-medium text-slate-800">{user.name}</div>
-                      <div className="text-sm text-slate-500">{user.email} · {user.role === 'producao' ? 'Produção' : user.role === 'admin' ? 'Administrador' : 'Atendente'}</div>
+                      <div className="text-sm text-slate-500">{user.username || 'Usuário não definido'} · {user.email} · {user.role === 'producao' ? 'Produção' : user.role === 'admin' ? 'Administrador' : 'Atendente'}</div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={`text-xs font-semibold ${user.active ? 'text-emerald-700' : 'text-slate-500'}`}>{user.active ? 'Ativo' : 'Inativo'}</span>
@@ -167,6 +193,11 @@ export default function Users() {
                           <Trash2 size={16} />
                         </button>
                       </>}
+                      {user.role === 'admin' && String(currentUser?.id || currentUser?._id) === String(user._id) && (
+                        <button type="button" aria-label="Editar meu nome de usuário e e-mail" onClick={() => startEditing(user)} className="rounded-lg border p-2 hover:bg-slate-50">
+                          <Pencil size={16} />
+                        </button>
+                      )}
                     </div>
                   </>
                 )}

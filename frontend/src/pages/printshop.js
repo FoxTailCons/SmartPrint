@@ -2,6 +2,13 @@ export const productionStages = [
   ['arte', 'Arte'], ['aprovacao_cliente', 'Aprovação do cliente'], ['impressao', 'Impressão'],
   ['instalacao', 'Instalação'], ['entregue', 'Entregue'],
 ];
+
+export function updateSkippedStagesForRequirement(skippedStages, stage, required) {
+  return required
+    ? skippedStages.filter((skippedStage) => skippedStage !== stage)
+    : skippedStages.includes(stage) ? skippedStages : [...skippedStages, stage];
+}
+
 export const priorityLabels = { normal: 'Normal', alta: 'Alta', urgente: 'Urgente' };
 export const productCategories = [
   { value: 'xerox_impressao', label: 'Xerox/Impressão' },

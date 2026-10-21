@@ -12,6 +12,7 @@ test('page access follows administrator, attendant and production responsibiliti
   assert.equal(access.canAccess('producao', 'production'), true);
   assert.equal(access.canAccess('atendente', 'payables'), false);
   assert.equal(access.canAccess('atendente', 'receivables'), true);
+  assert.equal(access.canAccess('atendente', 'products'), true);
   assert.equal(access.canAccess('producao', 'cash'), false);
   assert.equal(access.canAccess('producao', 'products'), false);
   assert.equal(access.canAccess('admin', 'users'), true);
@@ -34,7 +35,7 @@ test('menu links use the same role permissions as direct routes', () => {
     { to: '/auditoria', permission: 'audit' },
     { to: '/caixa', permission: 'cash' },
   ];
-  assert.deepEqual(access.getVisibleMenu(menu, 'atendente').map(({ to }) => to), ['/pedidos', '/producao', '/caixa']);
+  assert.deepEqual(access.getVisibleMenu(menu, 'atendente').map(({ to }) => to), ['/pedidos', '/producao', '/produtos', '/caixa']);
   assert.deepEqual(access.getVisibleMenu(menu, 'producao').map(({ to }) => to), ['/producao']);
   assert.deepEqual(access.getVisibleMenu(menu, 'admin').map(({ to }) => to), ['/', '/pedidos', '/producao', '/produtos', '/usuarios', '/auditoria', '/caixa']);
 });

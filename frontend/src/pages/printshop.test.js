@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { itemTotal, getProductionStage, getDeadline, graphicDate, itemMetadata, serializeOrderItems, productCategories, getCategoryLabel, requiresQuoteClient, buildBalanceReminderUrl } from './printshop.js';
+import { itemTotal, getProductionStage, getDeadline, graphicDate, itemMetadata, serializeOrderItems, productCategories, getCategoryLabel, requiresQuoteClient, buildBalanceReminderUrl, updateSkippedStagesForRequirement } from './printshop.js';
 
 test('item totals charge installation and travel once per item', () => {
   assert.equal(itemTotal({ quantity: 2, unitPrice: 50, installationFee: 30, travelFee: 10 }), 140);
@@ -12,6 +12,12 @@ test('legacy production maps without changing financial or commercial status', (
   assert.equal(getProductionStage({ production: 'concluido' }), 'entregue');
   assert.equal(getProductionStage({ production: 'nao_iniciado' }), 'arte');
   assert.equal(getProductionStage({ productionStage: 'instalacao', production: 'em_producao' }), 'instalacao');
+});
+
+test('required production stages keep the stored skipped-stage contract', () => {
+  assert.deepEqual(updateSkippedStagesForRequirement(['instalacao', 'arte'], 'arte', true), ['instalacao']);
+  assert.deepEqual(updateSkippedStagesForRequirement(['instalacao'], 'arte', false), ['instalacao', 'arte']);
+  assert.deepEqual(updateSkippedStagesForRequirement(['arte'], 'arte', false), ['arte']);
 });
 
 test('deadline preserves civil dates and uses Sao Paulo today, with per-item fallback', () => {

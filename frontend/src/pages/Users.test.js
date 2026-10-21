@@ -15,6 +15,8 @@ test('user administration is visible only to Admin', async () => {
 
     const adminHtml = render('admin');
     assert.match(adminHtml, /Novo usuário/);
+    assert.match(adminHtml, /Senha inicial \(exatamente 6 caracteres\)/);
+    assert.match(adminHtml, /minLength="6" maxLength="6"/);
     assert.match(adminHtml, /Atendente/);
     assert.match(adminHtml, /Produção/);
     for (const role of ['atendente', 'producao']) {
@@ -28,16 +30,25 @@ test('user administration is visible only to Admin', async () => {
 test('editing a user omits the optional password when it is blank', async () => {
   const server = await createServer({ server: { middlewareMode: true, ws: false } });
   try {
-    const { buildUserUpdatePayload } = await server.ssrLoadModule('/src/pages/Users.jsx');
+    const { buildUserUpdatePayload, buildAdminIdentityPayload } = await server.ssrLoadModule('/src/pages/Users.jsx');
     assert.deepEqual(buildUserUpdatePayload({
       name: ' Ana Maria ',
+      username: ' Ana.Maria ',
       email: ' ANA@EXAMPLE.COM ',
       role: 'producao',
       password: '',
     }), {
       name: 'Ana Maria',
+      username: 'ana.maria',
       email: 'ana@example.com',
       role: 'producao',
+    });
+    assert.deepEqual(buildAdminIdentityPayload({
+      username: ' Admin.Novo ',
+      email: ' ADMIN.NOVO@EXAMPLE.COM ',
+    }), {
+      username: 'admin.novo',
+      email: 'admin.novo@example.com',
     });
   } finally {
     await server.close();

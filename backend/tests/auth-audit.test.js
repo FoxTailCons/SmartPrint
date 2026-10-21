@@ -14,13 +14,16 @@ test('login failures and successes create audit records without credentials', as
   const admin = {
     _id: 'admin-id',
     name: 'Admin',
+    username: 'admin',
     email: 'admin@example.com',
     role: 'admin',
     active: true,
     async matchPassword(password) { return password === 'right-password'; },
   };
+  const lookups = [];
   const UserModel = {
-    findOne() {
+    findOne(query) {
+      lookups.push(query);
       return { select: async () => admin };
     },
   };
@@ -31,7 +34,7 @@ test('login failures and successes create audit records without credentials', as
   });
   const failed = createResponse();
   await handler({
-    body: { email: 'admin@example.com', password: 'wrong-password' },
+    body: { identifier: 'ADMIN', password: 'wrong-password' },
     ip: '192.0.2.4',
   }, failed);
   assert.equal(failed.statusCode, 401);
@@ -41,12 +44,19 @@ test('login failures and successes create audit records without credentials', as
 
   const successful = createResponse();
   await handler({
-    body: { email: 'admin@example.com', password: 'right-password' },
+    body: { identifier: ' ADMIN ', password: 'right-password' },
     ip: '192.0.2.4',
   }, successful);
   assert.equal(successful.body.token, 'jwt');
   assert.equal(events[1].sucesso, true);
   assert.equal(events[1].acao, 'auth.login');
+  assert.deepEqual(lookups[0], { $or: [{ username: 'admin' }, { email: 'admin' }] });
+  assert.equal(successful.body.user.username, 'admin');
+
+  const legacyEmailLogin = createResponse();
+  await handler({ body: { email: 'ADMIN@example.com', password: 'right-password' } }, legacyEmailLogin);
+  assert.equal(legacyEmailLogin.body.user.email, 'admin@example.com');
+  assert.deepEqual(lookups[2], { $or: [{ username: 'admin@example.com' }, { email: 'admin@example.com' }] });
 });
 
 test('login with a missing password is recorded as a failed attempt', async () => {

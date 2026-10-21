@@ -19,8 +19,8 @@ export function AuthProvider({ children }) {
     } else setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
-    const data = await api('/api/auth/login', { method: 'POST', body: { email, password } });
+  const login = async (identifier, password) => {
+    const data = await api('/api/auth/login', { method: 'POST', body: { identifier, password } });
     localStorage.setItem('sp_token', data.token);
     setUser(data.user);
     return data.user;
