@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, UserPlus, Phone, Mail, ChevronDown, ChevronUp, CopyPlus } from 'lucide-react';
+import { Plus, Search, UserPlus, Phone, Mail, ChevronDown, ChevronUp, CopyPlus, Pencil, Trash2 } from 'lucide-react';
 import { api, fmt } from '../api';
+import { useAuth } from '../context/AuthContext.jsx';
 import Modal from '../components/Modal.jsx';
 import ListSkeleton from '../components/ListSkeleton.jsx';
 import Pagination from '../components/Pagination.jsx';
@@ -16,6 +17,7 @@ const DEFAULT_PAGE_SIZE = 20;
 const paymentMethodLabels = { pix: 'PIX', dinheiro: 'Dinheiro', debito: 'Cartão débito', credito: 'Cartão crédito', parcelado: 'Crédito parcelado' };
 
 export default function Clients() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -23,6 +25,8 @@ export default function Clients() {
   const [expanded, setExpanded] = useState(null);
   const [detail, setDetail] = useState(null);
   const [showNew, setShowNew] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [reordering, setReordering] = useState('');
   const [form, setForm] = useState({ name: '', phone: '', email: '', document: '', address: '' });
   const list = useServerPagination('/api/clients', query ? `q=${encodeURIComponent(query)}` : '', page, pageSize);
@@ -36,13 +40,60 @@ export default function Clients() {
     setDetail({ ...detail, [c._id]: d });
   };
 
-  const create = async () => {
+  const closeForm = () => {
+    setShowNew(false);
+    setEditingClient(null);
+    setForm({ name: '', phone: '', email: '', document: '', address: '' });
+  };
+  const openNew = () => {
+    setEditingClient(null);
+    setForm({ name: '', phone: '', email: '', document: '', address: '' });
+    setShowNew(true);
+  };
+  const editClient = (client) => {
+    setEditingClient(client);
+    setForm({
+      name: client.name || '',
+      phone: client.phone || '',
+      email: client.email || '',
+      document: client.document || '',
+      address: client.address || '',
+    });
+    setShowNew(true);
+  };
+  const saveClient = async (event) => {
+    event.preventDefault();
     if (!form.name.trim()) return alert('Informe o nome');
     if (!form.phone.trim()) return alert('Informe o telefone');
+    setSaving(true);
     try {
-      await api('/api/clients', { method: 'POST', body: { ...form, name: form.name.trim(), phone: form.phone.trim() } });
-      setShowNew(false);
-      setForm({ name: '', phone: '', email: '', document: '', address: '' });
+      const updated = await api(editingClient ? `/api/clients/${editingClient._id}` : '/api/clients', {
+        method: editingClient ? 'PUT' : 'POST',
+        body: { ...form, name: form.name.trim(), phone: form.phone.trim() },
+      });
+      if (editingClient && detail?.[editingClient._id]) {
+        setDetail((current) => ({
+          ...current,
+          [editingClient._id]: { ...current[editingClient._id], ...updated },
+        }));
+      }
+      closeForm();
+      retry();
+    } catch (e) { alert(e.message); }
+    finally { setSaving(false); }
+  };
+  const deleteClient = async (client) => {
+    if (!confirm(`Excluir o cliente "${client.name}"? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await api(`/api/clients/${client._id}`, { method: 'DELETE' });
+      if (expanded === client._id) {
+        setExpanded(null);
+        setDetail((current) => {
+          const next = { ...current };
+          delete next[client._id];
+          return next;
+        });
+      }
       retry();
     } catch (e) { alert(e.message); }
   };
@@ -65,7 +116,7 @@ export default function Clients() {
           <h1 className="text-2xl font-bold">Clientes</h1>
           <p className="text-sm text-slate-500">{total} cliente(s) · pedidos e orçamentos agrupados por cliente</p>
         </div>
-        <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        <button onClick={openNew} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
           <UserPlus size={16} /> Novo Cliente
         </button>
       </div>
@@ -84,7 +135,8 @@ export default function Clients() {
         {listState === 'empty' && <div className="p-8 text-center text-slate-400">Nenhum cliente encontrado.</div>}
         {listState === 'ready' && clients.map((c) => (
           <div key={c._id}>
-            <button onClick={() => toggle(c)} className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 text-left">
+            <div className="flex items-center gap-2 pr-4">
+            <button onClick={() => toggle(c)} aria-expanded={expanded === c._id} className="flex-1 min-w-0 flex items-center gap-4 px-5 py-4 hover:bg-slate-50 text-left">
               <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold shrink-0">
                 {c.name?.charAt(0).toUpperCase()}
               </div>
@@ -101,6 +153,17 @@ export default function Clients() {
               </div>
               {expanded === c._id ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
             </button>
+            <div className="flex shrink-0 gap-1">
+              <button type="button" onClick={() => editClient(c)} aria-label={`Editar ${c.name}`} title="Editar cliente" className="rounded-lg border p-2 text-slate-600 hover:bg-slate-100">
+                <Pencil size={15} />
+              </button>
+              {user?.role === 'admin' && (
+                <button type="button" onClick={() => deleteClient(c)} aria-label={`Excluir ${c.name}`} title="Excluir cliente" className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50">
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
+            </div>
             {expanded === c._id && detail?.[c._id] && (
               <div className="bg-slate-50 px-5 py-4 border-t">
                 <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -134,17 +197,17 @@ export default function Clients() {
       </div>
       <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
 
-      <Modal open={showNew} onClose={() => setShowNew(false)} title="Novo Cliente">
-        <div className="space-y-3">
-          <input required placeholder="Nome *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+      <Modal open={showNew} onClose={closeForm} title={editingClient ? 'Editar cliente' : 'Novo Cliente'}>
+        <form onSubmit={saveClient} className="space-y-3">
+          <input required autoFocus placeholder="Nome *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input required placeholder="Telefone/WhatsApp (com DDD) *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input placeholder="CPF/CNPJ" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input placeholder="Endereço" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
-          <button onClick={create} className="w-full py-2.5 bg-brand-600 text-white rounded-lg font-medium inline-flex items-center justify-center gap-2">
-            <Plus size={16} /> Cadastrar
+          <button disabled={saving} className="w-full py-2.5 bg-brand-600 text-white rounded-lg font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50">
+            {editingClient ? <Pencil size={16} /> : <Plus size={16} />} {saving ? 'Salvando...' : editingClient ? 'Salvar alterações' : 'Cadastrar'}
           </button>
-        </div>
+        </form>
       </Modal>
     </div>
   );

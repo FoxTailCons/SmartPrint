@@ -27,7 +27,7 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - Catálogo de produtos por unidade, metro linear ou metro quadrado, com cadastro restrito a administradores
 - Custos opcionais por unidade de venda, margem estimada no catálogo e snapshot histórico do custo por item; dados de custo e margens detalhadas só são expostos a administradores
 - Serviços de instalação e deslocamento podem ser cadastrados no catálogo como itens separados; deslocamento aceita quantidade fracionária em km
-- Histórico de clientes com dez pedidos recentes, saldo em aberto, forma de pagamento mais recente e ação para repetir pedido
+- Histórico de clientes com dez pedidos recentes, saldo em aberto, forma de pagamento mais recente, ação para repetir pedido e edição; exclusão disponível apenas para administrador e bloqueada quando há pedidos vinculados
 - Contas a receber registram forma de pagamento e link opcional para comprovante; lembretes de saldo são preparados para WhatsApp e enviados manualmente
 - Fechamento diário de caixa para administrador/atendente, com saldo inicial, entradas por forma de pagamento, sangrias, conferência e diferenças
 - Imagem de referência do produto e links para fotos/arte no pedido; anexos aparecem no detalhe, PDF e mensagem de WhatsApp

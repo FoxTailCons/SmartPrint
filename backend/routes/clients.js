@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import Client from '../models/Client.js';
 import Order from '../models/Order.js';
 import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
@@ -125,9 +126,19 @@ router.put('/:id', allowRoles('admin', 'atendente'), async (req, res) => {
   res.json(client);
 });
 
-router.delete('/:id', adminOnly, async (req, res) => {
-  await Client.findByIdAndDelete(req.params.id);
-  res.json({ ok: true });
-});
+export const createClientDeleteHandler = ({ ClientModel = Client, OrderModel = Order } = {}) => async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) return res.status(400).json({ message: 'Identificador de cliente inválido' });
+  const client = await ClientModel.findById(id);
+  if (!client) return res.status(404).json({ message: 'Cliente não encontrado' });
+  if (await OrderModel.exists({ client: id })) {
+    return res.status(409).json({ message: 'Não é possível excluir um cliente com pedidos ou orçamentos vinculados' });
+  }
+  const deleted = await ClientModel.findByIdAndDelete(id);
+  if (!deleted) return res.status(404).json({ message: 'Cliente não encontrado' });
+  return res.json({ ok: true });
+};
+
+router.delete('/:id', adminOnly, asyncRoute(createClientDeleteHandler()));
 
 export default router;
