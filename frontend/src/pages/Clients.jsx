@@ -127,6 +127,7 @@ export default function Clients() {
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm divide-y">
+        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
         {listState === 'loading' && <ListSkeleton variant="list" rows={6} />}
         {listState === 'error' && <div role="alert" className="p-8 text-center text-sm text-red-700">
           <p>{error}</p>
@@ -195,7 +196,6 @@ export default function Clients() {
           </div>
         ))}
       </div>
-      <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
 
       <Modal open={showNew} onClose={closeForm} title={editingClient ? 'Editar cliente' : 'Novo Cliente'}>
         <form onSubmit={saveClient} className="space-y-3">

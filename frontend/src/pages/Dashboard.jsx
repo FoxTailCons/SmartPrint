@@ -41,6 +41,21 @@ function Card({ icon: Icon, label, value, color, sub, open, onClick }) {
   );
 }
 
+export function DashboardSection({ title, description, children }) {
+  return (
+    <details open className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">
+        <div>
+          <h2 className="font-semibold text-slate-800">{title}</h2>
+          {description && <p className="mt-1 text-xs text-slate-500">{description}</p>}
+        </div>
+        <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-slate-500 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t p-4 sm:p-5">{children}</div>
+    </details>
+  );
+}
+
 function DetailList({ detail, selectedIds, onToggle }) {
   const [pageSize, setPageSize] = useState(DETAIL_PAGE_SIZE);
   const { items, page, total, setPage } = usePagination(detail.items, pageSize);
@@ -90,8 +105,8 @@ function DetailList({ detail, selectedIds, onToggle }) {
 
   return (
     <>
-      {content}
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
+      {content}
     </>
   );
 }
@@ -217,35 +232,36 @@ export default function Dashboard() {
 
       {/* Avisos visuais de contas a pagar */}
       {(warnings.payablesOverdue > 0 || warnings.payablesDueSoon > 0) && (
-        <div className="space-y-2">
-          {warnings.payablesOverdue > 0 && (
-            <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3">
-              <AlertTriangle size={20} className="shrink-0" />
-              <div className="flex-1 text-sm">
-                <strong>{warnings.payablesOverdue} conta(s) vencida(s)</strong> totalizando {fmt(warnings.payablesOverdueValue)} —
-                {' '}{warnings.overdueList.map((p) => p.description).slice(0, 3).join(', ')}
-                {warnings.overdueList.length > 3 && '...'}
+        <DashboardSection title="Avisos financeiros">
+          <div className="space-y-2">
+            {warnings.payablesOverdue > 0 && (
+              <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3">
+                <AlertTriangle size={20} className="shrink-0" />
+                <div className="flex-1 text-sm">
+                  <strong>{warnings.payablesOverdue} conta(s) vencida(s)</strong> totalizando {fmt(warnings.payablesOverdueValue)} —
+                  {' '}{warnings.overdueList.map((p) => p.description).slice(0, 3).join(', ')}
+                  {warnings.overdueList.length > 3 && '...'}
+                </div>
+                <Link to="/contas-pagar" className="text-xs font-semibold underline shrink-0">Ver contas</Link>
               </div>
-              <Link to="/contas-pagar" className="text-xs font-semibold underline shrink-0">Ver contas</Link>
-            </div>
-          )}
-          {warnings.payablesDueSoon > 0 && (
-            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3">
-              <Bell size={20} className="shrink-0" />
-              <div className="flex-1 text-sm">
-                <strong>{warnings.payablesDueSoon} conta(s) vencendo em até 3 dias</strong> totalizando {fmt(warnings.payablesDueSoonValue)}
+            )}
+            {warnings.payablesDueSoon > 0 && (
+              <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3">
+                <Bell size={20} className="shrink-0" />
+                <div className="flex-1 text-sm">
+                  <strong>{warnings.payablesDueSoon} conta(s) vencendo em até 3 dias</strong> totalizando {fmt(warnings.payablesDueSoonValue)}
+                </div>
+                <Link to="/contas-pagar" className="text-xs font-semibold underline shrink-0">Ver contas</Link>
               </div>
-              <Link to="/contas-pagar" className="text-xs font-semibold underline shrink-0">Ver contas</Link>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </DashboardSection>
       )}
 
-      <section className="rounded-2xl border border-amber-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b bg-amber-50">
-          <h2 className="font-semibold text-slate-800">Urgências do dia</h2>
-          <p className="mt-1 text-xs text-slate-500">Contas vencidas ou de hoje e pedidos que precisam de atenção.</p>
-        </div>
+      <DashboardSection
+        title="Urgências do dia"
+        description="Contas vencidas ou de hoje e pedidos que precisam de atenção."
+      >
         <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x">
           <div className="p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -291,20 +307,24 @@ export default function Dashboard() {
             ) : <p className="py-4 text-sm text-slate-400">Nenhum pedido urgente pendente de execução.</p>}
           </div>
         </div>
-      </section>
+      </DashboardSection>
 
-      {/* Cards de estatísticas */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {cards.map((card) => <Card key={card.key} {...card} open={activeDetail === card.key} onClick={() => setActiveDetail(activeDetail === card.key ? null : card.key)} />)}
-      </div>
+      <DashboardSection title="Pedidos e produção">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {cards.map((card) => <Card key={card.key} {...card} open={activeDetail === card.key} onClick={() => setActiveDetail(activeDetail === card.key ? null : card.key)} />)}
+        </div>
+      </DashboardSection>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card icon={Wallet} label="Recebido Hoje" value={fmt(finance.receivedToday)} color="bg-emerald-100 text-emerald-600" />
-        <Card icon={Wallet} label="Recebido na Semana" value={fmt(finance.receivedThisWeek)} color="bg-teal-100 text-teal-600" />
-        <Card icon={Wallet} label="Recebido no Mês" value={fmt(finance.receivedThisMonth)} color="bg-cyan-100 text-cyan-600" />
-      </div>
+      <DashboardSection title="Recebimentos">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card icon={Wallet} label="Recebido Hoje" value={fmt(finance.receivedToday)} color="bg-emerald-100 text-emerald-600" />
+          <Card icon={Wallet} label="Recebido na Semana" value={fmt(finance.receivedThisWeek)} color="bg-teal-100 text-teal-600" />
+          <Card icon={Wallet} label="Recebido no Mês" value={fmt(finance.receivedThisMonth)} color="bg-cyan-100 text-cyan-600" />
+        </div>
+      </DashboardSection>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <DashboardSection title="Liquidez financeira">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border shadow-sm p-5">
           <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Recebíveis</div>
           <div className="mt-2 text-2xl font-bold text-emerald-700">{fmt(finance.liquidity?.receivables ?? 0)}</div>
@@ -322,99 +342,94 @@ export default function Dashboard() {
           </div>
           <p className="mt-1 text-xs text-slate-500">Recebíveis menos pagáveis em aberto</p>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-800">Fluxo de caixa - semana</h3>
-            <span className={`text-sm font-semibold ${finance.cashFlowComparison.weekly.delta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              {finance.cashFlowComparison.weekly.delta >= 0 ? '+' : ''}{Number(finance.cashFlowComparison.weekly.deltaPct || 0).toFixed(1)}%
-            </span>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-              <div className="text-[10px] uppercase tracking-[0.12em] text-emerald-700">Semana atual</div>
-              <div className="mt-2 text-xl font-bold text-emerald-700">{fmt(finance.cashFlowComparison.weekly.current)}</div>
-            </div>
-            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Semana anterior</div>
-              <div className="mt-2 text-xl font-bold text-slate-700">{fmt(finance.cashFlowComparison.weekly.previous)}</div>
-            </div>
-          </div>
-          <p className="mt-3 text-sm text-slate-500">
-            Variação de {fmt(Math.abs(finance.cashFlowComparison.weekly.delta))} em relação à semana anterior.
-          </p>
         </div>
+      </DashboardSection>
 
-        <div className="bg-white rounded-2xl border shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-800">Fluxo de caixa - mês</h3>
-            <span className={`text-sm font-semibold ${finance.cashFlowComparison.monthly.delta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              {finance.cashFlowComparison.monthly.delta >= 0 ? '+' : ''}{Number(finance.cashFlowComparison.monthly.deltaPct || 0).toFixed(1)}%
-            </span>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-cyan-50 border border-cyan-200 p-3">
-              <div className="text-[10px] uppercase tracking-[0.12em] text-cyan-700">Mês atual</div>
-              <div className="mt-2 text-xl font-bold text-cyan-700">{fmt(finance.cashFlowComparison.monthly.current)}</div>
+      <DashboardSection title="Comparativo de fluxo de caixa">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="rounded-xl border border-slate-200 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800">Semana</h3>
+              <span className={`text-sm font-semibold ${finance.cashFlowComparison.weekly.delta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                {finance.cashFlowComparison.weekly.delta >= 0 ? '+' : ''}{Number(finance.cashFlowComparison.weekly.deltaPct || 0).toFixed(1)}%
+              </span>
             </div>
-            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Mês anterior</div>
-              <div className="mt-2 text-xl font-bold text-slate-700">{fmt(finance.cashFlowComparison.monthly.previous)}</div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+                <div className="text-[10px] uppercase tracking-[0.12em] text-emerald-700">Semana atual</div>
+                <div className="mt-2 text-xl font-bold text-emerald-700">{fmt(finance.cashFlowComparison.weekly.current)}</div>
+              </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                <div className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Semana anterior</div>
+                <div className="mt-2 text-xl font-bold text-slate-700">{fmt(finance.cashFlowComparison.weekly.previous)}</div>
+              </div>
             </div>
+            <p className="mt-3 text-sm text-slate-500">
+              Variação de {fmt(Math.abs(finance.cashFlowComparison.weekly.delta))} em relação à semana anterior.
+            </p>
           </div>
-          <p className="mt-3 text-sm text-slate-500">
-            Variação de {fmt(Math.abs(finance.cashFlowComparison.monthly.delta))} em relação ao mês anterior.
-          </p>
+          <div className="rounded-xl border border-slate-200 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800">Mês</h3>
+              <span className={`text-sm font-semibold ${finance.cashFlowComparison.monthly.delta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                {finance.cashFlowComparison.monthly.delta >= 0 ? '+' : ''}{Number(finance.cashFlowComparison.monthly.deltaPct || 0).toFixed(1)}%
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-cyan-50 border border-cyan-200 p-3">
+                <div className="text-[10px] uppercase tracking-[0.12em] text-cyan-700">Mês atual</div>
+                <div className="mt-2 text-xl font-bold text-cyan-700">{fmt(finance.cashFlowComparison.monthly.current)}</div>
+              </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                <div className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Mês anterior</div>
+                <div className="mt-2 text-xl font-bold text-slate-700">{fmt(finance.cashFlowComparison.monthly.previous)}</div>
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-500">
+              Variação de {fmt(Math.abs(finance.cashFlowComparison.monthly.delta))} em relação ao mês anterior.
+            </p>
+          </div>
         </div>
-      </div>
+      </DashboardSection>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-800">Fluxo de caixa — últimos 7 dias</h3>
-          </div>
-          <div className="mt-4 flex items-end gap-2 h-40">
-            {finance.trend.last7Days.map((item) => {
-              const height = Math.max(10, (item.value / Math.max(...finance.trend.last7Days.map((entry) => entry.value), 1)) * 100);
-              return (
-                <div key={item.label} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex items-end justify-center h-28">
-                    <div className="w-full rounded-t-md bg-gradient-to-t from-emerald-500 to-emerald-300" style={{ height: `${height}%` }} title={`${item.label}: ${fmt(item.value)}`} />
+      <DashboardSection title="Evolução do fluxo de caixa">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="rounded-xl border border-slate-200 p-4">
+            <h3 className="text-lg font-bold text-slate-800">Últimos 7 dias</h3>
+            <div className="mt-4 flex items-end gap-2 h-40">
+              {finance.trend.last7Days.map((item) => {
+                const height = Math.max(10, (item.value / Math.max(...finance.trend.last7Days.map((entry) => entry.value), 1)) * 100);
+                return (
+                  <div key={item.label} className="flex-1 flex flex-col items-center gap-2">
+                    <div className="w-full flex items-end justify-center h-28">
+                      <div className="w-full rounded-t-md bg-gradient-to-t from-emerald-500 to-emerald-300" style={{ height: `${height}%` }} title={`${item.label}: ${fmt(item.value)}`} />
+                    </div>
+                    <span className="text-[10px] text-slate-500">{item.label}</span>
                   </div>
-                  <span className="text-[10px] text-slate-500">{item.label}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-800">Fluxo de caixa — últimos 6 meses</h3>
-          </div>
-          <div className="mt-4 flex items-end gap-2 h-40">
-            {finance.trend.last6Months.map((item) => {
-              const height = Math.max(10, (item.value / Math.max(...finance.trend.last6Months.map((entry) => entry.value), 1)) * 100);
-              return (
-                <div key={item.label} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex items-end justify-center h-28">
-                    <div className="w-full rounded-t-md bg-gradient-to-t from-cyan-500 to-cyan-300" style={{ height: `${height}%` }} title={`${item.label}: ${fmt(item.value)}`} />
+          <div className="rounded-xl border border-slate-200 p-4">
+            <h3 className="text-lg font-bold text-slate-800">Últimos 6 meses</h3>
+            <div className="mt-4 flex items-end gap-2 h-40">
+              {finance.trend.last6Months.map((item) => {
+                const height = Math.max(10, (item.value / Math.max(...finance.trend.last6Months.map((entry) => entry.value), 1)) * 100);
+                return (
+                  <div key={item.label} className="flex-1 flex flex-col items-center gap-2">
+                    <div className="w-full flex items-end justify-center h-28">
+                      <div className="w-full rounded-t-md bg-gradient-to-t from-cyan-500 to-cyan-300" style={{ height: `${height}%` }} title={`${item.label}: ${fmt(item.value)}`} />
+                    </div>
+                    <span className="text-[10px] text-slate-500">{item.label}</span>
                   </div>
-                  <span className="text-[10px] text-slate-500">{item.label}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      </DashboardSection>
 
-      <div className="bg-white rounded-2xl border shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-800">Comparativo mensal</h3>
-          <span className="text-xs uppercase tracking-[0.12em] text-slate-400">Últimos 6 meses</span>
-        </div>
+      <DashboardSection title="Comparativo mensal" description="Últimos 6 meses">
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {data.analytics?.monthlyComparison?.map((month) => (
             <div key={month.monthKey} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -425,9 +440,10 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
-      </div>
+      </DashboardSection>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <DashboardSection title="Desempenho por cliente e serviço">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border shadow-sm p-5">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-800">Top clientes</h3>
@@ -466,14 +482,14 @@ export default function Dashboard() {
             )) || <div className="text-sm text-slate-400">Nenhuma linha de serviço encontrada.</div>}
           </div>
         </div>
-      </div>
+        </div>
+      </DashboardSection>
 
       {data.analytics?.serviceMargins && (
-        <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-          <div className="border-b px-5 py-4">
-            <h3 className="text-lg font-bold text-slate-800">Margem por linha de serviço</h3>
-            <p className="mt-1 text-xs text-slate-500">Calculada com o custo salvo em cada item; pedidos antigos sem snapshot não recebem custo retroativo.</p>
-          </div>
+        <DashboardSection
+          title="Margem por linha de serviço"
+          description="Calculada com o custo salvo em cada item; pedidos antigos sem snapshot não recebem custo retroativo."
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -501,10 +517,11 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
-        </div>
+        </DashboardSection>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-4">
+      <DashboardSection title="DRE / EBITDA e indicadores">
+        <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-4">
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 text-white rounded-2xl shadow-sm border border-slate-700 p-5">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
             <div>
@@ -581,6 +598,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </DashboardSection>
 
       {selectedDetail && selectedDetail.kind !== 'order' && (
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
@@ -612,12 +630,11 @@ export default function Dashboard() {
       <OrderForm modal open={newOrderOpen} onCancel={() => setNewOrderOpen(false)} onSaved={() => { setNewOrderOpen(false); load(); }} />
 
       {/* Pedidos recentes / produção ativa */}
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <div className="px-5 py-4 border-b flex items-center justify-between">
-          <h2 className="font-semibold">Pedidos recentes</h2>
+      <DashboardSection title="Pedidos recentes">
+        <div className="mb-4 flex justify-end">
           <Link to="/pedidos" className="text-sm text-brand-600 hover:underline">Ver todos</Link>
         </div>
-        <div className="overflow-x-auto">
+        <div className="-mx-4 -mb-4 overflow-x-auto sm:-mx-5 sm:-mb-5">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
@@ -655,7 +672,7 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
-      </div>
+      </DashboardSection>
     </div>
   );
 }

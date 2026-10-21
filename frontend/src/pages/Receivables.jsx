@@ -63,6 +63,7 @@ export default function Receivables() {
       )}
 
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -106,7 +107,6 @@ export default function Receivables() {
           </tbody>
         </table>
         </div>
-        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ test('pagination exposes a page-size selector with the current size selected', a
       onPageSizeChange() {},
     }));
 
+    assert.match(html, /<nav class="[^"]*border-b/);
     assert.match(html, /aria-label="Itens por página"/);
     assert.match(html, /<option value="10">10<\/option>/);
     assert.match(html, /<option value="20" selected="">20<\/option>/);

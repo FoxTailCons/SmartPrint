@@ -14,6 +14,7 @@ const unitLabel = (value) => ({
 export default function ProductList({ products, isAdmin, page, pageSize, total, onPageChange, onPageSizeChange, onEdit, onToggleActive }) {
   return (
     <>
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
       <div className="divide-y">
         {products.map((product) => (
           <div key={product._id} className="flex flex-wrap items-center gap-3 px-5 py-4">
@@ -47,7 +48,6 @@ export default function ProductList({ products, isAdmin, page, pageSize, total, 
           </div>
         ))}
       </div>
-      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
     </>
   );
 }

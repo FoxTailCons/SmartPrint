@@ -8,7 +8,7 @@ export default function Pagination({ page, pageSize, total, onPageChange, onPage
   if (!state.total) return null;
 
   return (
-    <nav className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm" aria-label="Paginação da lista">
+    <nav className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm" aria-label="Paginação da lista">
       <p className="text-slate-500" aria-live="polite">
         Exibindo {state.firstItem}–{state.lastItem} de {state.total}
       </p>

@@ -84,6 +84,7 @@ export default function AuditLog() {
         </label>
       </section>
       <section className="overflow-hidden rounded-xl border bg-white shadow-sm" aria-label="Registros de auditoria">
+        <Pagination page={list.page} pageSize={list.pageSize} total={list.total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -114,7 +115,6 @@ export default function AuditLog() {
             </tbody>
           </table>
         </div>
-        <Pagination page={list.page} pageSize={list.pageSize} total={list.total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
       </section>
     </div>
   );

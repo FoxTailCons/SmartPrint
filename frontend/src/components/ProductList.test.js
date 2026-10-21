@@ -26,6 +26,7 @@ test('product list renders one shared pagination control, not one per item', asy
     }));
 
     assert.equal((html.match(/aria-label="Paginação da lista"/g) || []).length, 1);
+    assert.ok(html.indexOf('aria-label="Paginação da lista"') < html.indexOf('Cópia A4'));
     assert.match(html, /Cópia A4/);
     assert.match(html, /Banner/);
   } finally {

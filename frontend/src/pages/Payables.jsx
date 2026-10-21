@@ -127,6 +127,7 @@ export default function Payables() {
       {actionError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>}
 
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -174,7 +175,6 @@ export default function Payables() {
           </tbody>
         </table>
         </div>
-        <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
       </div>
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="Cadastrar conta a pagar">

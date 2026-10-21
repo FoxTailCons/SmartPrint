@@ -1,6 +1,6 @@
-export default function BrandMark({ dark = false }) {
+export default function BrandMark({ dark = false, compact = false }) {
   return (
-    <div className={`brand-lockup ${dark ? 'brand-lockup-dark' : ''}`}>
+    <div className={`brand-lockup ${dark ? 'brand-lockup-dark' : ''} ${compact ? 'brand-lockup-compact' : ''}`}>
       <div className="brand-mark" aria-hidden="true">
         <span className="brand-mark-cyan" />
         <span className="brand-mark-magenta" />
@@ -8,7 +8,7 @@ export default function BrandMark({ dark = false }) {
         <span className="brand-mark-black" />
         <span className="brand-mark-center" />
       </div>
-      <div className="brand-wordmark">
+      <div className={`brand-wordmark ${compact ? 'lg:hidden' : ''}`}>
         <strong>SmartPrint</strong>
         <span>Acessórios de papelaria<br />e gráfica rápida</span>
       </div>
