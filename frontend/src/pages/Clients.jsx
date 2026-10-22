@@ -168,6 +168,19 @@ export default function Clients() {
             </div>
             {expanded === c._id && detail?.[c._id] && (
               <div className="bg-slate-50 px-5 py-4 border-t">
+                <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {[
+                    ['Telefone', detail[c._id].phone],
+                    ['E-mail', detail[c._id].email],
+                    ['CPF/CNPJ', detail[c._id].document],
+                    ['Endereço', detail[c._id].address],
+                  ].map(([label, value]) => (
+                    <div key={label} className="text-sm">
+                      <div className="text-xs text-slate-500">{label}</div>
+                      <div className="break-words">{value || 'Não informado'}</div>
+                    </div>
+                  ))}
+                </div>
                 <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                   <span>Saldo em aberto: <strong className="text-red-600">{fmt(detail[c._id].openBalance || 0)}</strong></span>
                   <span>Preferência de pagamento: <strong>{paymentMethodLabels[detail[c._id].paymentPreference] || 'não identificada'}</strong></span>

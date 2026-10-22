@@ -18,12 +18,16 @@ const catLabel = { consumo: 'Conta de consumo', insumo: 'Insumo/Material', alugu
 export default function Payables() {
   const [showNew, setShowNew] = useState(false);
   const [filter, setFilter] = useState('open');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [actionError, setActionError] = useState('');
   const [form, setForm] = useState({ description: '', category: 'consumo', value: '', dueDate: '', recurring: false, notes: '' });
-  const filters = filter === 'all' ? '' : `paid=${filter === 'paid'}`;
-  const list = useServerPagination('/api/payables', filters, page, pageSize);
+  const paidFilter = filter === 'paid' ? 'true' : filter === 'open' ? 'false' : '';
+  const dateFilter = fromDate || toDate ? `from=${fromDate}&to=${toDate}` : '';
+  const allFilters = [paidFilter, dateFilter].filter(Boolean).join('&');
+  const list = useServerPagination('/api/payables', allFilters, page, pageSize);
   const { items, total, summary, loading, error, retry } = list;
   const listState = getListState({ loading, error, items });
 
@@ -88,11 +92,13 @@ export default function Payables() {
         </div>
         <div className="flex flex-wrap gap-2">
           <PeriodExport type="finance" label="Exportar financeiro CSV" />
-          <select value={filter} onChange={(e) => { setPage(1); setFilter(e.target.value); }} className="px-3 py-2 border rounded-lg text-sm bg-white">
+          <select value={filter} onChange={(e) => { setPage(1); setFilter(e.target.value); setFromDate(''); setToDate(''); }} className="px-3 py-2 border rounded-lg text-sm bg-white">
             <option value="open">Em aberto</option>
             <option value="paid">Pagas</option>
             <option value="all">Todas</option>
           </select>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="px-3 py-2 border rounded-lg text-sm bg-white" placeholder="De" />
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="px-3 py-2 border rounded-lg text-sm bg-white" placeholder="Até" />
           <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
             <Plus size={16} /> Nova Conta
           </button>

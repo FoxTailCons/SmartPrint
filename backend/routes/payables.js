@@ -13,9 +13,11 @@ export const createPayableListHandler = ({ PayableModel = Payable } = {}) => asy
   const pagination = parsePagination(req.query);
   if (pagination?.error) return res.status(400).json({ message: pagination.error });
 
-  const { paid } = req.query;
+  const { paid, from, to } = req.query;
   const filter = {};
   if (paid !== undefined) filter.paid = paid === 'true';
+  if (from) filter.dueDate = { ...filter.dueDate, $gte: new Date(from) };
+  if (to) filter.dueDate = { ...filter.dueDate, $lte: new Date(to) };
   if (!pagination) return res.json(await PayableModel.find(filter).sort({ dueDate: 1 }));
 
   const total = await PayableModel.countDocuments(filter);
