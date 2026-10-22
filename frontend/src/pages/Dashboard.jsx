@@ -310,6 +310,51 @@ export default function Dashboard() {
         </div>
       </DashboardSection>
 
+      {/* Pedidos recentes / produção ativa */}
+      <DashboardSection title="Pedidos recentes">
+        <div className="mb-4 flex justify-end">
+          <Link to="/pedidos" className="text-sm text-brand-600 hover:underline">Ver todos</Link>
+        </div>
+        <div className="-mx-4 -mb-4 overflow-x-auto sm:-mx-5 sm:-mb-5">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+              <tr>
+                <th className="text-left px-5 py-3">Nº</th>
+                <th className="text-left px-5 py-3">Cliente</th>
+                <th className="text-left px-5 py-3">Status</th>
+                <th className="text-left px-5 py-3">Produção</th>
+                <th className="text-left px-5 py-3">Pagamento</th>
+                <th className="text-right px-5 py-3">Valor</th>
+                <th className="text-right px-5 py-3">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentOrders.length === 0 && (
+                <tr><td colSpan="7" className="text-center py-8 text-slate-400">Nenhum pedido ainda. Crie o primeiro orçamento!</td></tr>
+              )}
+              {recentOrders.map((o) => (
+                <tr key={o._id} className="border-t hover:bg-slate-50">
+                  <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
+                  <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
+                  <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
+                  <td className="px-5 py-3"><StatusBadge value={o.production} /></td>
+                  <td className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
+                  <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="inline-flex gap-2">
+                      <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
+                      <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />
+                      <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
+                      <Link to={`/pedidos/${o._id}`} className="inline-flex items-center px-2.5 py-1.5 rounded-lg border text-xs hover:bg-slate-50">Abrir</Link>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </DashboardSection>
+
       <DashboardSection title="Pedidos e produção">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {cards.map((card) => <Card key={card.key} {...card} open={activeDetail === card.key} onClick={() => setActiveDetail(activeDetail === card.key ? null : card.key)} />)}
@@ -630,50 +675,6 @@ export default function Dashboard() {
 
       <OrderForm modal open={newOrderOpen} onCancel={() => setNewOrderOpen(false)} onSaved={() => { setNewOrderOpen(false); load(); }} />
 
-      {/* Pedidos recentes / produção ativa */}
-      <DashboardSection title="Pedidos recentes">
-        <div className="mb-4 flex justify-end">
-          <Link to="/pedidos" className="text-sm text-brand-600 hover:underline">Ver todos</Link>
-        </div>
-        <div className="-mx-4 -mb-4 overflow-x-auto sm:-mx-5 sm:-mb-5">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-              <tr>
-                <th className="text-left px-5 py-3">Nº</th>
-                <th className="text-left px-5 py-3">Cliente</th>
-                <th className="text-left px-5 py-3">Status</th>
-                <th className="text-left px-5 py-3">Produção</th>
-                <th className="text-left px-5 py-3">Pagamento</th>
-                <th className="text-right px-5 py-3">Valor</th>
-                <th className="text-right px-5 py-3">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrders.length === 0 && (
-                <tr><td colSpan="7" className="text-center py-8 text-slate-400">Nenhum pedido ainda. Crie o primeiro orçamento!</td></tr>
-              )}
-              {recentOrders.map((o) => (
-                <tr key={o._id} className="border-t hover:bg-slate-50">
-                  <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
-                  <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
-                  <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
-                  <td className="px-5 py-3"><StatusBadge value={o.production} /></td>
-                  <td className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
-                  <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="inline-flex gap-2">
-                      <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
-                      <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />
-                      <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
-                      <Link to={`/pedidos/${o._id}`} className="inline-flex items-center px-2.5 py-1.5 rounded-lg border text-xs hover:bg-slate-50">Abrir</Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </DashboardSection>
     </div>
   );
 }

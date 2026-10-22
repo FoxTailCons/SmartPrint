@@ -1,4 +1,4 @@
-﻿Acabamentoimport { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Plus, Search } from 'lucide-react';
 import { api, fmt } from '../api';
@@ -16,11 +16,12 @@ import { getOrderPaymentStatus } from './orderBalance.js';
 import PeriodExport from '../components/PeriodExport.jsx';
 
 const DEFAULT_PAGE_SIZE = 20;
-export function ProductionStageTracker({ order }) {
+export function ProductionStageTracker({ order, onAdvance, busy = false }) {
   const currentStage = getProductionStage(order);
   const currentIndex = productionStages.findIndex(([key]) => key === currentStage);
   const skippedStages = order.skippedStages || [];
   const requiredStages = productionStages.filter(([key]) => !skippedStages.includes(key));
+  const nextStage = productionStages.find(([key], index) => index > currentIndex && !skippedStages.includes(key))?.[0];
   const completedCount = currentStage === 'entregue'
     ? requiredStages.length
     : requiredStages.filter(([key]) => productionStages.findIndex(([stage]) => stage === key) < currentIndex).length;
@@ -28,11 +29,11 @@ export function ProductionStageTracker({ order }) {
     <div>
       <div
         role="progressbar"
-        aria-label="Progresso das etapas de produÃ§Ã£o"
+        aria-label="Progresso das etapas de produção"
         aria-valuemin={0}
         aria-valuemax={requiredStages.length}
         aria-valuenow={completedCount}
-        aria-valuetext={`${completedCount} de ${requiredStages.length} etapas concluÃ­das${currentStage !== 'entregue' ? `; etapa atual: ${productionStages[currentIndex]?.[1] || currentStage}` : '; pedido entregue'}`}
+        aria-valuetext={`${completedCount} de ${requiredStages.length} etapas concluídas${currentStage !== 'entregue' ? `; etapa atual: ${productionStages[currentIndex]?.[1] || currentStage}` : '; pedido entregue'}`}
         className="flex min-w-64 gap-1"
       >
         {productionStages.map(([key, label], index) => {
@@ -42,19 +43,28 @@ export function ProductionStageTracker({ order }) {
           return (
             <span
               key={key}
-              title={`${label}: ${skipped ? 'dispensada' : completed ? 'concluÃ­da' : current ? 'atual' : 'pendente'}`}
+              title={`${label}: ${skipped ? 'dispensada' : completed ? 'concluída' : current ? 'atual' : 'pendente'}`}
               className={`h-2 flex-1 rounded-full ${skipped ? 'bg-slate-200' : completed ? 'bg-emerald-500' : current ? 'bg-blue-600' : 'bg-slate-200'}`}
             />
           );
         })}
       </div>
-      <ol aria-label="Etapas de produÃ§Ã£o" className="mt-1 flex min-w-64 gap-1">
+      <ol aria-label="Etapas de produção" className="mt-1 flex min-w-64 gap-1">
       {productionStages.map(([key, label], index) => {
         const skipped = skippedStages.includes(key);
-        const state = skipped ? 'dispensada' : index < currentIndex || currentStage === 'entregue' ? 'concluÃ­da' : index === currentIndex ? 'atual' : 'pendente';
+        const state = skipped ? 'dispensada' : index < currentIndex || currentStage === 'entregue' ? 'concluída' : index === currentIndex ? 'atual' : 'pendente';
         return (
-          <li key={key} title={`${label}: ${state}`} className={`min-w-0 flex-1 break-words rounded-md px-1 py-1 text-[10px] leading-tight ${state === 'concluÃ­da' ? 'bg-emerald-50 text-emerald-700' : state === 'atual' ? 'bg-blue-100 font-semibold text-blue-800' : state === 'dispensada' ? 'bg-slate-100 text-slate-400 line-through' : 'bg-slate-50 text-slate-500'}`}>
-            {label}
+          <li key={key} title={`${label}: ${state}`} className={`min-w-0 flex-1 break-words rounded-md text-[10px] leading-tight ${state === 'concluída' ? 'bg-emerald-50 text-emerald-700' : state === 'atual' ? 'bg-blue-100 font-semibold text-blue-800' : state === 'dispensada' ? 'bg-slate-100 text-slate-400 line-through' : 'bg-slate-50 text-slate-500'}`}>
+            <button
+              type="button"
+              disabled={key !== nextStage || order.status !== 'aprovado' || order.production === 'pausado' || busy}
+              onClick={() => onAdvance?.(order)}
+              aria-label={`Avançar para ${label}`}
+              aria-current={key === currentStage ? 'step' : undefined}
+              className={`w-full rounded-md px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 disabled:cursor-default ${key === nextStage && order.status === 'aprovado' && order.production !== 'pausado' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+            >
+              {label}
+            </button>
           </li>
         );
       })}
@@ -64,24 +74,23 @@ export function ProductionStageTracker({ order }) {
 }
 
 const orderTabs = [
-  { status: 'pendente', label: 'Pendente aprovaÃ§Ã£o' },
-  { status: 'aprovado', label: 'Pendente execuÃ§Ã£o' },
-  { status: 'concluido', label: 'ConcluÃ­do' },
+  { status: 'active', label: 'Orçamentos/Pedidos' },
   { status: 'cancelado', label: 'Cancelados' },
 ];
 const filters = [
   { key: 'paymentStatus', label: 'Pagamento', options: ['', 'aberto', 'parcial', 'pago', 'quitado'], labels: ['Todos', 'Aberto', 'Parcial', 'Pago', 'Quitado'] },
-  { key: 'production', label: 'ProduÃ§Ã£o', options: ['', 'nao_iniciado', 'em_producao', 'pausado', 'concluido'], labels: ['Todos', 'NÃ£o iniciado', 'Em produÃ§Ã£o', 'Pausado', 'ConcluÃ­do'] },
+  { key: 'production', label: 'Produção', options: ['', 'nao_iniciado', 'em_producao', 'pausado'], labels: ['Todos', 'Não iniciado', 'Em produção', 'Pausado'] },
 ];
 
 export default function Orders() {
   const [query, setQuery] = useState('');
   const [f, setF] = useState({ paymentStatus: '', production: '' });
-  const [activeTab, setActiveTab] = useState('pendente');
+  const [activeTab, setActiveTab] = useState('active');
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [approvingId, setApprovingId] = useState('');
   const [approvalMessage, setApprovalMessage] = useState('');
   const [approvalError, setApprovalError] = useState('');
+  const [advancingId, setAdvancingId] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const params = new URLSearchParams();
@@ -102,7 +111,7 @@ export default function Orders() {
     setApprovalError('');
     try {
       await api(`/api/orders/${order._id}/approve`, { method: 'POST' });
-      setApprovalMessage(`OrÃ§amento #${order.number} aprovado e convertido em pedido.`);
+      setApprovalMessage(`Orçamento #${order.number} aprovado e convertido em pedido.`);
       retry();
     } catch (err) {
       setApprovalError(err.message);
@@ -110,19 +119,42 @@ export default function Orders() {
       setApprovingId('');
     }
   };
+  const advanceStage = async (order) => {
+    const currentStage = getProductionStage(order);
+    const currentIndex = productionStages.findIndex(([key]) => key === currentStage);
+    const nextStage = productionStages.find(([key], index) => index > currentIndex && !(order.skippedStages || []).includes(key));
+    if (!nextStage) return;
+    const confirmation = nextStage[0] === 'entregue'
+      ? `Confirmar a entrega do pedido #${order.number}? O pedido será concluído.`
+      : `Avançar o pedido #${order.number} para ${nextStage[1]}?`;
+    if (!window.confirm(confirmation)) return;
+    setAdvancingId(order._id);
+    setApprovalError('');
+    try {
+      await api(`/api/orders/${order._id}/production/advance`, {
+        method: 'POST',
+        body: { expectedStage: currentStage },
+      });
+      retry();
+    } catch (err) {
+      setApprovalError(err.message);
+    } finally {
+      setAdvancingId('');
+    }
+  };
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Pedidos / OrÃ§amentos</h1>
-          <p className="text-sm text-slate-500">{total} pedido(s)/orÃ§amento(s) nesta aba</p>
+          <h1 className="text-2xl font-bold">Pedidos / Orçamentos</h1>
+          <p className="text-sm text-slate-500">{total} pedido(s)/orçamento(s) nesta aba</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PeriodExport type="orders" label="Exportar pedidos CSV" />
-          <Link to="/pedido-rapido" className="rounded-lg border bg-white px-4 py-2 text-sm font-medium">Pedido rÃ¡pido Â· F2</Link>
+          <Link to="/pedido-rapido" className="rounded-lg border bg-white px-4 py-2 text-sm font-medium">Pedido rápido · F2</Link>
           <button type="button" onClick={() => setNewOrderOpen(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            <Plus size={16} /> Novo OrÃ§amento
+            <Plus size={16} /> Novo Orçamento
           </button>
         </div>
       </div>
@@ -150,7 +182,7 @@ export default function Orders() {
           <input
             value={query}
             onChange={(e) => { setPage(1); setQuery(e.target.value); }}
-            placeholder="Buscar por nÃºmero ou cliente..."
+            placeholder="Buscar por número ou cliente..."
             className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
@@ -174,14 +206,14 @@ export default function Orders() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
-                <th className="text-left px-5 py-3">NÂº</th>
+                <th className="text-left px-5 py-3">Nº</th>
                 <th className="text-left px-5 py-3">Cliente</th>
                 <th className="text-left px-5 py-3">Status</th>
-                <th className="text-left px-5 py-3">ProduÃ§Ã£o</th>
+                <th className="text-left px-5 py-3">Produção</th>
                 <th className="text-left px-5 py-3">Pagamento</th>
                 <th className="text-right px-5 py-3">Pago</th>
                 <th className="text-right px-5 py-3">Valor</th>
-                <th className="text-right px-5 py-3">AÃ§Ãµes</th>
+                <th className="text-right px-5 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -195,7 +227,7 @@ export default function Orders() {
                 </td></tr>
               )}
               {listState === 'empty' && (
-                <tr><td colSpan="8" className="text-center py-10 text-slate-400">Nenhum pedido ou orÃ§amento encontrado.</td></tr>
+                <tr><td colSpan="8" className="text-center py-10 text-slate-400">Nenhum pedido ou orçamento encontrado.</td></tr>
               )}
               {listState === 'ready' && orders.map((o) => (
                 <tr key={o._id} className="border-t hover:bg-slate-50">
@@ -203,12 +235,17 @@ export default function Orders() {
                     <div className="text-xs text-slate-500">{getOrderDocumentLabel(o)}</div>
                     <div className="font-mono font-semibold">#{o.number}</div>
                   </td>
-                  <td className="px-5 py-3">{o.client?.name || 'Cliente nÃ£o cadastrado'}</td>
-                  <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
+                  <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
                   <td className="px-5 py-3">
-                    {o.status === 'pendente' ? <span className="text-xs text-slate-500">Aguardando aprovaÃ§Ã£o</span> : o.status === 'cancelado' ? <StatusBadge value="cancelado" /> : <>
+                    <StatusBadge value={o.status} />
+                    {o.status === 'pendente' && <button type="button" disabled={Boolean(approvingId) || Boolean(advancingId)} onClick={() => approveQuote(o)} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                      <CheckCircle2 size={14} /> {approvingId === o._id ? 'Aprovando...' : 'Aprovar'}
+                    </button>}
+                  </td>
+                  <td className="px-5 py-3">
+                    {o.status === 'pendente' ? <span className="text-xs text-slate-500">Aguardando aprovação</span> : o.status === 'cancelado' ? <StatusBadge value="cancelado" /> : <>
                       <StatusBadge value={o.production} />
-                      <div className="mt-2"><ProductionStageTracker order={o} /></div>
+                      <div className="mt-2"><ProductionStageTracker order={o} onAdvance={advanceStage} busy={advancingId === o._id} /></div>
                       <div className={`mt-1 text-xs ${getDeadline(o).overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{getDeadline(o).label}</div>
                     </>}
                   </td>
@@ -217,9 +254,6 @@ export default function Orders() {
                   <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
                   <td className="px-5 py-3 text-right">
                     <div className="inline-flex gap-2">
-                      {o.status === 'pendente' && <button type="button" disabled={Boolean(approvingId)} onClick={() => approveQuote(o)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-                        <CheckCircle2 size={14} /> {approvingId === o._id ? 'Aprovando...' : 'Aprovar'}
-                      </button>}
                       {o.status !== 'cancelado' && <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}
                       {o.status !== 'cancelado' && <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />}
                       {o.status !== 'cancelado' && <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}

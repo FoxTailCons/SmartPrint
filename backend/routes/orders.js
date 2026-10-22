@@ -415,7 +415,8 @@ export const createOrderListHandler = ({ OrderModel = Order, ClientModel = Clien
 
   const { status, paymentStatus, production, client, q } = req.query;
   const filter = {};
-  if (status) filter.status = status;
+  if (status === 'active') filter.status = { $in: ['pendente', 'aprovado'] };
+  else if (status) filter.status = status;
   if (paymentStatus && paymentStatusExpressions[paymentStatus]) {
     filter.$expr = paymentStatusExpressions[paymentStatus];
   } else if (paymentStatus) filter.paymentStatus = paymentStatus;
@@ -816,6 +817,7 @@ router.get('/settings', allowRoles('admin', 'atendente'), (req, res) => {
 router.post('/quick-sale', allowRoles('admin', 'atendente'), createQuickSaleHandler());
 router.post('/:id/production/assignment', allowRoles('admin'), createProductionAssignmentHandler());
 router.post('/:id/production/task', allowRoles('admin', 'atendente', 'producao'), createProductionTaskHandler());
+router.post('/:id/production/advance', allowRoles('admin', 'atendente'), createProductionAdvanceHandler());
 
 router.get('/:id', allowRoles('admin', 'atendente', 'producao'), async (req, res) => {
   const order = await Order.findById(req.params.id).populate('client');

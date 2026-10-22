@@ -38,7 +38,7 @@ test('legacy stages, configured skips, conflicts and calendar deadlines',()=>{
   assert.equal(boardOrders(rows,{deadline:'today'},new Date('2026-10-20T12:00:00Z')).length,1);
   assert.equal(boardOrders(rows,{},new Date('2026-10-20T12:00:00Z'))[0].priority,'urgente');
 });
-import { createQuickSaleHandler, createProductionAdvanceHandler, createProductionAssignmentHandler, createProductionTaskHandler, createWhatsappHandler, buildWhatsappText, itemDocumentDetails, buildOrderItems, buildQuoteValidityDate, normalizeWhatsappPhone } from '../routes/orders.js';
+import ordersRouter, { createQuickSaleHandler, createProductionAdvanceHandler, createProductionAssignmentHandler, createProductionTaskHandler, createWhatsappHandler, buildWhatsappText, itemDocumentDetails, buildOrderItems, buildQuoteValidityDate, normalizeWhatsappPhone } from '../routes/orders.js';
 import Product from '../models/Product.js';
 const response = () => ({statusCode:200,status(value){this.statusCode=value;return this;},json(value){this.body=value;return this;}});
 const user = {_id:'507f1f77bcf86cd799439099',name:'Atendente'};
@@ -96,6 +96,11 @@ test('production racing update and paused requests cannot advance',async()=>{
   const model={findById:async()=>({_id:product._id,status:'aprovado',production:'em_producao',productionStage:'arte'}),findOneAndUpdate:async()=>{writes++;return null;}};
   const handler=createProductionAdvanceHandler({OrderModel:model});const res=response();await handler({params:{id:product._id},user,body:{expectedStage:'arte'}},res);assert.equal(res.statusCode,409);
   model.findById=async()=>({status:'aprovado',production:'pausado',productionStage:'arte'});const paused=response();await handler({params:{id:product._id},user,body:{expectedStage:'arte'}},paused);assert.equal(paused.statusCode,400);assert.equal(writes,1);
+});
+test('orders router exposes the authorized production-stage advance action', () => {
+  const route = ordersRouter.stack.find((layer) => layer.route?.path === '/:id/production/advance');
+  assert.ok(route);
+  assert.equal(route.route.methods.post, true);
 });
 test('production assignment is Admin-controlled and limited to active operational users',async()=>{
   let update;
