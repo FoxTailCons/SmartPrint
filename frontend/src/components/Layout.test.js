@@ -31,7 +31,7 @@ test('navigation exposes the production dashboard and a labeled desktop collapse
 test('responsive tables expose labeled cards on narrow screens', async () => {
   const styles = await readFile(new URL('../index.css', import.meta.url), 'utf8');
 
-  assert.match(styles, /@media \(max-width: 1023px\)/);
+  assert.match(styles, /@media \(max-width: 1199px\)/);
   assert.match(styles, /\.responsive-table tbody td::before/);
   assert.match(styles, /content: attr\(data-label\)/);
 });

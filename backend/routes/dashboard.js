@@ -33,6 +33,10 @@ export const filterOrdersForDashboard = (orders = [], filters = {}, now = new Da
   });
 };
 
+export const getRecentOrders = (orders = [], limit = 10) => [...orders]
+  .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+  .slice(0, limit);
+
 export const filterActiveProductionOrders = (orders = []) => ({
   inProduction: orders.filter((order) => order.status === 'aprovado' && order.production === 'em_producao'),
   paused: orders.filter((order) => order.status === 'aprovado' && order.production === 'pausado'),
@@ -354,7 +358,7 @@ router.get('/', async (req, res) => {
   const monthlyComparison = buildMonthlyComparison(salesOrders, now);
 
   // Últimos pedidos para o feed do dashboard
-  const recent = filteredOrders.slice(0, 10);
+  const recent = getRecentOrders(filteredOrders);
 
   res.json({
     counts: {

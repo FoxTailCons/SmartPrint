@@ -8,6 +8,7 @@ import {
   buildServiceMargins,
   filterActiveProductionOrders,
   filterOrdersForDashboard,
+  getRecentOrders,
   buildMonthlyComparison,
   buildDailyUrgencies,
 } from '../routes/dashboard.js';
@@ -64,6 +65,17 @@ test('active production counts exclude canceled orders with leftover production 
 
   assert.equal(active.inProduction.length, 1);
   assert.equal(active.paused.length, 1);
+});
+
+test('recent dashboard orders are sorted newest first without mutating the source list', () => {
+  const orders = [
+    { _id: 'oldest', createdAt: '2026-01-01T00:00:00.000Z' },
+    { _id: 'newest', createdAt: '2026-03-01T00:00:00.000Z' },
+    { _id: 'middle', createdAt: '2026-02-01T00:00:00.000Z' },
+  ];
+
+  assert.deepEqual(getRecentOrders(orders).map((order) => order._id), ['newest', 'middle', 'oldest']);
+  assert.deepEqual(orders.map((order) => order._id), ['oldest', 'newest', 'middle']);
 });
 
 test('buildDailyUrgencies includes due open payables and active approved orders requiring attention', () => {

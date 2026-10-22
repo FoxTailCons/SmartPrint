@@ -33,16 +33,26 @@ button, input, select, textarea { font: inherit; }
   table-layout: fixed;
 }
 
+.responsive-table colgroup {
+  display: none;
+}
+
 .responsive-table th,
 .responsive-table td {
   overflow-wrap: anywhere;
+}
+
+@media (min-width: 1200px) {
+  .responsive-table colgroup {
+    display: table-column-group;
+  }
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-@media (max-width: 1023px) {
+@media (max-width: 1199px) {
   .responsive-table,
   .responsive-table tbody {
     display: block;

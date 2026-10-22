@@ -139,9 +139,9 @@ export default function Products() {
 
       <form
         onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}
-        className="flex max-w-2xl flex-wrap items-center gap-3"
+        className="flex w-full flex-wrap items-center gap-3"
       >
-        <div className="relative min-w-56 flex-1">
+        <div className="relative min-w-0 flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={queryInput}
@@ -151,7 +151,7 @@ export default function Products() {
           />
         </div>
         <button type="submit" className="rounded-lg border bg-white px-4 py-2 text-sm hover:bg-slate-50">Buscar</button>
-        <select aria-label="Filtrar por categoria" value={category} onChange={(event) => { setPage(1); setCategory(event.target.value); }} className="rounded-lg border bg-white px-3 py-2 text-sm">
+        <select aria-label="Filtrar por categoria" value={category} onChange={(event) => { setPage(1); setCategory(event.target.value); }} className="max-w-full rounded-lg border bg-white px-3 py-2 text-sm">
           <option value="">Todas as categorias</option>
           <option value="sem_categoria">Sem categoria</option>
           {productCategories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Plus, Search } from 'lucide-react';
-import { api, fmt, fmtCivilDate } from '../api';
+import { api, fmt } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
@@ -209,18 +209,30 @@ export default function Orders() {
         <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
         <div className="min-w-0">
           <table className="responsive-table text-sm">
+            <colgroup>
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '24%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '13%' }} />
+            </colgroup>
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
-                <th className="text-left px-5 py-3">Nº</th>
-                <th className="text-left px-5 py-3">Cliente</th>
-                <th className="text-left px-5 py-3">Status</th>
-                <th className="text-left px-5 py-3">Produção</th>
-                <th className="text-left px-5 py-3">Data de entrega</th>
-                <th className="text-left px-5 py-3">Pagamento</th>
-                <th className="text-right px-5 py-3">Pago</th>
-                <th className="text-right px-5 py-3">A PAGAR</th>
-                <th className="text-right px-5 py-3">TOTAL</th>
-                <th className="text-right px-5 py-3">Ações</th>
+                <th className="text-left px-2 py-3">Nº</th>
+                <th className="text-left px-2 py-3">Cliente</th>
+                <th className="text-left px-2 py-3">Status</th>
+                <th className="text-left px-2 py-3">Produção</th>
+                <th className="text-left px-2 py-3">Data de entrega</th>
+                <th className="text-left px-2 py-3">Pagamento</th>
+                <th className="text-right px-2 py-3">Pago</th>
+                <th className="text-right px-2 py-3">A PAGAR</th>
+                <th className="text-right px-2 py-3">TOTAL</th>
+                <th className="text-right px-2 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -238,30 +250,29 @@ export default function Orders() {
               )}
               {listState === 'ready' && orders.map((o) => (
                 <tr key={o._id} className="border-t hover:bg-slate-50">
-                  <td data-label="Nº" className="px-5 py-3">
+                  <td data-label="Nº" className="px-2 py-3">
                     <div className="text-xs text-slate-500">{getOrderDocumentLabel(o)}</div>
                     <div className="font-mono font-semibold">#{o.number}</div>
                   </td>
-                  <td data-label="Cliente" className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
-                  <td data-label="Status" className="px-5 py-3">
+                  <td data-label="Cliente" className="px-2 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
+                  <td data-label="Status" className="px-2 py-3">
                     <StatusBadge value={o.status} />
                     {o.status === 'pendente' && <button type="button" disabled={Boolean(approvingId) || Boolean(advancingId)} onClick={() => approveQuote(o)} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
                       <CheckCircle2 size={14} /> {approvingId === o._id ? 'Aprovando...' : 'Aprovar'}
                     </button>}
                   </td>
-                  <td data-label="Produção" className="px-5 py-3">
+                  <td data-label="Produção" className="px-2 py-3">
                     {o.status === 'pendente' ? <span className="text-xs text-slate-500">Aguardando aprovação</span> : o.status === 'cancelado' ? <StatusBadge value="cancelado" /> : <>
                       <ProductionStatus value={o.production} />
                       <div className="mt-2"><ProductionStageTracker order={o} onAdvance={advanceStage} busy={advancingId === o._id} /></div>
-                      <div className={`mt-1 text-xs ${getDeadline(o).overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{getDeadline(o).label}</div>
                     </>}
                   </td>
-                  <td data-label="Data de entrega" className="px-5 py-3">{fmtCivilDate(getDeadline(o).date)}</td>
-                  <td data-label="Pagamento" className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
-                  <td data-label="Pago" className="px-5 py-3 text-right">{fmt(o.amountPaid)}</td>
-                  <td data-label="A PAGAR" className="px-5 py-3 text-right">{fmt(getOrderBalance(o))}</td>
-                  <td data-label="TOTAL" className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
-                  <td data-label="Ações" className="px-5 py-3 text-right">
+                  <td data-label="Data de entrega" className={`px-2 py-3 text-xs ${getDeadline(o).overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{getDeadline(o).label}</td>
+                  <td data-label="Pagamento" className="px-2 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
+                  <td data-label="Pago" className="whitespace-nowrap px-2 py-3 text-right text-xs">{fmt(o.amountPaid)}</td>
+                  <td data-label="A PAGAR" className="whitespace-nowrap px-2 py-3 text-right text-xs">{fmt(getOrderBalance(o))}</td>
+                  <td data-label="TOTAL" className="whitespace-nowrap px-2 py-3 text-right text-xs font-semibold">{fmt(o.finalValue)}</td>
+                  <td data-label="Ações" className="px-2 py-3 text-right">
                     <div className="inline-flex flex-wrap gap-2">
                       {o.status !== 'cancelado' && <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}
                       {o.status !== 'cancelado' && <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />}

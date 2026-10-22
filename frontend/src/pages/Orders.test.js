@@ -21,6 +21,9 @@ test('orders page groups active quotes/orders and completed/canceled records', a
     assert.match(html, /A PAGAR/);
     assert.match(html, />TOTAL</);
     assert.match(html, /responsive-table/);
+    const columnWidths = [...html.matchAll(/<col style="width:(\d+)%"/g)].map(([, width]) => Number.parseInt(width, 10));
+    assert.deepEqual(columnWidths, [7, 9, 8, 24, 7, 8, 8, 8, 8, 13]);
+    assert.equal(columnWidths.reduce((total, width) => total + width, 0), 100);
   } finally {
     await server.close();
   }
@@ -32,9 +35,11 @@ test('production status badge disappears after production starts but remains bef
     const { ProductionStatus } = await server.ssrLoadModule('/src/pages/Orders.jsx');
     const started = renderToString(React.createElement(ProductionStatus, { value: 'em_producao' }));
     const notStarted = renderToString(React.createElement(ProductionStatus, { value: 'nao_iniciado' }));
+    const paused = renderToString(React.createElement(ProductionStatus, { value: 'pausado' }));
 
     assert.doesNotMatch(started, /Não iniciado|Em produção/);
     assert.match(notStarted, /Não iniciado/);
+    assert.match(paused, /Pausado/);
   } finally {
     await server.close();
   }

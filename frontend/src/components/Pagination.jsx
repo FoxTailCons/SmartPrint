@@ -14,7 +14,7 @@ export default function Pagination({ page, pageSize, total, onPageChange, onPage
       </p>
       <div className="flex flex-wrap items-center gap-2">
         {onPageSizeChange && (
-          <label className="flex items-center gap-2 whitespace-nowrap text-slate-600">
+          <label className="flex flex-wrap items-center gap-2 text-slate-600">
             Itens por página
             <select
               aria-label="Itens por página"
@@ -26,7 +26,7 @@ export default function Pagination({ page, pageSize, total, onPageChange, onPage
             </select>
           </label>
         )}
-        <div className="inline-flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => onPageChange(state.page - 1)}
