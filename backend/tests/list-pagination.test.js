@@ -66,6 +66,19 @@ test('active orders filter includes pending approval and approved execution orde
   assert.deepEqual(receivedFilter.status, { $in: ['pendente', 'aprovado'] });
 });
 
+test('closed orders filter groups completed and canceled orders', async () => {
+  let receivedFilter;
+  const OrderModel = {
+    countDocuments: async (filter) => { receivedFilter = filter; return 2; },
+    find: (filter) => { receivedFilter = filter; return query([]); },
+  };
+  const res = response();
+
+  await createOrderListHandler({ OrderModel })({ query: { status: 'closed', page: '1', pageSize: '20' } }, res);
+
+  assert.deepEqual(receivedFilter.status, { $in: ['concluido', 'cancelado'] });
+});
+
 test('orders list treats fully paid stale records as quitado and filters by calculated balance', async () => {
   let receivedFilter;
   const order = {

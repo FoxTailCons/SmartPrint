@@ -9,7 +9,7 @@ import { calculateAreaPerPiece } from './measurements.js';
 import { splitInstallmentAmounts } from './installmentMath.js';
 import { getOrderDocumentLabel, roundOrderTotalUp } from './orderPresentation.js';
 import { getQuantityPrice } from './catalogPricing.js';
-import { getCategoryLabel, itemTotal, priorityLabels, productCategories, productionStages, requiresQuoteClient, serializeOrderItems, updateSkippedStagesForRequirement } from './printshop.js';
+import { getCategoryLabel, itemTotal, normalizeSkippedStages, priorityLabels, productCategories, productionStages, requiresQuoteClient, serializeOrderItems, updateSkippedStagesForRequirement } from './printshop.js';
 import GraphicItemFields from '../components/GraphicItemFields.jsx';
 
 const emptyItem = { description: '', quantity: 1, unitPrice: 0, total: 0 };
@@ -47,7 +47,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [observations, setObservations] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [priority, setPriority] = useState('normal');
-  const [skippedStages, setSkippedStages] = useState(['instalacao']);
+  const [skippedStages, setSkippedStages] = useState(['acabamento']);
   const [installments, setInstallments] = useState([]); // {dueDate, amount}
   const [instCount, setInstCount] = useState(1);
   const [firstDue, setFirstDue] = useState('');
@@ -78,7 +78,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         setObservations(o.observations || '');
         setAttachments(o.attachments || []);
         setPriority(o.priority || 'normal');
-        setSkippedStages(o.skippedStages || []);
+        setSkippedStages(normalizeSkippedStages(o.skippedStages || []));
         setInstallments(o.installments?.map((p) => ({ dueDate: calendarDate(p.dueDate), amount: p.amount })) || []);
       });
     }

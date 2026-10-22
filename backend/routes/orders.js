@@ -416,6 +416,7 @@ export const createOrderListHandler = ({ OrderModel = Order, ClientModel = Clien
   const { status, paymentStatus, production, client, q } = req.query;
   const filter = {};
   if (status === 'active') filter.status = { $in: ['pendente', 'aprovado'] };
+  else if (status === 'closed') filter.status = { $in: ['concluido', 'cancelado'] };
   else if (status) filter.status = status;
   if (paymentStatus && paymentStatusExpressions[paymentStatus]) {
     filter.$expr = paymentStatusExpressions[paymentStatus];
@@ -639,7 +640,7 @@ export function createProductionAdvanceHandler({ OrderModel = Order } = {}) {
   };
 }
 const taskRoles = ['admin', 'atendente', 'producao'];
-const taskStages = ['arte', 'aprovacao_cliente', 'impressao', 'instalacao'];
+const taskStages = ['arte', 'impressao', 'acabamento'];
 const taskActionStates = {
   start: { production: 'nao_iniciado', next: 'em_producao', history: 'producao_iniciada' },
   pause: { production: 'em_producao', next: 'pausado', history: 'pausado' },

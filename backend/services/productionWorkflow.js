@@ -2,11 +2,21 @@
 
 export { calendarDate };
 
-export const productionStages = ['arte', 'aprovacao_cliente', 'impressao', 'instalacao', 'entregue'];
-export const effectiveStage = (order) => order.productionStage || (order.status === 'concluido' || order.production === 'concluido' ? 'entregue' : ['em_producao', 'pausado'].includes(order.production) ? 'impressao' : 'arte');
+export const productionStages = ['arte', 'impressao', 'acabamento', 'entregue'];
+const legacyStageAliases = { aprovacao_cliente: 'impressao', instalacao: 'acabamento' };
+export const normalizeProductionStage = (stage) => legacyStageAliases[stage] || stage;
+export const normalizeSkippedStages = (skippedStages = []) => [...new Set(skippedStages
+  .map((stage) => stage === 'instalacao' ? 'acabamento' : stage)
+  .filter((stage) => productionStages.includes(stage) && stage !== 'entregue'))];
+export const effectiveStage = (order) => order.status === 'concluido' || order.production === 'concluido'
+  ? 'entregue'
+  : normalizeProductionStage(order.productionStage) || (['em_producao', 'pausado'].includes(order.production) ? 'impressao' : 'arte');
 export function initialProductionStage(skippedStages = []) {
-  if (!Array.isArray(skippedStages) || skippedStages.some(stage => !productionStages.slice(0, -1).includes(stage))) throw new Error('Etapas dispensadas inválidas');
-  const stage = productionStages.find(stage => !skippedStages.includes(stage));
+  if (!Array.isArray(skippedStages) || skippedStages.some(stage => (
+    !['arte', 'impressao', 'acabamento', 'instalacao', 'aprovacao_cliente'].includes(stage)
+  ))) throw new Error('Etapas dispensadas inválidas');
+  const normalizedSkippedStages = normalizeSkippedStages(skippedStages);
+  const stage = productionStages.find(stage => !normalizedSkippedStages.includes(stage));
   if (stage === 'entregue') throw new Error('Mantenha pelo menos uma etapa de produção');
   return stage;
 }
@@ -14,7 +24,7 @@ export function nextProductionStage(order, expectedStage, skip = false) {
   const fromStage = effectiveStage(order);
   if (expectedStage !== fromStage) throw Object.assign(new Error('Etapa alterada; atualize o pedido'), { statusCode: 409 });
   if (typeof skip !== 'boolean' || fromStage === 'entregue') throw new Error('Avanço de etapa inválido');
-  const skippedStages = [...(order.skippedStages || [])];
+  const skippedStages = normalizeSkippedStages(order.skippedStages || []);
   if (skip && !skippedStages.includes(fromStage)) skippedStages.push(fromStage);
   let index = productionStages.indexOf(fromStage) + 1;
   while (skippedStages.includes(productionStages[index])) index++;
@@ -38,7 +48,7 @@ export function mergeProductionWorkflow(orders, now = new Date()) {
   if (orders.some(order => order.quickSaleKey)) throw new Error('Vendas de balc\u00e3o possuem recibo individual e n\u00e3o podem ser agregadas');
   const allConcluded = orders.every(order => effectiveStage(order) === 'entregue');
   const productionStage = productionStages[Math.min(...orders.map(order => productionStages.indexOf(effectiveStage(order))))];
-  const skippedStages = productionStages.filter(stage => stage !== 'entregue' && orders.every(order => (order.skippedStages || []).includes(stage)));
+  const skippedStages = productionStages.filter(stage => stage !== 'entregue' && orders.every(order => normalizeSkippedStages(order.skippedStages || []).includes(stage)));
   const completions = orders.map(order => order.completedAt).filter(Boolean).map(value => new Date(value));
   return {productionStage,skippedStages,...(allConcluded?{completedAt:completions.length?new Date(Math.max(...completions)):now}:{})};
 }

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { buildCatalogOrderItem, normalizeItemMetadata } from '../services/orderItemPricing.js';
 import Order from '../models/Order.js';
-import { effectiveStage, nextProductionStage, calendarDate, boardOrders } from '../services/productionWorkflow.js';
+import { effectiveStage, nextProductionStage, calendarDate, boardOrders, normalizeProductionStage, normalizeSkippedStages } from '../services/productionWorkflow.js';
 
 const product = { _id: '507f1f77bcf86cd799439011', name: 'Cópia', saleUnit: 'unit', price: 1, category: 'xerox_impressao', priceTiers: [{minQuantity:21,price:0.8},{minQuantity:301,price:0.5}] };
 test('catalog order items take their category from the persisted product', async (t) => {
@@ -31,6 +31,9 @@ test('model totals include fees without multiplying fees by quantity', async()=>
 test('legacy stages, configured skips, conflicts and calendar deadlines',()=>{
   assert.equal(effectiveStage({production:'pausado'}),'impressao');
   assert.equal(effectiveStage({status:'concluido'}),'entregue');
+  assert.equal(normalizeProductionStage('instalacao'),'acabamento');
+  assert.equal(normalizeProductionStage('aprovacao_cliente'),'impressao');
+  assert.deepEqual(normalizeSkippedStages(['instalacao','aprovacao_cliente','arte']),['acabamento','arte']);
   assert.equal(nextProductionStage({productionStage:'arte',skippedStages:['aprovacao_cliente']},'arte').toStage,'impressao');
   assert.throws(()=>nextProductionStage({productionStage:'arte'},'impressao'),/alterada/);
   assert.equal(calendarDate('2026-10-20'),'2026-10-20');
@@ -250,7 +253,7 @@ import { mergeProductionWorkflow } from '../services/productionWorkflow.js';
 import { createProductionStateHandler } from '../routes/orders.js';
 test('merge retains earliest applicable stage, common skips and latest delivery',()=>{
   const merged=mergeProductionWorkflow([{status:'aprovado',productionStage:'aprovacao_cliente',skippedStages:['instalacao']},{status:'aprovado',productionStage:'impressao',skippedStages:['instalacao','arte']}]);
-  assert.equal(merged.productionStage,'aprovacao_cliente');assert.deepEqual(merged.skippedStages,['instalacao']);
+  assert.equal(merged.productionStage,'impressao');assert.deepEqual(merged.skippedStages,['acabamento']);
   const completed=mergeProductionWorkflow([{status:'concluido',completedAt:new Date('2026-10-19')},{status:'concluido',completedAt:new Date('2026-10-20')}]);
   assert.equal(completed.productionStage,'entregue');assert.equal(completed.completedAt.toISOString().slice(0,10),'2026-10-20');
   assert.throws(()=>mergeProductionWorkflow([{quickSaleKey:'sale'}]),/balc/);

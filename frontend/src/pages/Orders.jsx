@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Plus, Search } from 'lucide-react';
-import { api, fmt } from '../api';
+import { api, fmt, fmtCivilDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
 import PrintButton from '../components/PrintButton.jsx';
@@ -11,15 +11,15 @@ import { getListState } from '../hooks/listState.js';
 import { useServerPagination } from '../hooks/useServerPagination.js';
 import OrderForm from './OrderForm.jsx';
 import { getOrderDocumentLabel } from './orderPresentation.js';
-import { getDeadline, getProductionStage, productionStages } from './printshop.js';
-import { getOrderPaymentStatus } from './orderBalance.js';
+import { getDeadline, getProductionStage, normalizeSkippedStages, productionStages } from './printshop.js';
+import { getOrderBalance, getOrderPaymentStatus } from './orderBalance.js';
 import PeriodExport from '../components/PeriodExport.jsx';
 
 const DEFAULT_PAGE_SIZE = 20;
 export function ProductionStageTracker({ order, onAdvance, busy = false }) {
   const currentStage = getProductionStage(order);
   const currentIndex = productionStages.findIndex(([key]) => key === currentStage);
-  const skippedStages = order.skippedStages || [];
+  const skippedStages = normalizeSkippedStages(order.skippedStages || []);
   const requiredStages = productionStages.filter(([key]) => !skippedStages.includes(key));
   const nextStage = productionStages.find(([key], index) => index > currentIndex && !skippedStages.includes(key))?.[0];
   const completedCount = currentStage === 'entregue'
@@ -44,7 +44,7 @@ export function ProductionStageTracker({ order, onAdvance, busy = false }) {
             <span
               key={key}
               title={`${label}: ${skipped ? 'dispensada' : completed ? 'concluída' : current ? 'atual' : 'pendente'}`}
-              className={`h-2 flex-1 rounded-full ${skipped ? 'bg-slate-200' : completed ? 'bg-emerald-500' : current ? 'bg-blue-600' : 'bg-slate-200'}`}
+              className={`h-2 flex-1 rounded-full ${skipped ? 'bg-slate-200' : completed ? 'bg-emerald-500' : current ? 'bg-amber-400' : 'bg-slate-200'}`}
             />
           );
         })}
@@ -54,14 +54,14 @@ export function ProductionStageTracker({ order, onAdvance, busy = false }) {
         const skipped = skippedStages.includes(key);
         const state = skipped ? 'dispensada' : index < currentIndex || currentStage === 'entregue' ? 'concluída' : index === currentIndex ? 'atual' : 'pendente';
         return (
-          <li key={key} title={`${label}: ${state}`} className={`min-w-0 flex-1 break-words rounded-md text-[10px] leading-tight ${state === 'concluída' ? 'bg-emerald-50 text-emerald-700' : state === 'atual' ? 'bg-blue-100 font-semibold text-blue-800' : state === 'dispensada' ? 'bg-slate-100 text-slate-400 line-through' : 'bg-slate-50 text-slate-500'}`}>
+          <li key={key} title={`${label}: ${state}`} className={`min-w-0 flex-1 break-words rounded-md text-[10px] leading-tight ${state === 'concluída' ? 'bg-emerald-50 text-emerald-700' : state === 'atual' ? 'bg-amber-100 font-semibold text-amber-900' : state === 'dispensada' ? 'bg-slate-100 text-slate-400 line-through' : 'bg-slate-50 text-slate-500'}`}>
             <button
               type="button"
               disabled={key !== nextStage || order.status !== 'aprovado' || order.production === 'pausado' || busy}
               onClick={() => onAdvance?.(order)}
               aria-label={`Avançar para ${label}`}
               aria-current={key === currentStage ? 'step' : undefined}
-              className={`w-full rounded-md px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 disabled:cursor-default ${key === nextStage && order.status === 'aprovado' && order.production !== 'pausado' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+              className={`w-full rounded-md px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 disabled:cursor-default ${key === nextStage && order.status === 'aprovado' && order.production !== 'pausado' ? 'cursor-pointer hover:bg-amber-50' : ''}`}
             >
               {label}
             </button>
@@ -75,7 +75,7 @@ export function ProductionStageTracker({ order, onAdvance, busy = false }) {
 
 const orderTabs = [
   { status: 'active', label: 'Orçamentos/Pedidos' },
-  { status: 'cancelado', label: 'Cancelados' },
+  { status: 'closed', label: 'Concluídos/Cancelados' },
 ];
 const filters = [
   { key: 'paymentStatus', label: 'Pagamento', options: ['', 'aberto', 'parcial', 'pago', 'quitado'], labels: ['Todos', 'Aberto', 'Parcial', 'Pago', 'Quitado'] },
@@ -122,7 +122,8 @@ export default function Orders() {
   const advanceStage = async (order) => {
     const currentStage = getProductionStage(order);
     const currentIndex = productionStages.findIndex(([key]) => key === currentStage);
-    const nextStage = productionStages.find(([key], index) => index > currentIndex && !(order.skippedStages || []).includes(key));
+    const skippedStages = normalizeSkippedStages(order.skippedStages || []);
+    const nextStage = productionStages.find(([key], index) => index > currentIndex && !skippedStages.includes(key));
     if (!nextStage) return;
     const confirmation = nextStage[0] === 'entregue'
       ? `Confirmar a entrega do pedido #${order.number}? O pedido será concluído.`
@@ -210,24 +211,26 @@ export default function Orders() {
                 <th className="text-left px-5 py-3">Cliente</th>
                 <th className="text-left px-5 py-3">Status</th>
                 <th className="text-left px-5 py-3">Produção</th>
+                <th className="text-left px-5 py-3">Data de entrega</th>
                 <th className="text-left px-5 py-3">Pagamento</th>
                 <th className="text-right px-5 py-3">Pago</th>
-                <th className="text-right px-5 py-3">Valor</th>
+                <th className="text-right px-5 py-3">A PAGAR</th>
+                <th className="text-right px-5 py-3">TOTAL</th>
                 <th className="text-right px-5 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
               {listState === 'loading' && (
-                <tr><td colSpan="8"><ListSkeleton variant="table" rows={6} /></td></tr>
+                <tr><td colSpan="10"><ListSkeleton variant="table" rows={6} /></td></tr>
               )}
               {listState === 'error' && (
-                <tr><td colSpan="8" className="py-8 text-center text-sm text-red-700">
+                <tr><td colSpan="10" className="py-8 text-center text-sm text-red-700">
                   <div role="alert">{error}</div>
                   <button type="button" onClick={retry} className="mt-2 rounded-lg border px-3 py-1.5 hover:bg-red-50">Tentar novamente</button>
                 </td></tr>
               )}
               {listState === 'empty' && (
-                <tr><td colSpan="8" className="text-center py-10 text-slate-400">Nenhum pedido ou orçamento encontrado.</td></tr>
+                <tr><td colSpan="10" className="text-center py-10 text-slate-400">Nenhum pedido ou orçamento encontrado.</td></tr>
               )}
               {listState === 'ready' && orders.map((o) => (
                 <tr key={o._id} className="border-t hover:bg-slate-50">
@@ -249,8 +252,10 @@ export default function Orders() {
                       <div className={`mt-1 text-xs ${getDeadline(o).overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{getDeadline(o).label}</div>
                     </>}
                   </td>
+                  <td className="px-5 py-3">{fmtCivilDate(getDeadline(o).date)}</td>
                   <td className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
                   <td className="px-5 py-3 text-right">{fmt(o.amountPaid)}</td>
+                  <td className="px-5 py-3 text-right">{fmt(getOrderBalance(o))}</td>
                   <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
                   <td className="px-5 py-3 text-right">
                     <div className="inline-flex gap-2">

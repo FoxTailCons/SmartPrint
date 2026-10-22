@@ -1,9 +1,17 @@
 export const productionStages = [
-  ['arte', 'Arte'], ['aprovacao_cliente', 'Aprovação do cliente'], ['impressao', 'Impressão'],
-  ['instalacao', 'Instalação'], ['entregue', 'Entregue'],
+  ['arte', 'Arte'], ['impressao', 'Impressão'], ['acabamento', 'Acabamento'], ['entregue', 'Entregue'],
 ];
 
+const legacyStageAliases = { aprovacao_cliente: 'impressao', instalacao: 'acabamento' };
+
+export function normalizeSkippedStages(skippedStages = []) {
+  return [...new Set(skippedStages
+    .map((stage) => stage === 'instalacao' ? 'acabamento' : stage)
+    .filter((stage) => productionStages.some(([key]) => key !== 'entregue' && key === stage)))];
+}
+
 export function updateSkippedStagesForRequirement(skippedStages, stage, required) {
+  skippedStages = normalizeSkippedStages(skippedStages);
   return required
     ? skippedStages.filter((skippedStage) => skippedStage !== stage)
     : skippedStages.includes(stage) ? skippedStages : [...skippedStages, stage];
@@ -54,8 +62,8 @@ export function serializeOrderItems(items) {
 }
 
 export function getProductionStage(order) {
-  if (order.productionStage) return order.productionStage;
   if (order.production === 'concluido' || order.status === 'concluido') return 'entregue';
+  if (order.productionStage) return legacyStageAliases[order.productionStage] || order.productionStage;
   return ['em_producao', 'pausado'].includes(order.production) ? 'impressao' : 'arte';
 }
 
