@@ -76,6 +76,14 @@ test('production status badge disappears after production starts but remains bef
         history: [{ action: 'etapa_concluida', fromStage: 'arte', toStage: 'impressao' }],
       },
     }));
+    const startedInProductionHistory = renderToString(React.createElement(ProductionStatus, {
+      value: 'nao_iniciado',
+      order: { productionHistory: [{ action: 'producao_iniciada' }] },
+    }));
+    const skippedWithoutStarting = renderToString(React.createElement(ProductionStatus, {
+      value: 'nao_iniciado',
+      order: { history: [{ action: 'etapa_dispensada' }] },
+    }));
     const paused = renderToString(React.createElement(ProductionStatus, { value: 'pausado' }));
 
     assert.doesNotMatch(started, /Não iniciado|Em produção/);
@@ -84,6 +92,8 @@ test('production status badge disappears after production starts but remains bef
     assert.doesNotMatch(advancedStage, /Não iniciado/);
     assert.match(firstApplicableStage, /Não iniciado/);
     assert.doesNotMatch(completedFirstStage, /Não iniciado/);
+    assert.doesNotMatch(startedInProductionHistory, /Não iniciado/);
+    assert.match(skippedWithoutStarting, /Não iniciado/);
     assert.match(paused, /Pausado/);
   } finally {
     await server.close();

@@ -20,9 +20,10 @@ export function ProductionStatus({ value, order }) {
   const skippedStages = normalizeSkippedStages(order?.skippedStages || []);
   const initialStage = productionStages.find(([key]) => key !== 'entregue' && !skippedStages.includes(key))?.[0];
   const stageAdvanced = order && getProductionStage(order) !== initialStage;
+  const productionHistory = [...(order?.history || []), ...(order?.productionHistory || [])];
   const started = order?.productionStartedAt
     || stageAdvanced
-    || order?.history?.some((entry) => ['producao_iniciada', 'retomado', 'etapa_concluida', 'etapa_avancada', 'etapa_dispensada'].includes(entry?.action));
+    || productionHistory.some((entry) => ['producao_iniciada', 'pausado', 'retomado', 'etapa_concluida', 'etapa_avancada', 'concluido'].includes(entry?.action));
   return value === 'em_producao' || (value === 'nao_iniciado' && started) ? null : <StatusBadge value={value} />;
 }
 
