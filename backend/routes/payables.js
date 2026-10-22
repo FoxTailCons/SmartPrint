@@ -17,7 +17,7 @@ export const createPayableListHandler = ({ PayableModel = Payable } = {}) => asy
   const filter = {};
   if (paid !== undefined) filter.paid = paid === 'true';
   if (from) filter.dueDate = { ...filter.dueDate, $gte: new Date(from) };
-  if (to) filter.dueDate = { ...filter.dueDate, $lte: new Date(to) };
+  if (to) filter.dueDate = { ...filter.dueDate, $lt: new Date(`${addCalendarDays(to, 1)}T00:00:00.000Z`) };
   if (!pagination) return res.json(await PayableModel.find(filter).sort({ dueDate: 1 }));
 
   const total = await PayableModel.countDocuments(filter);

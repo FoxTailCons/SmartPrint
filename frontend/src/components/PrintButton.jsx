@@ -2,7 +2,7 @@ import { Printer } from 'lucide-react';
 import { api } from '../api.js';
 import { buildOrderThermalHtml, openThermalPrintWindow, writeThermalPrint } from '../pages/thermalPrint.js';
 
-export default function PrintButton({ orderId, format = 'a4', className = '' }) {
+export default function PrintButton({ orderId, format = 'a4', label = format === '80mm' ? '80 mm' : 'Imprimir', className = '' }) {
   const printOrder = async () => {
     if (format === '80mm') {
       const printWindow = openThermalPrintWindow();
@@ -58,7 +58,7 @@ export default function PrintButton({ orderId, format = 'a4', className = '' }) 
       onClick={printOrder}
       className={`inline-flex items-center gap-2 rounded-lg border text-sm hover:bg-slate-50 ${className}`}
     >
-      <Printer size={16} /> {format === '80mm' ? '80 mm' : 'Imprimir'}
+      <Printer size={16} /> {label}
     </button>
   );
 }

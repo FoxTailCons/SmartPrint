@@ -17,6 +17,31 @@ import { getOrderBalance, getOrderPaymentStatus } from './orderBalance.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 
+export function ReceivablePrintActions({ order }) {
+  const [printType, setPrintType] = useState('a4');
+  const selectedType = printType === 'balance' && order.balance <= 0 ? 'a4' : printType;
+  const selectId = `receivable-print-${order._id}`;
+
+  return (
+    <>
+      <label htmlFor={selectId} className="sr-only">Tipo de impressão do pedido {order.number}</label>
+      <select
+        id={selectId}
+        value={selectedType}
+        onChange={(event) => setPrintType(event.target.value)}
+        className="rounded-lg border bg-white px-2.5 py-1.5 text-xs"
+      >
+        <option value="a4">Pedido A4</option>
+        <option value="80mm">Pedido 80 mm</option>
+        {order.balance > 0 && <option value="balance">Pendência 80 mm</option>}
+      </select>
+      {selectedType === 'a4' && <PrintButton orderId={order._id} label="Imprimir" className="!py-1.5 !px-2.5 text-xs" />}
+      {selectedType === '80mm' && <PrintButton orderId={order._id} format="80mm" label="Imprimir" className="!py-1.5 !px-2.5 text-xs" />}
+      {selectedType === 'balance' && <ThermalPrintButton html={buildBalanceThermalHtml(order)} label="Pendência" buttonLabel="Imprimir" className="!py-1.5 !px-2.5 text-xs" />}
+    </>
+  );
+}
+
 export default function Receivables() {
   const { user } = useAuth();
   const [filter, setFilter] = useState('open');
@@ -94,9 +119,7 @@ export default function Receivables() {
                 <td data-label="Saldo" className="px-5 py-3 text-right font-bold text-red-600">{fmt(Math.max(0, o.balance))}</td>
                 <td data-label="Ações" className="px-5 py-3 text-right">
                   <div className="inline-flex flex-wrap gap-2">
-                    <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
-                    <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />
-                    {o.balance > 0 && <ThermalPrintButton html={buildBalanceThermalHtml(o)} label="Pendência" className="!py-1.5 !px-2.5 text-xs" />}
+                    <ReceivablePrintActions order={o} />
                     <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
                     {buildBalanceReminderUrl(o) && <a href={buildBalanceReminderUrl(o)} target="_blank" rel="noreferrer" className="rounded border px-2.5 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50">Lembrar</a>}
                     <Link to={`/pedidos/${o._id}`} className="px-2.5 py-1.5 border rounded text-xs hover:bg-slate-50">Receber</Link>

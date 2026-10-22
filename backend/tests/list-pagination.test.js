@@ -142,6 +142,27 @@ test('payable list applies the paid filter before pagination', async () => {
   assert.deepEqual(res.body.summary, { totalOpen: 30, totalPaid: 10, totalOverdue: 5, totalDueSoon: 15 });
 });
 
+test('payable date filters include the entire selected end date', async () => {
+  let receivedFilter;
+  const PayableModel = {
+    countDocuments: async (filter) => { receivedFilter = filter; return 1; },
+    find: (filter) => { receivedFilter = filter; return query([{ dueDate: new Date('2026-10-22T18:00:00.000Z') }]); },
+    aggregate: async () => [],
+  };
+  const handler = createPayableListHandler({ PayableModel });
+  const res = response();
+
+  await handler({ query: { from: '2026-10-20', to: '2026-10-22', page: '1', pageSize: '5' } }, res);
+
+  assert.deepEqual(receivedFilter, {
+    dueDate: {
+      $gte: new Date('2026-10-20T00:00:00.000Z'),
+      $lt: new Date('2026-10-23T00:00:00.000Z'),
+    },
+  });
+  assert.equal(res.body.items.length, 1);
+});
+
 test('receivables page returns full-set totals and upcoming installments', async () => {
   const orders = [{ _id: 'o1', number: '00001', finalValue: 150, amountPaid: 30 }];
   const OrderModel = {

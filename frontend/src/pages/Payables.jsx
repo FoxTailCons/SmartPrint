@@ -97,8 +97,8 @@ export default function Payables() {
             <option value="paid">Pagas</option>
             <option value="all">Todas</option>
           </select>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="px-3 py-2 border rounded-lg text-sm bg-white" placeholder="De" />
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="px-3 py-2 border rounded-lg text-sm bg-white" placeholder="Até" />
+          <input type="date" value={fromDate} onChange={(e) => { setPage(1); setFromDate(e.target.value); }} className="px-3 py-2 border rounded-lg text-sm bg-white" placeholder="De" />
+          <input type="date" value={toDate} onChange={(e) => { setPage(1); setToDate(e.target.value); }} className="px-3 py-2 border rounded-lg text-sm bg-white" placeholder="Até" />
           <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
             <Plus size={16} /> Nova Conta
           </button>
