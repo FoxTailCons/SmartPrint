@@ -3,7 +3,7 @@ import { MessageCircle, Copy, Check, Download } from 'lucide-react';
 import { api } from '../api';
 import Modal from './Modal.jsx';
 
-export default function WhatsAppButton({ orderId, className = '', disabled = false }) {
+export default function WhatsAppButton({ orderId, className = '', disabled = false, iconOnly = false }) {
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -66,10 +66,11 @@ export default function WhatsAppButton({ orderId, className = '', disabled = fal
       <button
         onClick={openModal}
         disabled={loading || disabled}
-        title={disabled ? 'WhatsApp indisponível para este pedido' : undefined}
+        aria-label={iconOnly ? (loading ? 'Preparando WhatsApp' : 'Enviar pedido pelo WhatsApp') : undefined}
+        title={disabled ? 'WhatsApp indisponível para este pedido' : iconOnly ? 'Enviar pedido pelo WhatsApp' : undefined}
         className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition disabled:opacity-50 ${className}`}
       >
-        <MessageCircle size={16} /> {loading ? 'Gerando...' : 'WhatsApp'}
+        <MessageCircle size={16} /> {!iconOnly && (loading ? 'Gerando...' : 'WhatsApp')}
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title={`Enviar ${data?.documentLabel?.toLowerCase() || 'documento'} via WhatsApp`} wide>
         {data && (

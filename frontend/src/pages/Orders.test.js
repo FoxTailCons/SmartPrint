@@ -22,8 +22,29 @@ test('orders page groups active quotes/orders and completed/canceled records', a
     assert.match(html, />TOTAL</);
     assert.match(html, /responsive-table/);
     const columnWidths = [...html.matchAll(/<col style="width:(\d+)%"/g)].map(([, width]) => Number.parseInt(width, 10));
-    assert.deepEqual(columnWidths, [7, 9, 8, 24, 7, 8, 8, 8, 8, 13]);
+    assert.deepEqual(columnWidths, [7, 9, 8, 24, 7, 5, 8, 8, 8, 16]);
     assert.equal(columnWidths.reduce((total, width) => total + width, 0), 100);
+    const headers = [...html.matchAll(/<th class="([^"]+)"/g)].map(([, className]) => className);
+    assert.equal(headers.length, 10);
+    assert.ok(headers.every((className) => className.includes('text-center')));
+  } finally {
+    await server.close();
+  }
+});
+
+test('order actions use a compact 2x2 grid with icon-only accessible WhatsApp control', async () => {
+  const server = await createServer({ server: { middlewareMode: true, ws: false } });
+  try {
+    const { OrderActions } = await server.ssrLoadModule('/src/pages/Orders.jsx');
+    const html = renderToString(React.createElement(StaticRouter, { location: '/pedidos' },
+      React.createElement(OrderActions, { order: { _id: 'order-1', number: '00001', status: 'aprovado' } })));
+
+    assert.match(html, /grid-cols-2/);
+    assert.match(html, /aria-label="Enviar pedido pelo WhatsApp"/);
+    assert.match(html, />A4</);
+    assert.match(html, />80 mm</);
+    assert.match(html, />Abrir</);
+    assert.doesNotMatch(html, /WhatsApp<\/button>/);
   } finally {
     await server.close();
   }
@@ -47,6 +68,14 @@ test('production status badge disappears after production starts but remains bef
       value: 'nao_iniciado',
       order: { productionStage: 'impressao', skippedStages: ['arte'] },
     }));
+    const completedFirstStage = renderToString(React.createElement(ProductionStatus, {
+      value: 'nao_iniciado',
+      order: {
+        productionStage: 'impressao',
+        skippedStages: ['arte'],
+        history: [{ action: 'etapa_concluida', fromStage: 'arte', toStage: 'impressao' }],
+      },
+    }));
     const paused = renderToString(React.createElement(ProductionStatus, { value: 'pausado' }));
 
     assert.doesNotMatch(started, /Não iniciado|Em produção/);
@@ -54,6 +83,7 @@ test('production status badge disappears after production starts but remains bef
     assert.doesNotMatch(startedWithTimestamp, /Não iniciado/);
     assert.doesNotMatch(advancedStage, /Não iniciado/);
     assert.match(firstApplicableStage, /Não iniciado/);
+    assert.doesNotMatch(completedFirstStage, /Não iniciado/);
     assert.match(paused, /Pausado/);
   } finally {
     await server.close();

@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { fmt, fmtCivilDate } from '../api';
 import { StatusBadge } from '../components/Badges.jsx';
 import WhatsAppButton from '../components/WhatsAppButton.jsx';
-import PrintButton from '../components/PrintButton.jsx';
-import ThermalPrintButton from '../components/ThermalPrintButton.jsx';
+import { printOrderDocument } from '../components/PrintButton.jsx';
 import ListSkeleton from '../components/ListSkeleton.jsx';
 import Pagination from '../components/Pagination.jsx';
 import { getListState } from '../hooks/listState.js';
@@ -12,33 +11,39 @@ import { useServerPagination } from '../hooks/useServerPagination.js';
 import { buildBalanceReminderUrl } from './printshop.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import PeriodExport from '../components/PeriodExport.jsx';
-import { buildBalanceThermalHtml } from './thermalPrint.js';
+import { buildBalanceThermalHtml, printThermalHtml } from './thermalPrint.js';
 import { getOrderBalance, getOrderPaymentStatus } from './orderBalance.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 
+export function printReceivableFormat(order, type, printOrder = printOrderDocument, printBalance = printThermalHtml) {
+  if (type === 'balance') return printBalance(buildBalanceThermalHtml(order));
+  if (type === 'a4' || type === '80mm') return printOrder(order._id, type);
+}
+
 export function ReceivablePrintActions({ order }) {
-  const [printType, setPrintType] = useState('a4');
-  const selectedType = printType === 'balance' && order.balance <= 0 ? 'a4' : printType;
   const selectId = `receivable-print-${order._id}`;
+  const handlePrint = (event) => {
+    const selectedType = event.target.value;
+    event.target.value = '';
+    void printReceivableFormat(order, selectedType);
+  };
 
   return (
-    <>
+    <div className="w-full">
       <label htmlFor={selectId} className="sr-only">Tipo de impressão do pedido {order.number}</label>
       <select
         id={selectId}
-        value={selectedType}
-        onChange={(event) => setPrintType(event.target.value)}
-        className="rounded-lg border bg-white px-2.5 py-1.5 text-xs"
+        defaultValue=""
+        onChange={handlePrint}
+        className="h-8 w-full min-w-0 rounded-lg border bg-white px-2 py-1 text-xs"
       >
+        <option value="">Impressões</option>
         <option value="a4">Pedido A4</option>
         <option value="80mm">Pedido 80 mm</option>
         {order.balance > 0 && <option value="balance">Pendência 80 mm</option>}
       </select>
-      {selectedType === 'a4' && <PrintButton orderId={order._id} label="Imprimir" className="!py-1.5 !px-2.5 text-xs" />}
-      {selectedType === '80mm' && <PrintButton orderId={order._id} format="80mm" label="Imprimir" className="!py-1.5 !px-2.5 text-xs" />}
-      {selectedType === 'balance' && <ThermalPrintButton html={buildBalanceThermalHtml(order)} label="Pendência" buttonLabel="Imprimir" className="!py-1.5 !px-2.5 text-xs" />}
-    </>
+    </div>
   );
 }
 
@@ -93,13 +98,13 @@ export default function Receivables() {
         <table className="responsive-table text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
-              <th className="text-left px-5 py-3">Pedido</th>
-              <th className="text-left px-5 py-3">Cliente</th>
-              <th className="text-left px-5 py-3">Status</th>
-              <th className="text-right px-5 py-3">Total</th>
-              <th className="text-right px-5 py-3">Recebido</th>
-              <th className="text-right px-5 py-3">Saldo</th>
-              <th className="text-right px-5 py-3">Ações</th>
+              <th className="text-center px-5 py-3">Pedido</th>
+              <th className="text-center px-5 py-3">Cliente</th>
+              <th className="text-center px-5 py-3">Status</th>
+              <th className="text-center px-5 py-3">Total</th>
+              <th className="text-center px-5 py-3">Recebido</th>
+              <th className="text-center px-5 py-3">Saldo</th>
+              <th className="text-center px-5 py-3">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -117,12 +122,12 @@ export default function Receivables() {
                 <td data-label="Total" className="px-5 py-3 text-right">{fmt(o.finalValue)}</td>
                 <td data-label="Recebido" className="px-5 py-3 text-right text-emerald-600">{fmt(o.amountPaid)}</td>
                 <td data-label="Saldo" className="px-5 py-3 text-right font-bold text-red-600">{fmt(Math.max(0, o.balance))}</td>
-                <td data-label="Ações" className="px-5 py-3 text-right">
-                  <div className="inline-flex flex-wrap gap-2">
+                <td data-label="Ações" className="px-5 py-3">
+                  <div className="mx-auto grid w-full max-w-40 grid-cols-2 gap-1.5">
                     <ReceivablePrintActions order={o} />
-                    <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
-                    {buildBalanceReminderUrl(o) && <a href={buildBalanceReminderUrl(o)} target="_blank" rel="noreferrer" className="rounded border px-2.5 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50">Lembrar</a>}
-                    <Link to={`/pedidos/${o._id}`} className="px-2.5 py-1.5 border rounded text-xs hover:bg-slate-50">Receber</Link>
+                    <WhatsAppButton orderId={o._id} iconOnly className="!h-8 !w-full !justify-center !gap-0 !rounded-lg !px-1 !py-1" />
+                    {buildBalanceReminderUrl(o) && <a href={buildBalanceReminderUrl(o)} target="_blank" rel="noreferrer" className="inline-flex h-8 w-full items-center justify-center rounded-lg border px-1 py-1 text-[11px] text-emerald-700 hover:bg-emerald-50">Lembrar</a>}
+                    <Link to={`/pedidos/${o._id}`} className="inline-flex h-8 w-full items-center justify-center rounded-lg border px-1 py-1 text-[11px] hover:bg-slate-50">Receber</Link>
                   </div>
                 </td>
               </tr>

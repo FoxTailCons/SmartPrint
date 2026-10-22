@@ -20,7 +20,9 @@ export function ProductionStatus({ value, order }) {
   const skippedStages = normalizeSkippedStages(order?.skippedStages || []);
   const initialStage = productionStages.find(([key]) => key !== 'entregue' && !skippedStages.includes(key))?.[0];
   const stageAdvanced = order && getProductionStage(order) !== initialStage;
-  const started = order?.productionStartedAt || stageAdvanced;
+  const started = order?.productionStartedAt
+    || stageAdvanced
+    || order?.history?.some((entry) => ['producao_iniciada', 'retomado', 'etapa_concluida', 'etapa_avancada', 'etapa_dispensada'].includes(entry?.action));
   return value === 'em_producao' || (value === 'nao_iniciado' && started) ? null : <StatusBadge value={value} />;
 }
 
@@ -77,6 +79,19 @@ export function ProductionStageTracker({ order, onAdvance, busy = false }) {
         );
       })}
       </ol>
+    </div>
+  );
+}
+
+export function OrderActions({ order }) {
+  return (
+    <div className="mx-auto grid w-full max-w-40 grid-cols-2 gap-1.5">
+      {order.status !== 'cancelado' && <>
+        <PrintButton orderId={order._id} label="A4" className="!h-8 !w-full !justify-center !gap-1 !rounded-lg !px-1 !py-1 text-[11px]" />
+        <PrintButton orderId={order._id} format="80mm" label="80 mm" className="!h-8 !w-full !justify-center !gap-1 !rounded-lg !px-1 !py-1 text-[11px]" />
+        <WhatsAppButton orderId={order._id} iconOnly className="!h-8 !w-full !justify-center !gap-0 !rounded-lg !px-1 !py-1" />
+      </>}
+      <Link to={`/pedidos/${order._id}`} aria-label={`Abrir pedido ${order.number}`} className="inline-flex h-8 w-full items-center justify-center rounded-lg border px-1 py-1 text-[11px] hover:bg-slate-50">Abrir</Link>
     </div>
   );
 }
@@ -219,24 +234,24 @@ export default function Orders() {
               <col style={{ width: '8%' }} />
               <col style={{ width: '24%' }} />
               <col style={{ width: '7%' }} />
+              <col style={{ width: '5%' }} />
               <col style={{ width: '8%' }} />
               <col style={{ width: '8%' }} />
               <col style={{ width: '8%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '13%' }} />
+              <col style={{ width: '16%' }} />
             </colgroup>
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
-                <th className="text-left px-2 py-3">Nº</th>
-                <th className="text-left px-2 py-3">Cliente</th>
-                <th className="text-left px-2 py-3">Status</th>
-                <th className="text-left px-2 py-3">Produção</th>
-                <th className="text-left px-2 py-3">Data de entrega</th>
-                <th className="text-left px-2 py-3">Pagamento</th>
-                <th className="text-right px-2 py-3">Pago</th>
-                <th className="text-right px-2 py-3">A PAGAR</th>
-                <th className="text-right px-2 py-3">TOTAL</th>
-                <th className="text-right px-2 py-3">Ações</th>
+                <th className="text-center px-2 py-3">Nº</th>
+                <th className="text-center px-2 py-3">Cliente</th>
+                <th className="text-center px-2 py-3">Status</th>
+                <th className="text-center px-2 py-3">Produção</th>
+                <th className="text-center px-2 py-3">Data de entrega</th>
+                <th className="text-center px-2 py-3">Pagamento</th>
+                <th className="text-center px-2 py-3">Pago</th>
+                <th className="text-center px-2 py-3">A PAGAR</th>
+                <th className="text-center px-2 py-3">TOTAL</th>
+                <th className="text-center px-2 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -277,12 +292,7 @@ export default function Orders() {
                   <td data-label="A PAGAR" className="whitespace-nowrap px-2 py-3 text-right text-xs">{fmt(getOrderBalance(o))}</td>
                   <td data-label="TOTAL" className="whitespace-nowrap px-2 py-3 text-right text-xs font-semibold">{fmt(o.finalValue)}</td>
                   <td data-label="Ações" className="px-2 py-3 text-right">
-                    <div className="inline-flex flex-wrap gap-2">
-                      {o.status !== 'cancelado' && <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}
-                      {o.status !== 'cancelado' && <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />}
-                      {o.status !== 'cancelado' && <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}
-                      <Link to={`/pedidos/${o._id}`} className="inline-flex items-center px-2.5 py-1.5 rounded-lg border text-xs hover:bg-slate-50">Detalhes</Link>
-                    </div>
+                    <OrderActions order={o} />
                   </td>
                 </tr>
               ))}

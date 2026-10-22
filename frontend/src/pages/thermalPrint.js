@@ -188,3 +188,17 @@ export function writeThermalPrint(printWindow, html) {
     printWindow.print();
   }, 350);
 }
+
+export function printThermalHtml(html) {
+  const printWindow = openThermalPrintWindow();
+  if (!printWindow) {
+    alert('Seu navegador bloqueou a janela de impressão. Permita pop-ups e tente novamente.');
+    return;
+  }
+  try {
+    writeThermalPrint(printWindow, html);
+  } catch (error) {
+    printWindow.close();
+    alert(error.message);
+  }
+}
