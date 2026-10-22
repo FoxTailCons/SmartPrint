@@ -14,6 +14,7 @@ test('cash report groups actual payments by method, applies opening and sangria 
       { amount: 50, method: 'dinheiro', paidAt: new Date(start.getTime() + 1000) },
       { amount: 50, method: 'pix', paidAt: new Date(start.getTime() + 1000) },
       { amount: 30, method: 'debito', paidAt: new Date(end.getTime() - 1000) },
+      { amount: 500, method: 'pix', paidAt: new Date(start.getTime() + 1000), canceledAt: new Date(end.getTime()) },
       { amount: 99, method: 'credito', paidAt: end },
     ],
   }], dateKey);

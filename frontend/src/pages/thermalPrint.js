@@ -95,7 +95,7 @@ export function buildOrderThermalHtml(order) {
   const paid = Number(order?.amountPaid || 0);
   const paymentDiscounts = getOrderDiscountTotal(order);
   const balance = getOrderBalance(order);
-  const paymentLines = (order?.payments || []).map((payment) => `
+  const paymentLines = (order?.payments || []).filter((payment) => !payment.canceledAt).map((payment) => `
     <div class="line"><span>${escapeHtml(payment.method || 'Pagamento')} · ${formatDate(payment.paidAt)}</span><span>${formatMoney(payment.amount)}</span></div>`).join('');
   const content = `
     <h2>${documentLabel(order)} Nº ${number}</h2>

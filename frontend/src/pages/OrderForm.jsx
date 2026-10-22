@@ -472,9 +472,9 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
           </div>
         </div>
 
-        {/* Parcelamento / desdobramento de pagamento */}
+        {/* Parcelas */}
         <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
-          <h2 className="font-semibold">Desdobramento de Pagamento (Parcelas)</h2>
+          <h2 className="font-semibold">Parcelas</h2>
           <div>
             <label className="text-sm font-medium">Forma de pagamento</label>
             <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white">

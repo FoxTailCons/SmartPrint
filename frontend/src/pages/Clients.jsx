@@ -12,6 +12,7 @@ import PrintButton from '../components/PrintButton.jsx';
 import { getListState } from '../hooks/listState.js';
 import { useServerPagination } from '../hooks/useServerPagination.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
+import { getOrderPaymentStatus } from './orderBalance.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 const paymentMethodLabels = { pix: 'PIX', dinheiro: 'Dinheiro', debito: 'Cartão débito', credito: 'Cartão crédito', parcelado: 'Crédito parcelado' };
@@ -179,7 +180,7 @@ export default function Clients() {
                     <div key={o._id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 text-sm border">
                       <span><span className="block text-xs text-slate-500">{getOrderDocumentLabel(o)}</span><span className="font-mono font-semibold">#{o.number}</span></span>
                       <StatusBadge value={o.status} />
-                      <StatusBadge value={o.paymentStatus} />
+                      <StatusBadge value={getOrderPaymentStatus(o)} />
                       <span className="flex-1 text-right font-medium">{fmt(o.finalValue)}</span>
                       <div className="inline-flex gap-2">
                         <PrintButton orderId={o._id} className="!py-1 !px-2 text-xs" />

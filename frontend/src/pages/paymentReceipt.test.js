@@ -29,7 +29,7 @@ test('creates receipts with the running balance for each payment', () => {
     ],
   }, 1);
 
-  assert.match(receipt.text, /Pagamento recebido: R\$\s?100,00/);
+  assert.match(receipt.text, /1ª parcela recebida: R\$\s?100,00/);
   assert.match(receipt.text, /Total recebido: R\$\s?150,00/);
   assert.match(receipt.text, /Saldo após o recebimento: R\$\s?150,00/);
 });

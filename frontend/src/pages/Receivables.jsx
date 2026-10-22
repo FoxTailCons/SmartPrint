@@ -13,7 +13,7 @@ import { buildBalanceReminderUrl } from './printshop.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import PeriodExport from '../components/PeriodExport.jsx';
 import { buildBalanceThermalHtml } from './thermalPrint.js';
-import { getOrderBalance } from './orderBalance.js';
+import { getOrderBalance, getOrderPaymentStatus } from './orderBalance.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -88,7 +88,7 @@ export default function Receivables() {
               <tr key={o._id} className="border-t hover:bg-slate-50">
                 <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
                 <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
-                <td className="px-5 py-3"><StatusBadge value={o.paymentStatus} /></td>
+                <td className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
                 <td className="px-5 py-3 text-right">{fmt(o.finalValue)}</td>
                 <td className="px-5 py-3 text-right text-emerald-600">{fmt(o.amountPaid)}</td>
                 <td className="px-5 py-3 text-right font-bold text-red-600">{fmt(Math.max(0, o.balance))}</td>

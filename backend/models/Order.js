@@ -35,7 +35,6 @@ const itemSchema = new mongoose.Schema({
   travelFee: { type: Number, min: 0, validate: Number.isFinite, default: 0 },
 });
 
-// Parcelas / desdobramento de pagamento
 const installmentSchema = new mongoose.Schema({
   dueDate: { type: Date, required: true },
   amount: { type: Number, required: true, min: 0 },
@@ -49,6 +48,10 @@ const paymentSchema = new mongoose.Schema({
   type: { type: String, enum: ['entrada', 'pagamento'], default: 'pagamento' },
   paidAt: { type: Date, default: Date.now },
   receiptUrl: { type: String, default: '' },
+  installmentIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  canceledAt: { type: Date },
+  canceledBy: { type: String, default: '' },
+  cancellationReason: { type: String, default: '', maxlength: 500 },
 });
 const paymentDiscountSchema = new mongoose.Schema({
   amount: { type: Number, required: true, min: 0, validate: Number.isFinite },
@@ -58,6 +61,8 @@ const paymentDiscountSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     name: { type: String, required: true },
   },
+  paymentId: { type: mongoose.Schema.Types.ObjectId },
+  canceledAt: { type: Date },
   at: { type: Date, default: Date.now },
 });
 const attachmentSchema = new mongoose.Schema({

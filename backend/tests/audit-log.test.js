@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import AuditLog from '../models/AuditLog.js';
-import { buildAuditRecord, parseAuditFilters, recordAuditEvent } from '../services/auditLog.js';
+import { auditActions, buildAuditRecord, parseAuditFilters, recordAuditEvent } from '../services/auditLog.js';
 
 test('audit records contain explicit business data and never copy request credentials', async () => {
   let saved;
@@ -58,6 +58,11 @@ test('audit filters validate user, action, date interval, and bounded pagination
     ate: '2026-12-31',
     page: '2',
     pageSize: '50',
+  });
+
+  test('payment estornos are accepted as audit events', () => {
+    assert.ok(auditActions.includes('pagamento.estornado'));
+    assert.equal(buildAuditRecord({ req: {}, action: 'pagamento.estornado' }).acao, 'pagamento.estornado');
   });
 
   assert.deepEqual(filters.filter, {

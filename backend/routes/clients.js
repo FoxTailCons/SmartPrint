@@ -74,7 +74,9 @@ router.get('/:id', allowRoles('admin', 'atendente'), asyncRoute(async (req, res)
 
 export const getPaymentPreference = (orders) => {
   const methods = orders.flatMap((order) => order.payments?.length
-    ? order.payments.map((payment) => ({ method: payment.method, date: new Date(payment.paidAt || order.createdAt || 0) }))
+    ? order.payments
+      .filter((payment) => !payment.canceledAt)
+      .map((payment) => ({ method: payment.method, date: new Date(payment.paidAt || order.createdAt || 0) }))
     : [{ method: order.paymentMethod, date: new Date(order.createdAt || 0) }]);
   methods.sort((a, b) => b.date - a.date);
   return methods.find((payment) => payment.method)?.method || '';

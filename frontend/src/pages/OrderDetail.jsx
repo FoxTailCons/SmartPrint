@@ -11,11 +11,11 @@ import PrintButton from '../components/PrintButton.jsx';
 import PaymentReceiptPrintButton from '../components/PaymentReceiptPrintButton.jsx';
 import ThermalPrintButton from '../components/ThermalPrintButton.jsx';
 import Modal from '../components/Modal.jsx';
-import { createPaymentReceipt } from './paymentReceipt.js';
+import { createPaymentReceipt, getPaymentLabel } from './paymentReceipt.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
 import { getDeadline, itemMetadata, priorityLabels } from './printshop.js';
 import { buildBalanceThermalHtml } from './thermalPrint.js';
-import { getOrderBalance, getPaymentDiscountTotal } from './orderBalance.js';
+import { getOrderBalance, getOrderPaymentStatus, getPaymentDiscountTotal } from './orderBalance.js';
 import ProductionProgress from '../components/ProductionProgress.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -59,6 +59,10 @@ export default function OrderDetail() {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelAdminEmail, setCancelAdminEmail] = useState('');
   const [cancelAdminPassword, setCancelAdminPassword] = useState('');
+  const [paymentToCancel, setPaymentToCancel] = useState(null);
+  const [paymentCancelReason, setPaymentCancelReason] = useState('');
+  const [paymentCancelAdminEmail, setPaymentCancelAdminEmail] = useState('');
+  const [paymentCancelAdminPassword, setPaymentCancelAdminPassword] = useState('');
   const [loading, setLoading] = useState(true);
 
   const load = () => api(`/api/orders/${id}`).then((o) => { setOrder(o); setLoading(false); });
@@ -133,6 +137,40 @@ export default function OrderDetail() {
   const closeCancel = () => {
     setCancelOpen(false);
     setCancelAdminPassword('');
+  };
+
+  const closePaymentCancellation = () => {
+    setPaymentToCancel(null);
+    setPaymentCancelReason('');
+    setPaymentCancelAdminEmail('');
+    setPaymentCancelAdminPassword('');
+  };
+
+  const submitPaymentCancellation = async () => {
+    const payment = order.payments?.[paymentToCancel];
+    const reason = paymentCancelReason.trim();
+    if (!payment?._id) return alert('Não foi possível identificar este pagamento');
+    if (!reason) return alert('Informe o motivo do estorno');
+    if (reason.length > 500) return alert('O motivo deve ter até 500 caracteres');
+    if (user?.role === 'atendente' && (!paymentCancelAdminEmail.trim() || !paymentCancelAdminPassword)) {
+      return alert('Informe as credenciais do administrador para autorizar o estorno');
+    }
+    try {
+      const canceled = await api(`/api/orders/${id}/payments/${payment._id}/cancel`, {
+        method: 'POST',
+        body: buildCancelPayload({
+          reason,
+          role: user?.role,
+          adminEmail: paymentCancelAdminEmail.trim(),
+          adminPassword: paymentCancelAdminPassword,
+        }),
+      });
+      setOrder(canceled);
+      closePaymentCancellation();
+    } catch (error) {
+      setPaymentCancelAdminPassword('');
+      alert(error.message);
+    }
   };
 
   const submitCancel = async () => {
@@ -212,7 +250,7 @@ export default function OrderDetail() {
         </div>
         {!isProductionUser && <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-slate-500 uppercase">Pagamento</div>
-          <div className="mt-2"><StatusBadge value={order.paymentStatus} /></div>
+          <div className="mt-2"><StatusBadge value={getOrderPaymentStatus(order)} /></div>
           <div className="text-xs text-slate-500 mt-2">Saldo: <strong className={balance > 0 ? 'text-red-600' : 'text-emerald-600'}>{fmt(balance)}</strong></div>
         </div>}
       </div>
@@ -266,7 +304,7 @@ export default function OrderDetail() {
 
         {/* Parcelas */}
         {!isProductionUser && <div className="bg-white rounded-xl border shadow-sm p-5">
-          <h2 className="font-semibold mb-3">Parcelas / Desdobramento</h2>
+          <h2 className="font-semibold mb-3">Parcelas</h2>
           {(!order.installments || order.installments.length === 0) ? (
             <p className="text-sm text-slate-400">Sem parcelas cadastradas (pagamento à vista).</p>
           ) : (
@@ -307,20 +345,31 @@ export default function OrderDetail() {
               return (
                 <div key={`${payment.paidAt}-${index}`} className="flex flex-wrap items-center justify-between gap-3 border rounded-lg px-3 py-2 text-sm">
                   <div>
-                    <div className="font-medium">{payment.type === 'entrada' ? 'Entrada' : 'Pagamento'} · {fmt(payment.amount)}</div>
+                    <div className={`font-medium ${payment.canceledAt ? 'text-slate-400 line-through' : ''}`}>{getPaymentLabel(order.payments, index)} · {fmt(payment.amount)}</div>
                     <div className="text-xs text-slate-500">{paymentMethodLabels[payment.method] || payment.method} · {fmtDate(payment.paidAt)}</div>
-                    {payment.receiptUrl && <a href={payment.receiptUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-brand-600 underline">Ver comprovante</a>}
+                    {payment.canceledAt ? (
+                      <div className="mt-1 text-xs text-red-600">
+                        Estornado por {payment.canceledBy || 'usuário'} em {fmtDate(payment.canceledAt)}: {payment.cancellationReason}
+                      </div>
+                    ) : payment.receiptUrl && <a href={payment.receiptUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-brand-600 underline">Ver comprovante</a>}
                   </div>
-                  {receipt && (
+                  {payment.canceledAt ? (
+                    <span className="rounded bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">ESTORNADO</span>
+                  ) : (
                     <div className="flex flex-wrap items-center gap-2">
-                      <PaymentReceiptPrintButton text={receipt.text} />
-                      {receipt.link ? (
-                        <a href={receipt.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-white hover:bg-emerald-600">
-                          <MessageCircle size={15} /> Enviar recibo
-                        </a>
-                      ) : (
-                        <span className="text-xs text-slate-500">Cadastre o WhatsApp do cliente para enviar o recibo.</span>
-                      )}
+                      <button type="button" onClick={() => { setPaymentToCancel(index); setPaymentCancelReason(''); }} className="rounded-lg border border-red-200 px-3 py-2 text-red-700 hover:bg-red-50">
+                        Estornar
+                      </button>
+                      {receipt && <>
+                        <PaymentReceiptPrintButton text={receipt.text} />
+                        {receipt.link ? (
+                          <a href={receipt.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-white hover:bg-emerald-600">
+                            <MessageCircle size={15} /> Enviar recibo
+                          </a>
+                        ) : (
+                          <span className="text-xs text-slate-500">Cadastre o WhatsApp do cliente para enviar o recibo.</span>
+                        )}
+                      </>}
                     </div>
                   )}
                 </div>
@@ -403,12 +452,40 @@ export default function OrderDetail() {
             <div>
               <label className="text-sm font-medium">Marcar parcela específica (opcional)</label>
               <select value={payInst} onChange={(e) => setPayInst(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white">
-                <option value="">Desdobrar automaticamente (pagar em ordem)</option>
+                <option value="">Pagar automaticamente (em ordem)</option>
                 {order.installments.map((p, i) => !p.paid && <option key={i} value={i}>{i + 1}ª · {fmtCivilDate(p.dueDate)} · {fmt(p.amount)}</option>)}
               </select>
             </div>
           )}
           <button onClick={submitPayment} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold">Confirmar recebimento</button>
+        </div>
+      </Modal>}
+
+      {!isProductionUser && <Modal open={paymentToCancel !== null} onClose={closePaymentCancellation} title="Estornar pagamento">
+        <div className="space-y-4">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            O pagamento será marcado como estornado, mantido no histórico e removido do total recebido.
+          </p>
+          <label className="block text-sm font-medium">
+            Motivo do estorno *
+            <textarea autoFocus maxLength="500" rows="3" value={paymentCancelReason} onChange={(event) => setPaymentCancelReason(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" />
+          </label>
+          {user?.role === 'atendente' && (
+            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm font-medium text-amber-900">Autorização do administrador</p>
+              <label className="block text-sm font-medium">
+                E-mail do administrador
+                <input type="email" autoComplete="username" value={paymentCancelAdminEmail} onChange={(event) => setPaymentCancelAdminEmail(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" />
+              </label>
+              <label className="block text-sm font-medium">
+                Senha do administrador
+                <input type="password" autoComplete="current-password" value={paymentCancelAdminPassword} onChange={(event) => setPaymentCancelAdminPassword(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" />
+              </label>
+            </div>
+          )}
+          <button type="button" onClick={submitPaymentCancellation} className="w-full rounded-lg bg-red-600 py-2.5 font-semibold text-white hover:bg-red-700">
+            Confirmar estorno
+          </button>
         </div>
       </Modal>}
 

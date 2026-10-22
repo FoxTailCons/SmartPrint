@@ -6,7 +6,10 @@ test('client payment preference uses the latest recorded payment method', () => 
   const orders = [
     { createdAt: new Date('2026-10-19T12:00:00Z'), paymentMethod: 'dinheiro', payments: [] },
     { payments: [{ method: 'pix', paidAt: new Date('2026-10-20T12:00:00Z') }] },
-    { payments: [{ method: 'debito', paidAt: new Date('2026-10-20T14:00:00Z') }] },
+    { payments: [
+      { method: 'debito', paidAt: new Date('2026-10-20T14:00:00Z') },
+      { method: 'dinheiro', paidAt: new Date('2026-10-20T15:00:00Z'), canceledAt: new Date('2026-10-20T15:01:00Z') },
+    ] },
   ];
   assert.equal(getPaymentPreference(orders), 'debito');
   assert.equal(getPaymentPreference([]), '');

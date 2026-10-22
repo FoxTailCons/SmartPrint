@@ -235,7 +235,9 @@ export const buildCashflowTrend = (orders, now = new Date()) => {
 
   const paymentEntries = (order) => {
     if (Array.isArray(order.payments) && order.payments.length) {
-      return order.payments.map((payment) => ({ amount: payment.amount || 0, paidAt: payment.paidAt || new Date() }));
+      return order.payments
+        .filter((payment) => !payment.canceledAt)
+        .map((payment) => ({ amount: payment.amount || 0, paidAt: payment.paidAt || new Date() }));
     }
 
     return (order.history || [])
@@ -315,7 +317,7 @@ router.get('/', async (req, res) => {
   const previousMonthStart = getSaoPauloDayRange(previousMonthKey).start;
   const previousMonthEnd = getSaoPauloDayRange(`${todayKey.slice(0, 7)}-01`).start;
   const paymentEntries = (order) => {
-    if (order.payments?.length) return order.payments;
+    if (order.payments?.length) return order.payments.filter((payment) => !payment.canceledAt);
     return (order.history || [])
       .filter((entry) => entry.action === 'pagamento')
       .map((entry) => {

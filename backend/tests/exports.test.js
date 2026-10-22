@@ -40,7 +40,10 @@ test('financial movements include payment records, legacy payments, paid bills a
       {
         number: '00001',
         paymentMethod: 'pix',
-        payments: [{ amount: 50, method: 'pix', paidAt: new Date('2026-10-20T12:00:00Z') }],
+        payments: [
+          { amount: 50, method: 'pix', paidAt: new Date('2026-10-20T12:00:00Z') },
+          { amount: 900, method: 'pix', paidAt: new Date('2026-10-20T12:00:00Z'), canceledAt: new Date('2026-10-20T12:05:00Z') },
+        ],
       },
       {
         number: '00002',

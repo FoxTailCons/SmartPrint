@@ -8,7 +8,7 @@ import Product from '../models/Product.js';
 import { calendarDate, effectiveStage, nextProductionStage, boardOrders, mergeProductionWorkflow, initialProductionStage } from '../services/productionWorkflow.js';
 import { normalizeItemMetadata } from '../services/orderItemPricing.js';
 import { buildCatalogOrderItem } from '../services/orderItemPricing.js';
-import { receiveDownPayment, recalculateUnpaidInstallments } from '../services/orderInstallments.js';
+import { receiveDownPayment, recalculatePaidInstallments, recalculateUnpaidInstallments } from '../services/orderInstallments.js';
 import { isConfirmedOrder } from '../services/orderStatus.js';
 import { buildPage, getEffectivePage, parsePagination } from '../services/pagination.js';
 import { protect, adminOnly, allowRoles } from '../middleware/auth.js';
@@ -17,7 +17,7 @@ import { getOrderSettings } from '../config/orderSettings.js';
 import { calculateOrderFinalValue, registeredClientError, requiresRegisteredClient } from '../services/orderClientRequirement.js';
 import { applyOrderRoleVisibility, projectProductionOrder } from '../services/orderCostVisibility.js';
 import { authorizeOrderAction } from '../services/adminAuthorization.js';
-import { getOrderBalance, getOrderDiscountTotal } from '../services/orderBalance.js';
+import { getOrderBalance, getOrderDiscountTotal, getOrderPaymentStatus } from '../services/orderBalance.js';
 import User from '../models/User.js';
 import AuditLog from '../models/AuditLog.js';
 import { recordAuditEvent } from '../services/auditLog.js';
@@ -416,7 +416,9 @@ export const createOrderListHandler = ({ OrderModel = Order, ClientModel = Clien
   const { status, paymentStatus, production, client, q } = req.query;
   const filter = {};
   if (status) filter.status = status;
-  if (paymentStatus) filter.paymentStatus = paymentStatus;
+  if (paymentStatus && paymentStatusExpressions[paymentStatus]) {
+    filter.$expr = paymentStatusExpressions[paymentStatus];
+  } else if (paymentStatus) filter.paymentStatus = paymentStatus;
   if (production) filter.production = production;
   if (client) filter.client = client;
   if (q) {
@@ -429,6 +431,9 @@ export const createOrderListHandler = ({ OrderModel = Order, ClientModel = Clien
       .populate('client', 'name phone')
       .sort({ createdAt: -1 })
       .limit(500);
+    for (const order of orders) {
+      if (order.finalValue !== undefined && order.finalValue !== null) order.paymentStatus = getOrderPaymentStatus(order);
+    }
     return res.json(orders);
   }
 
@@ -439,6 +444,9 @@ export const createOrderListHandler = ({ OrderModel = Order, ClientModel = Clien
     .sort({ createdAt: -1 })
     .skip((page - 1) * pagination.pageSize)
     .limit(pagination.pageSize);
+  for (const order of items) {
+    if (order.finalValue !== undefined && order.finalValue !== null) order.paymentStatus = getOrderPaymentStatus(order);
+  }
   return res.json(buildPage(items, page, pagination.pageSize, total));
 };
 
@@ -452,6 +460,22 @@ const confirmedOrdersFilter = {
   ],
 };
 
+const paymentDiscountTotalExpression = {
+  $sum: {
+    $map: {
+      input: { $ifNull: ['$paymentDiscounts', []] },
+      as: 'discount',
+      in: {
+        $cond: [
+          { $ifNull: ['$$discount.canceledAt', false] },
+          0,
+          { $ifNull: ['$$discount.amount', 0] },
+        ],
+      },
+    },
+  },
+};
+
 const receivableBalanceExpression = {
   $max: [
     0,
@@ -463,18 +487,33 @@ const receivableBalanceExpression = {
             { $ifNull: ['$amountPaid', 0] },
           ],
         },
-        {
-          $sum: {
-            $map: {
-              input: { $ifNull: ['$paymentDiscounts', []] },
-              as: 'discount',
-              in: { $ifNull: ['$$discount.amount', 0] },
-            },
-          },
-        },
+        paymentDiscountTotalExpression,
       ],
     },
   ],
+};
+
+const paymentStatusExpressions = {
+  quitado: { $lte: [receivableBalanceExpression, 0.01] },
+  pago: { $lte: [receivableBalanceExpression, 0.01] },
+  parcial: {
+    $and: [
+      { $gt: [receivableBalanceExpression, 0.01] },
+      {
+        $or: [
+          { $gt: [{ $ifNull: ['$amountPaid', 0] }, 0] },
+          { $gt: [paymentDiscountTotalExpression, 0] },
+        ],
+      },
+    ],
+  },
+  aberto: {
+    $and: [
+      { $gt: [receivableBalanceExpression, 0.01] },
+      { $lte: [{ $ifNull: ['$amountPaid', 0] }, 0] },
+      { $lte: [paymentDiscountTotalExpression, 0] },
+    ],
+  },
 };
 
 const buildReceivablesFilter = (filter) => {
@@ -1061,9 +1100,7 @@ router.post('/:id/approve', allowRoles('admin', 'atendente'), async (req, res) =
         note: `Entrada recebida no valor de ${fmtMoney(downPayment)} via ${order.paymentMethod}`,
       });
     }
-    if (order.amountPaid >= order.finalValue - 0.01) order.paymentStatus = 'quitado';
-    else if (order.amountPaid > 0) order.paymentStatus = 'parcial';
-    else order.paymentStatus = 'aberto';
+    order.paymentStatus = getOrderPaymentStatus(order);
     await order.save();
     res.json(order);
   } catch (err) {
@@ -1179,8 +1216,17 @@ export function createPaymentHandler({ OrderModel = Order, UserModel = User, Aud
     const installments = order.installments || [];
     order.amountPaid = (order.amountPaid || 0) + pay;
     order.paymentMethod = paymentMethod;
-    payments.push({ amount: pay, method: paymentMethod, paidAt, receiptUrl });
+    payments.push({
+      amount: pay,
+      method: paymentMethod,
+      paidAt,
+      receiptUrl,
+      ...(installmentIndex !== undefined && installments[installmentIndex]._id
+        ? { installmentIds: [installments[installmentIndex]._id] }
+        : {}),
+    });
     order.payments = payments;
+    const recordedPayment = payments[payments.length - 1];
 
     if (installmentIndex !== undefined) {
       const installment = installments[installmentIndex];
@@ -1193,6 +1239,7 @@ export function createPaymentHandler({ OrderModel = Order, UserModel = User, Aud
         if (!installment.paid && installment.amount <= remaining) {
           installment.paid = true;
           installment.paidAt = paidAt;
+          if (installment._id) (recordedPayment.installmentIds ||= []).push(installment._id);
           remaining -= installment.amount;
         }
       }
@@ -1210,6 +1257,7 @@ export function createPaymentHandler({ OrderModel = Order, UserModel = User, Aud
         reason,
         by: req.user.name,
         authorizedBy: { userId: authorizedBy._id, name: authorizedBy.name },
+        paymentId: recordedPayment._id,
         at: paidAt,
       });
       order.history.push({
@@ -1220,11 +1268,10 @@ export function createPaymentHandler({ OrderModel = Order, UserModel = User, Aud
     }
 
     const balance = getOrderBalance(order);
+    order.paymentStatus = getOrderPaymentStatus(order);
     if (balance <= 0.01) {
-      order.paymentStatus = 'quitado';
       order.installments = installments.filter((installment) => installment.paid);
     } else {
-      if (order.amountPaid > 0 || discountAmount > 0) order.paymentStatus = 'parcial';
       recalculateUnpaidInstallments(installments, balance);
       order.installments = installments;
     }
@@ -1262,6 +1309,111 @@ export function createPaymentHandler({ OrderModel = Order, UserModel = User, Aud
 }
 
 router.post('/:id/payments', allowRoles('admin', 'atendente'), adminAuthorizationLimiter, createPaymentHandler());
+
+export function createPaymentCancellationHandler({
+  OrderModel = Order,
+  UserModel = User,
+  AuditLogModel = AuditLog,
+} = {}) {
+  return async (req, res) => {
+    if (!['admin', 'atendente'].includes(req.user?.role)) {
+      return res.status(403).json({ message: 'Perfil sem permissão para estornar pagamentos' });
+    }
+    if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.paymentId)) {
+      return res.status(400).json({ message: 'Identificador inválido' });
+    }
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (!reason || reason.length > 500) {
+      return res.status(400).json({ message: 'Informe o motivo do estorno (até 500 caracteres)' });
+    }
+
+    const order = await OrderModel.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Pedido não encontrado' });
+    const payment = (order.payments || []).find((entry) => String(entry._id) === req.params.paymentId);
+    if (!payment) return res.status(404).json({ message: 'Pagamento não encontrado' });
+    if (payment.canceledAt) return res.status(409).json({ message: 'Este pagamento já foi estornado' });
+
+    const authorizedBy = await authorizeOrderAction({
+      requester: req.user,
+      adminAuthorization: req.body?.adminAuthorization,
+      UserModel,
+    });
+    if (!authorizedBy) {
+      try {
+        await recordAuditEvent({
+          AuditLogModel,
+          req,
+          action: 'pagamento.estornado',
+          details: {
+            pedidoId: String(order._id),
+            numero: order.number || '',
+            pagamentoId: req.params.paymentId,
+            valor: Number(payment.amount) || 0,
+            motivo: reason,
+          },
+          success: false,
+        });
+      } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Não foi possível registrar a tentativa de estorno' });
+      }
+      return res.status(401).json({ message: 'Credenciais de autorização administrativa inválidas' });
+    }
+
+    const canceledAt = new Date();
+    payment.canceledAt = canceledAt;
+    payment.canceledBy = req.user.name;
+    payment.cancellationReason = reason;
+    for (const discount of order.paymentDiscounts || []) {
+      if (String(discount.paymentId) === String(payment._id)) discount.canceledAt = canceledAt;
+    }
+    order.amountPaid = Math.max(0, (Number(order.amountPaid) || 0) - (Number(payment.amount) || 0));
+    recalculatePaidInstallments(order);
+    const balance = getOrderBalance(order);
+    order.paymentStatus = getOrderPaymentStatus(order);
+    if (balance <= 0.01) order.installments = (order.installments || []).filter((installment) => installment.paid);
+    else recalculateUnpaidInstallments(order.installments || [], balance);
+    order.history.push({
+      action: 'pagamento_estornado',
+      by: req.user.name,
+      paymentMethod: payment.method,
+      note: `Estornado ${fmtMoney(payment.amount)}: ${reason}`,
+    });
+
+    try {
+      await order.save();
+    } catch (error) {
+      if (error?.name === 'VersionError') {
+        return res.status(409).json({ message: 'O pedido foi atualizado por outra operação; recarregue antes de estornar' });
+      }
+      console.error(error);
+      return res.status(500).json({ message: 'Não foi possível estornar o pagamento' });
+    }
+
+    try {
+      await recordAuditEvent({
+        AuditLogModel,
+        req,
+        authorizedBy,
+        action: 'pagamento.estornado',
+        details: {
+          pedidoId: String(order._id),
+          numero: order.number || '',
+          pagamentoId: req.params.paymentId,
+          valor: Number(payment.amount) || 0,
+          motivo: reason,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'O pagamento foi estornado, mas não foi possível registrar a auditoria' });
+    }
+
+    return res.json(order);
+  };
+}
+
+router.post('/:id/payments/:paymentId/cancel', allowRoles('admin', 'atendente'), adminAuthorizationLimiter, createPaymentCancellationHandler());
 
 export function createWhatsappHandler({ OrderModel = Order } = {}) {
   return async (req, res) => {

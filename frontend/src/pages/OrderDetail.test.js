@@ -1,6 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
+import { createPaymentReceipt, getPaymentLabel } from './paymentReceipt.js';
+
+test('payment labels identify the entry and start installment numbering after it', () => {
+  const payments = [{ type: 'entrada' }, { type: 'pagamento' }, { type: 'pagamento' }];
+  assert.equal(getPaymentLabel(payments, 0), 'Entrada');
+  assert.equal(getPaymentLabel(payments, 1), '1ª parcela');
+  assert.equal(getPaymentLabel(payments, 2), '2ª parcela');
+});
+
+test('canceled payments no longer produce receipts or count toward received totals', () => {
+  const order = {
+    number: '00001',
+    finalValue: 100,
+    client: { name: 'Cliente' },
+    payments: [
+      { type: 'entrada', amount: 20, method: 'pix', paidAt: '2026-10-20T12:00:00Z' },
+      { type: 'pagamento', amount: 30, method: 'pix', paidAt: '2026-10-20T13:00:00Z', canceledAt: '2026-10-20T14:00:00Z' },
+      { type: 'pagamento', amount: 10, method: 'dinheiro', paidAt: '2026-10-20T15:00:00Z' },
+    ],
+  };
+
+  assert.equal(createPaymentReceipt(order, 1), null);
+  assert.match(createPaymentReceipt(order, 2).text, /Total recebido: R\$ 30,00/);
+});
 
 test('payment discount payload sends Admin credentials only for an attendant discount', async () => {
   const server = await createServer({ server: { middlewareMode: true, ws: false } });

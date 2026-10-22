@@ -28,6 +28,7 @@ export const buildCashReport = (session, orders, dateKey) => {
       })
       .filter(Boolean);
     for (const payment of paymentEntries) {
+      if (payment.canceledAt) continue;
       const paidAt = new Date(payment.paidAt || 0);
       if (paidAt < start || paidAt >= end) continue;
       if (methods.includes(payment.method)) calculatedInflows[payment.method] += Number(payment.amount || 0);

@@ -65,7 +65,9 @@ export const buildFinanceExportRows = ({ orders = [], payables = [], sessions = 
   for (const order of orders) {
     if (order.status === 'cancelado') continue;
     const payments = Array.isArray(order.payments) && order.payments.length
-      ? order.payments.map((payment) => ({ ...payment.toObject?.() ?? payment, kind: payment.type || 'pagamento' }))
+      ? order.payments
+        .filter((payment) => !payment.canceledAt)
+        .map((payment) => ({ ...payment.toObject?.() ?? payment, kind: payment.type || 'pagamento' }))
       : (order.history || [])
         .filter((entry) => entry.action === 'pagamento')
         .map((entry) => ({

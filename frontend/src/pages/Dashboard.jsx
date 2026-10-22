@@ -17,6 +17,7 @@ import { getDeadline, priorityLabels } from './printshop.js';
 import OrderForm from './OrderForm.jsx';
 import { toggleSelectedOrder } from './listPagination.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
+import { getOrderPaymentStatus } from './orderBalance.js';
 
 const DETAIL_PAGE_SIZE = 20;
 
@@ -657,7 +658,7 @@ export default function Dashboard() {
                   <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
                   <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
                   <td className="px-5 py-3"><StatusBadge value={o.production} /></td>
-                  <td className="px-5 py-3"><StatusBadge value={o.paymentStatus} /></td>
+                  <td className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
                   <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
                   <td className="px-5 py-3 text-right">
                     <div className="inline-flex gap-2">

@@ -21,7 +21,7 @@ Substitui o Dix Sistema com tudo em um só lugar, telas integradas e envio de pe
 - **Recibos de pagamento** — cada recebimento registrado gera um recibo individual para impressão ou envio via WhatsApp na tela do pedido
 - **Impressão térmica de 80 mm** para orçamentos/pedidos, recibos individuais, saldos a receber e contas a pagar em aberto; a impressão A4 continua disponível
 - **Agrupar pedidos por cliente** (tela de Clientes, expansível)
-- **Desdobramento de pagamento em parcelas** (vencimentos individuais, baixa automática ou por parcela)
+- **Parcelas de pagamento** com entrada identificada, baixa automática ou por parcela e estorno auditável
 - **Contas a pagar** (consumo/insumos/aluguel etc.) com **aviso visual no Dashboard** (vencidas em vermelho, vencendo em até 3 dias em amarelo)
 - **Urgências do dia no Dashboard:** contas vencidas ou com vencimento hoje e pedidos aprovados não entregues com prazo vencido/hoje ou prioridade alta/urgente
 - **Contas a receber** com saldo devedor e próximos vencimentos dos pedidos aprovados; orçamentos pendentes não entram nos saldos financeiros

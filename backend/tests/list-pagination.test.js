@@ -53,6 +53,26 @@ test('orders list paginates the filtered query and preserves legacy array mode',
   assert.ok(Array.isArray(legacyResponse.body));
 });
 
+test('orders list treats fully paid stale records as quitado and filters by calculated balance', async () => {
+  let receivedFilter;
+  const order = {
+    number: '00015',
+    finalValue: 100,
+    amountPaid: 100,
+    paymentStatus: 'aberto',
+  };
+  const OrderModel = {
+    countDocuments: async (filter) => { receivedFilter = filter; return 1; },
+    find: (filter) => { receivedFilter = filter; return query([order]); },
+  };
+  const res = response();
+
+  await createOrderListHandler({ OrderModel })({ query: { paymentStatus: 'quitado', page: '1', pageSize: '10' } }, res);
+
+  assert.ok(receivedFilter.$expr);
+  assert.equal(res.body.items[0].paymentStatus, 'quitado');
+});
+
 test('client list paginates after search and returns full filtered total', async () => {
   let receivedFilter;
   const clients = [

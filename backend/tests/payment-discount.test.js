@@ -58,6 +58,7 @@ const createRequest = (user, body = {}) => ({
 
 test('payment discount balance subtracts actual receipts and all recorded discounts without going negative', () => {
   assert.equal(getOrderBalance({ finalValue: 100, amountPaid: 60, paymentDiscounts: [{ amount: 10 }, { amount: 40 }] }), 0);
+  assert.equal(getOrderBalance({ finalValue: 100, amountPaid: 60, paymentDiscounts: [{ amount: 40, canceledAt: new Date() }] }), 40);
   assert.equal(getOrderBalance({ finalValue: 100, amountPaid: 35 }), 65);
 });
 
@@ -73,6 +74,19 @@ test('payment discount zero preserves the legacy receipt amount and cash balance
   assert.deepEqual(order.payments.map(({ amount }) => amount), [10]);
   assert.deepEqual(order.paymentDiscounts, []);
   assert.equal(getOrderBalance(order), 90);
+});
+
+test('a payment that brings the remaining balance to zero is marked quitado', async () => {
+  const order = createOrder();
+  order.amountPaid = 90;
+  order.payments.push({ amount: 90, method: 'pix' });
+  const handler = createHandler({ OrderModel: createOrderModel(order) });
+  const res = createResponse();
+
+  await handler(createRequest(activeAdmin, { amount: 10 }), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(order.paymentStatus, 'quitado');
 });
 
 test('payment discount by Admin records a separate audited discount and only the received cash', async () => {

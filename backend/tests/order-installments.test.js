@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { recalculateUnpaidInstallments, receiveDownPayment } from '../services/orderInstallments.js';
+import { recalculatePaidInstallments, recalculateUnpaidInstallments, receiveDownPayment } from '../services/orderInstallments.js';
 
 test('recalculateUnpaidInstallments divides the remaining balance and preserves paid installments', () => {
   const installments = [
@@ -57,4 +57,41 @@ test('receiveDownPayment removes installments when the entry pays the full order
 
   assert.equal(order.paymentStatus, 'quitado');
   assert.deepEqual(order.installments, []);
+});
+
+test('recalculatePaidInstallments ignores canceled receipts and preserves entry as a separate payment', () => {
+  const order = {
+    payments: [
+      { amount: 30, type: 'entrada', paidAt: new Date('2026-10-17T12:00:00Z') },
+      { amount: 40, installmentIds: ['installment-1'], paidAt: new Date('2026-10-18T12:00:00Z') },
+      { amount: 60, canceledAt: new Date('2026-10-19T12:00:00Z') },
+    ],
+    installments: [
+      { _id: 'installment-1', amount: 40, paid: true, paidAt: new Date('2026-10-18T12:00:00Z') },
+      { _id: 'installment-2', amount: 60, paid: true, paidAt: new Date('2026-10-19T12:00:00Z') },
+    ],
+  };
+
+  recalculatePaidInstallments(order);
+
+  assert.deepEqual(order.installments.map(({ paid }) => paid), [true, false]);
+});
+
+test('recalculatePaidInstallments preserves legacy installments linked by their received timestamp', () => {
+  const firstPaymentAt = new Date('2026-10-18T12:00:00Z');
+  const canceledPaymentAt = new Date('2026-10-19T12:00:00Z');
+  const order = {
+    payments: [
+      { amount: 40, paidAt: firstPaymentAt },
+      { amount: 60, paidAt: canceledPaymentAt, canceledAt: new Date('2026-10-20T12:00:00Z') },
+    ],
+    installments: [
+      { _id: 'installment-1', amount: 40, paid: true, paidAt: firstPaymentAt },
+      { _id: 'installment-2', amount: 60, paid: true, paidAt: canceledPaymentAt },
+    ],
+  };
+
+  recalculatePaidInstallments(order);
+
+  assert.deepEqual(order.installments.map(({ paid }) => paid), [true, false]);
 });

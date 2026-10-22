@@ -16,6 +16,7 @@ export const auditActions = [
   'pagamento.desconto_acima_limite',
   'autorizacao.desconto',
   'autorizacao.cancelamento',
+  'pagamento.estornado',
 ];
 
 const sensitiveKey = /password|token|authorization|secret|cookie|credential/i;
