@@ -315,8 +315,8 @@ export default function Dashboard() {
         <div className="mb-4 flex justify-end">
           <Link to="/pedidos" className="text-sm text-brand-600 hover:underline">Ver todos</Link>
         </div>
-        <div className="-mx-4 -mb-4 overflow-x-auto sm:-mx-5 sm:-mb-5">
-          <table className="w-full text-sm">
+        <div className="min-w-0">
+          <table className="responsive-table text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-5 py-3">Nº</th>
@@ -334,14 +334,14 @@ export default function Dashboard() {
               )}
               {recentOrders.map((o) => (
                 <tr key={o._id} className="border-t hover:bg-slate-50">
-                  <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
-                  <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
-                  <td className="px-5 py-3"><StatusBadge value={o.status} /></td>
-                  <td className="px-5 py-3"><StatusBadge value={o.production} /></td>
-                  <td className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
-                  <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="inline-flex gap-2">
+                  <td data-label="Nº" className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
+                  <td data-label="Cliente" className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
+                  <td data-label="Status" className="px-5 py-3"><StatusBadge value={o.status} /></td>
+                  <td data-label="Produção" className="px-5 py-3"><StatusBadge value={o.production} /></td>
+                  <td data-label="Pagamento" className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
+                  <td data-label="Valor" className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
+                  <td data-label="Ações" className="px-5 py-3 text-right">
+                    <div className="inline-flex flex-wrap gap-2">
                       <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
                       <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />
                       <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
@@ -536,8 +536,8 @@ export default function Dashboard() {
           title="Margem por linha de serviço"
           description="Calculada com o custo salvo em cada item; pedidos antigos sem snapshot não recebem custo retroativo."
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="min-w-0">
+            <table className="responsive-table text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-5 py-3 text-left">Categoria</th>
@@ -551,12 +551,12 @@ export default function Dashboard() {
               <tbody>
                 {data.analytics.serviceMargins.map((row) => (
                   <tr key={row.category} className="border-t">
-                    <td className="px-5 py-3 font-medium">{row.name}</td>
-                    <td className="px-5 py-3 text-right">{fmt(row.revenue)}</td>
-                    <td className="px-5 py-3 text-right">{fmt(row.cost)}</td>
-                    <td className="px-5 py-3 text-right">{fmt(row.profit)}</td>
-                    <td className="px-5 py-3 text-right">{row.marginPct === null ? 'Incompleta' : `${row.marginPct.toFixed(1).replace('.', ',')}%`}</td>
-                    <td className="px-5 py-3 text-right">{row.costCoveragePct.toFixed(0)}% ({row.itemsWithoutCost} sem custo)</td>
+                    <td data-label="Categoria" className="px-5 py-3 font-medium">{row.name}</td>
+                    <td data-label="Receita" className="px-5 py-3 text-right">{fmt(row.revenue)}</td>
+                    <td data-label="Custo" className="px-5 py-3 text-right">{fmt(row.cost)}</td>
+                    <td data-label="Lucro bruto" className="px-5 py-3 text-right">{fmt(row.profit)}</td>
+                    <td data-label="Margem" className="px-5 py-3 text-right">{row.marginPct === null ? 'Incompleta' : `${row.marginPct.toFixed(1).replace('.', ',')}%`}</td>
+                    <td data-label="Cobertura" className="px-5 py-3 text-right">{row.costCoveragePct.toFixed(0)}% ({row.itemsWithoutCost} sem custo)</td>
                   </tr>
                 ))}
                 {!data.analytics.serviceMargins.length && <tr><td colSpan="6" className="px-5 py-8 text-center text-slate-400">Sem itens de pedidos confirmados para o período.</td></tr>}

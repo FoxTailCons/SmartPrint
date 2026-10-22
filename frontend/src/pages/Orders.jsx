@@ -16,6 +16,10 @@ import { getOrderBalance, getOrderPaymentStatus } from './orderBalance.js';
 import PeriodExport from '../components/PeriodExport.jsx';
 
 const DEFAULT_PAGE_SIZE = 20;
+export function ProductionStatus({ value }) {
+  return value === 'em_producao' ? null : <StatusBadge value={value} />;
+}
+
 export function ProductionStageTracker({ order, onAdvance, busy = false }) {
   const currentStage = getProductionStage(order);
   const currentIndex = productionStages.findIndex(([key]) => key === currentStage);
@@ -34,7 +38,7 @@ export function ProductionStageTracker({ order, onAdvance, busy = false }) {
         aria-valuemax={requiredStages.length}
         aria-valuenow={completedCount}
         aria-valuetext={`${completedCount} de ${requiredStages.length} etapas concluídas${currentStage !== 'entregue' ? `; etapa atual: ${productionStages[currentIndex]?.[1] || currentStage}` : '; pedido entregue'}`}
-        className="flex min-w-64 gap-1"
+        className="flex min-w-0 gap-1"
       >
         {productionStages.map(([key, label], index) => {
           const skipped = skippedStages.includes(key);
@@ -49,7 +53,7 @@ export function ProductionStageTracker({ order, onAdvance, busy = false }) {
           );
         })}
       </div>
-      <ol aria-label="Etapas de produção" className="mt-1 flex min-w-64 gap-1">
+      <ol aria-label="Etapas de produção" className="mt-1 flex min-w-0 gap-1">
       {productionStages.map(([key, label], index) => {
         const skipped = skippedStages.includes(key);
         const state = skipped ? 'dispensada' : index < currentIndex || currentStage === 'entregue' ? 'concluída' : index === currentIndex ? 'atual' : 'pendente';
@@ -160,7 +164,7 @@ export default function Orders() {
         </div>
       </div>
 
-      <div role="tablist" aria-label="Etapa dos pedidos" className="flex gap-1 overflow-x-auto rounded-xl border bg-white p-1">
+      <div role="tablist" aria-label="Etapa dos pedidos" className="flex flex-wrap gap-1 rounded-xl border bg-white p-1">
         {orderTabs.map((tab) => (
           <button
             key={tab.status}
@@ -178,7 +182,7 @@ export default function Orders() {
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-4 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative min-w-0 flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={query}
@@ -203,8 +207,8 @@ export default function Orders() {
 
       <div id="orders-panel" role="tabpanel" aria-labelledby={`order-tab-${activeTab}`} tabIndex={0} className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="min-w-0">
+          <table className="responsive-table text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
                 <th className="text-left px-5 py-3">Nº</th>
@@ -234,31 +238,31 @@ export default function Orders() {
               )}
               {listState === 'ready' && orders.map((o) => (
                 <tr key={o._id} className="border-t hover:bg-slate-50">
-                  <td className="px-5 py-3">
+                  <td data-label="Nº" className="px-5 py-3">
                     <div className="text-xs text-slate-500">{getOrderDocumentLabel(o)}</div>
                     <div className="font-mono font-semibold">#{o.number}</div>
                   </td>
-                  <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
-                  <td className="px-5 py-3">
+                  <td data-label="Cliente" className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
+                  <td data-label="Status" className="px-5 py-3">
                     <StatusBadge value={o.status} />
                     {o.status === 'pendente' && <button type="button" disabled={Boolean(approvingId) || Boolean(advancingId)} onClick={() => approveQuote(o)} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
                       <CheckCircle2 size={14} /> {approvingId === o._id ? 'Aprovando...' : 'Aprovar'}
                     </button>}
                   </td>
-                  <td className="px-5 py-3">
+                  <td data-label="Produção" className="px-5 py-3">
                     {o.status === 'pendente' ? <span className="text-xs text-slate-500">Aguardando aprovação</span> : o.status === 'cancelado' ? <StatusBadge value="cancelado" /> : <>
-                      <StatusBadge value={o.production} />
+                      <ProductionStatus value={o.production} />
                       <div className="mt-2"><ProductionStageTracker order={o} onAdvance={advanceStage} busy={advancingId === o._id} /></div>
                       <div className={`mt-1 text-xs ${getDeadline(o).overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{getDeadline(o).label}</div>
                     </>}
                   </td>
-                  <td className="px-5 py-3">{fmtCivilDate(getDeadline(o).date)}</td>
-                  <td className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
-                  <td className="px-5 py-3 text-right">{fmt(o.amountPaid)}</td>
-                  <td className="px-5 py-3 text-right">{fmt(getOrderBalance(o))}</td>
-                  <td className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="inline-flex gap-2">
+                  <td data-label="Data de entrega" className="px-5 py-3">{fmtCivilDate(getDeadline(o).date)}</td>
+                  <td data-label="Pagamento" className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
+                  <td data-label="Pago" className="px-5 py-3 text-right">{fmt(o.amountPaid)}</td>
+                  <td data-label="A PAGAR" className="px-5 py-3 text-right">{fmt(getOrderBalance(o))}</td>
+                  <td data-label="TOTAL" className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
+                  <td data-label="Ações" className="px-5 py-3 text-right">
+                    <div className="inline-flex flex-wrap gap-2">
                       {o.status !== 'cancelado' && <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}
                       {o.status !== 'cancelado' && <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />}
                       {o.status !== 'cancelado' && <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />}

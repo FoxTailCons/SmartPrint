@@ -134,8 +134,8 @@ export default function Payables() {
 
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <div className="min-w-0">
+        <table className="responsive-table text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
               <th className="text-left px-5 py-3">Descrição</th>
@@ -155,22 +155,22 @@ export default function Payables() {
             {listState === 'empty' && <tr><td colSpan="6" className="text-center py-10 text-slate-400">Nenhuma conta cadastrada.</td></tr>}
             {listState === 'ready' && items.map((p) => (
               <tr key={p._id} className={`border-t ${rowStyle(p)}`}>
-                <td className="px-5 py-3">
+                <td data-label="Descrição" className="px-5 py-3">
                   {p.description}
                   {p.recurring && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">recorrente</span>}
                 </td>
-                <td className="px-5 py-3 text-slate-500">{catLabel[p.category] || p.category}</td>
-                <td className="px-5 py-3">{fmtCivilDate(p.dueDate)}</td>
-                <td className="px-5 py-3 text-right font-semibold">{fmt(p.value)}</td>
-                <td className="px-5 py-3 text-center">
+                <td data-label="Categoria" className="px-5 py-3 text-slate-500">{catLabel[p.category] || p.category}</td>
+                <td data-label="Vencimento" className="px-5 py-3">{fmtCivilDate(p.dueDate)}</td>
+                <td data-label="Valor" className="px-5 py-3 text-right font-semibold">{fmt(p.value)}</td>
+                <td data-label="Status" className="px-5 py-3 text-center">
                   {p.paid
                     ? <span className="text-xs font-semibold text-emerald-600">PAGA em {fmtDate(p.paidAt)}</span>
                     : calendarDate(p.dueDate) && calendarDate(p.dueDate) < today
                       ? <span className="text-xs font-semibold text-red-600">VENCIDA</span>
                       : <span className="text-xs text-slate-500">aberta</span>}
                 </td>
-                <td className="px-5 py-3 text-right">
-                  <div className="inline-flex gap-2">
+                <td data-label="Ações" className="px-5 py-3 text-right">
+                  <div className="inline-flex flex-wrap gap-2">
                     {!p.paid && <ThermalPrintButton html={buildPayableThermalHtml(p)} label="Pendência 80 mm" className="!py-1.5 !px-2.5 text-xs" />}
                     {!p.paid && <button onClick={() => pay(p._id)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500 text-white text-xs hover:bg-emerald-600"><CheckCircle2 size={12} /> Pagar</button>}
                     <button onClick={() => remove(p._id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={14} /></button>

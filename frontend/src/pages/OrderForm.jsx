@@ -247,7 +247,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   };
 
   const content = (
-    <div className="space-y-5 max-w-4xl">
+    <div className="w-full min-w-0 space-y-5">
       {!modal && <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">
@@ -406,9 +406,9 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
           </div>
           <div className="space-y-2">
             {items.map((it, idx) => (
-              <div key={idx} className="grid grid-cols-12 items-center gap-2">
+              <div key={idx} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-12">
                 {it.productId ? (
-                  <div className="col-span-11 flex min-w-0 items-center gap-3 rounded-lg border bg-slate-50 px-3 py-2">
+                  <div className="col-span-full flex min-w-0 items-center gap-3 rounded-lg border bg-slate-50 px-3 py-2 sm:col-span-11">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{it.description}</div>
                       <div className="text-xs text-slate-500">
@@ -425,28 +425,28 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                 ) : (
                   <>
                     <input
-                      className="col-span-6 rounded-lg border px-3 py-2 text-sm"
+                      className="col-span-full min-w-0 rounded-lg border px-3 py-2 text-sm sm:col-span-6"
                       placeholder="Descrição (ex: Banner 2x1m, Adesivo 100un...)"
                       value={it.description}
                       onChange={(e) => updateItem(idx, 'description', e.target.value)}
                     />
                     <input
                       type="number" min="0" step="any"
-                      className="col-span-2 rounded-lg border px-3 py-2 text-sm"
+                      className="col-span-full min-w-0 rounded-lg border px-3 py-2 text-sm sm:col-span-2"
                       placeholder="Qtd"
                       value={it.quantity}
                       onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
                     />
                     <input
                       type="number" min="0" step="any"
-                      className="col-span-3 rounded-lg border px-3 py-2 text-sm"
+                      className="col-span-full min-w-0 rounded-lg border px-3 py-2 text-sm sm:col-span-3"
                       placeholder="Preço unit. (R$)"
                       value={it.unitPrice}
                       onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
                     />
                     <select
                       aria-label={`Categoria do item ${idx + 1}`}
-                      className="col-span-11 rounded-lg border px-3 py-2 text-sm"
+                      className="col-span-full min-w-0 rounded-lg border px-3 py-2 text-sm sm:col-span-11"
                       value={it.category || ''}
                       onChange={(event) => updateItem(idx, 'category', event.target.value)}
                     >
@@ -455,7 +455,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                     </select>
                   </>
                 )}
-                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-1 text-red-500 hover:bg-red-50 p-2 rounded-lg">
+                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-full justify-self-end p-2 text-red-500 rounded-lg hover:bg-red-50 sm:col-span-1">
                   <Trash2 size={16} />
                 </button>
                 <GraphicItemFields item={it} onChange={(field, value) => updateItem(idx, field, value)} />
@@ -513,11 +513,11 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
           {installments.length > 0 && (
             <div className="space-y-2">
               {installments.map((p, i) => (
-                <div key={i} className="grid grid-cols-12 gap-2 items-center text-sm">
-                  <span className="col-span-2 text-slate-500">{i + 1}ª parcela</span>
-                  <input type="date" value={p.dueDate} onChange={(e) => { const n = [...installments]; n[i].dueDate = e.target.value; setInstallments(n); }} className="col-span-5 px-3 py-2 border rounded-lg" />
-                  <input type="number" step="any" value={p.amount} onChange={(e) => { const n = [...installments]; n[i].amount = e.target.value; setInstallments(n); }} className="col-span-4 px-3 py-2 border rounded-lg" />
-                  <button type="button" onClick={() => setInstallments(installments.filter((_, x) => x !== i))} className="col-span-1 text-red-500"><Trash2 size={14} /></button>
+                <div key={i} className="grid grid-cols-1 gap-2 items-center text-sm sm:grid-cols-12">
+                  <span className="col-span-full text-slate-500 sm:col-span-2">{i + 1}ª parcela</span>
+                  <input type="date" value={p.dueDate} onChange={(e) => { const n = [...installments]; n[i].dueDate = e.target.value; setInstallments(n); }} className="col-span-full min-w-0 px-3 py-2 border rounded-lg sm:col-span-5" />
+                  <input type="number" step="any" value={p.amount} onChange={(e) => { const n = [...installments]; n[i].amount = e.target.value; setInstallments(n); }} className="col-span-full min-w-0 px-3 py-2 border rounded-lg sm:col-span-4" />
+                  <button type="button" onClick={() => setInstallments(installments.filter((_, x) => x !== i))} className="col-span-full justify-self-end text-red-500 sm:col-span-1"><Trash2 size={14} /></button>
                 </div>
               ))}
             </div>

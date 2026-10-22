@@ -139,7 +139,7 @@ export default function Users() {
   );
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="w-full min-w-0 space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Usuários</h1>
         <p className="text-sm text-slate-500">Cadastre e gerencie os acessos de atendentes e produção.</p>

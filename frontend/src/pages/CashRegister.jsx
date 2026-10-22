@@ -66,7 +66,7 @@ export default function CashRegister() {
   const parseCounts = () => Object.fromEntries(methods.map(([key]) => [key, Number(counted[key])]));
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="min-w-0 space-y-5">
       <header>
         <h1 className="text-2xl font-bold">Fechamento de caixa</h1>
         <p className="text-sm text-slate-500">Conferência diária por forma de pagamento · data de São Paulo</p>
@@ -109,12 +109,12 @@ export default function CashRegister() {
             <h3 className="mb-2 text-sm font-medium">Sangrias registradas</h3>
             <ul className="space-y-1 text-xs text-slate-600">{report.withdrawalDetails.map((item, index) => <li key={`${item.createdAt}-${index}`} className="flex justify-between gap-3"><span>{item.note}</span><strong>{fmt(item.amount)}</strong></li>)}</ul>
           </div>}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="min-w-0">
+            <table className="responsive-table text-sm">
               <thead><tr className="border-b text-left text-xs uppercase text-slate-500"><th className="py-2">Forma</th><th className="py-2 text-right">Entradas</th><th className="py-2 text-right">Esperado</th>{report.counted && <><th className="py-2 text-right">Conferido</th><th className="py-2 text-right">Diferença</th></>}</tr></thead>
               <tbody>{methods.map(([key, label]) => <tr key={key} className="border-b">
-                <td className="py-2">{label}</td><td className="py-2 text-right">{fmt(report.inflows[key])}</td><td className="py-2 text-right">{fmt(report.expected[key])}</td>
-                {report.counted && <><td className="py-2 text-right">{fmt(report.counted[key])}</td><td className={`py-2 text-right ${report.differences[key] ? 'font-semibold text-red-600' : 'text-emerald-700'}`}>{fmt(report.differences[key])}</td></>}
+                <td data-label="Forma" className="py-2">{label}</td><td data-label="Entradas" className="py-2 text-right">{fmt(report.inflows[key])}</td><td data-label="Esperado" className="py-2 text-right">{fmt(report.expected[key])}</td>
+                {report.counted && <><td data-label="Conferido" className="py-2 text-right">{fmt(report.counted[key])}</td><td data-label="Diferença" className={`py-2 text-right ${report.differences[key] ? 'font-semibold text-red-600' : 'text-emerald-700'}`}>{fmt(report.differences[key])}</td></>}
               </tr>)}</tbody>
             </table>
           </div>

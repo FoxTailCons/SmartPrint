@@ -85,8 +85,8 @@ export default function AuditLog() {
       </section>
       <section className="overflow-hidden rounded-xl border bg-white shadow-sm" aria-label="Registros de auditoria">
         <Pagination page={list.page} pageSize={list.pageSize} total={list.total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        <div className="min-w-0">
+          <table className="responsive-table text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-4 py-3">Data</th>
@@ -103,13 +103,13 @@ export default function AuditLog() {
                 : list.items.length === 0 ? <tr><td colSpan="7" className="px-4 py-8 text-center text-slate-500">Nenhum registro encontrado.</td></tr>
                   : list.items.map((entry) => (
                     <tr key={entry._id}>
-                      <td className="whitespace-nowrap px-4 py-3">{formatInstantDateTime(entry.data)}</td>
-                      <td className="px-4 py-3">{entry.usuarioSolicitante?.name || entry.detalhes?.email || '—'}</td>
-                      <td className="px-4 py-3">{entry.usuarioAutorizou?.name || '—'}</td>
-                      <td className="px-4 py-3">{actionLabels[entry.acao] || entry.acao}</td>
-                      <td className="max-w-sm whitespace-pre-wrap break-words px-4 py-3">{JSON.stringify(entry.detalhes)}</td>
-                      <td className="whitespace-nowrap px-4 py-3">{entry.ip || '—'}</td>
-                      <td className={`px-4 py-3 font-medium ${entry.sucesso ? 'text-emerald-700' : 'text-red-700'}`}>{entry.sucesso ? 'Sucesso' : 'Falha'}</td>
+                      <td data-label="Data" className="px-4 py-3">{formatInstantDateTime(entry.data)}</td>
+                      <td data-label="Solicitante" className="px-4 py-3">{entry.usuarioSolicitante?.name || entry.detalhes?.email || '—'}</td>
+                      <td data-label="Autorizou" className="px-4 py-3">{entry.usuarioAutorizou?.name || '—'}</td>
+                      <td data-label="Ação" className="px-4 py-3">{actionLabels[entry.acao] || entry.acao}</td>
+                      <td data-label="Detalhes" className="px-4 py-3 whitespace-pre-wrap break-words">{JSON.stringify(entry.detalhes)}</td>
+                      <td data-label="IP" className="px-4 py-3">{entry.ip || '—'}</td>
+                      <td data-label="Resultado" className={`px-4 py-3 font-medium ${entry.sucesso ? 'text-emerald-700' : 'text-red-700'}`}>{entry.sucesso ? 'Sucesso' : 'Falha'}</td>
                     </tr>
                   ))}
             </tbody>

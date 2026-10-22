@@ -20,6 +20,21 @@ test('orders page groups active quotes/orders and completed/canceled records', a
     assert.match(html, /Data de entrega/);
     assert.match(html, /A PAGAR/);
     assert.match(html, />TOTAL</);
+    assert.match(html, /responsive-table/);
+  } finally {
+    await server.close();
+  }
+});
+
+test('production status badge disappears after production starts but remains before start', async () => {
+  const server = await createServer({ server: { middlewareMode: true, ws: false } });
+  try {
+    const { ProductionStatus } = await server.ssrLoadModule('/src/pages/Orders.jsx');
+    const started = renderToString(React.createElement(ProductionStatus, { value: 'em_producao' }));
+    const notStarted = renderToString(React.createElement(ProductionStatus, { value: 'nao_iniciado' }));
+
+    assert.doesNotMatch(started, /Não iniciado|Em produção/);
+    assert.match(notStarted, /Não iniciado/);
   } finally {
     await server.close();
   }

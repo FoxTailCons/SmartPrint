@@ -208,7 +208,7 @@ export default function OrderDetail() {
   };
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="w-full min-w-0 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <Link to={isProductionUser ? '/producao' : '/pedidos'} className="text-sm text-slate-500 hover:underline">

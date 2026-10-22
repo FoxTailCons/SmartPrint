@@ -165,7 +165,7 @@ export default function QuickOrder() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="w-full min-w-0 space-y-5">
       <div><h1 className="text-2xl font-bold">Pedido rápido</h1><p className="text-sm text-slate-500">Venda de balcão · pagamento integral e entrega imediata</p></div>
       {order ? <QuickSaleResult order={order} onNewSale={newSale} /> : (
         <form onSubmit={submit} className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">

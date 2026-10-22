@@ -129,7 +129,7 @@ export default function Layout({ children }) {
           </button>
         </header>
         <main className="min-w-0 overflow-x-hidden">
-          <div className="mx-auto max-w-7xl p-4 sm:p-6">{children}</div>
+          <div className="w-full min-w-0 p-3 sm:p-5 lg:p-6">{children}</div>
         </main>
       </div>
     </div>

@@ -64,8 +64,8 @@ export default function Receivables() {
 
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <Pagination page={list.page} pageSize={list.pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }} />
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <div className="min-w-0">
+        <table className="responsive-table text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
               <th className="text-left px-5 py-3">Pedido</th>
@@ -86,14 +86,14 @@ export default function Receivables() {
             {listState === 'empty' && <tr><td colSpan="7" className="text-center py-10 text-slate-400">Nenhum título.</td></tr>}
             {listState === 'ready' && withBalance.map((o) => (
               <tr key={o._id} className="border-t hover:bg-slate-50">
-                <td className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
-                <td className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
-                <td className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
-                <td className="px-5 py-3 text-right">{fmt(o.finalValue)}</td>
-                <td className="px-5 py-3 text-right text-emerald-600">{fmt(o.amountPaid)}</td>
-                <td className="px-5 py-3 text-right font-bold text-red-600">{fmt(Math.max(0, o.balance))}</td>
-                <td className="px-5 py-3 text-right">
-                  <div className="inline-flex gap-2">
+                <td data-label="Pedido" className="px-5 py-3 font-mono font-semibold">#{o.number}</td>
+                <td data-label="Cliente" className="px-5 py-3">{o.client?.name || 'Cliente não cadastrado'}</td>
+                <td data-label="Status" className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
+                <td data-label="Total" className="px-5 py-3 text-right">{fmt(o.finalValue)}</td>
+                <td data-label="Recebido" className="px-5 py-3 text-right text-emerald-600">{fmt(o.amountPaid)}</td>
+                <td data-label="Saldo" className="px-5 py-3 text-right font-bold text-red-600">{fmt(Math.max(0, o.balance))}</td>
+                <td data-label="Ações" className="px-5 py-3 text-right">
+                  <div className="inline-flex flex-wrap gap-2">
                     <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
                     <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />
                     {o.balance > 0 && <ThermalPrintButton html={buildBalanceThermalHtml(o)} label="Pendência" className="!py-1.5 !px-2.5 text-xs" />}
