@@ -16,8 +16,12 @@ import { getOrderBalance, getOrderPaymentStatus } from './orderBalance.js';
 import PeriodExport from '../components/PeriodExport.jsx';
 
 const DEFAULT_PAGE_SIZE = 20;
-export function ProductionStatus({ value }) {
-  return value === 'em_producao' ? null : <StatusBadge value={value} />;
+export function ProductionStatus({ value, order }) {
+  const skippedStages = normalizeSkippedStages(order?.skippedStages || []);
+  const initialStage = productionStages.find(([key]) => key !== 'entregue' && !skippedStages.includes(key))?.[0];
+  const stageAdvanced = order && getProductionStage(order) !== initialStage;
+  const started = order?.productionStartedAt || stageAdvanced;
+  return value === 'em_producao' || (value === 'nao_iniciado' && started) ? null : <StatusBadge value={value} />;
 }
 
 export function ProductionStageTracker({ order, onAdvance, busy = false }) {
@@ -263,7 +267,7 @@ export default function Orders() {
                   </td>
                   <td data-label="Produção" className="px-2 py-3">
                     {o.status === 'pendente' ? <span className="text-xs text-slate-500">Aguardando aprovação</span> : o.status === 'cancelado' ? <StatusBadge value="cancelado" /> : <>
-                      <ProductionStatus value={o.production} />
+                      <ProductionStatus value={o.production} order={o} />
                       <div className="mt-2"><ProductionStageTracker order={o} onAdvance={advanceStage} busy={advancingId === o._id} /></div>
                     </>}
                   </td>

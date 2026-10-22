@@ -35,10 +35,25 @@ test('production status badge disappears after production starts but remains bef
     const { ProductionStatus } = await server.ssrLoadModule('/src/pages/Orders.jsx');
     const started = renderToString(React.createElement(ProductionStatus, { value: 'em_producao' }));
     const notStarted = renderToString(React.createElement(ProductionStatus, { value: 'nao_iniciado' }));
+    const startedWithTimestamp = renderToString(React.createElement(ProductionStatus, {
+      value: 'nao_iniciado',
+      order: { productionStartedAt: '2026-10-22T10:00:00.000Z' },
+    }));
+    const advancedStage = renderToString(React.createElement(ProductionStatus, {
+      value: 'nao_iniciado',
+      order: { productionStage: 'impressao' },
+    }));
+    const firstApplicableStage = renderToString(React.createElement(ProductionStatus, {
+      value: 'nao_iniciado',
+      order: { productionStage: 'impressao', skippedStages: ['arte'] },
+    }));
     const paused = renderToString(React.createElement(ProductionStatus, { value: 'pausado' }));
 
     assert.doesNotMatch(started, /Não iniciado|Em produção/);
     assert.match(notStarted, /Não iniciado/);
+    assert.doesNotMatch(startedWithTimestamp, /Não iniciado/);
+    assert.doesNotMatch(advancedStage, /Não iniciado/);
+    assert.match(firstApplicableStage, /Não iniciado/);
     assert.match(paused, /Pausado/);
   } finally {
     await server.close();
