@@ -23,6 +23,11 @@ const emptyCatalogMeasure = {
   moldEnabled: false,
   moldFactor: '1',
 };
+const emptyNewClient = {
+  name: '', phone: '', email: '', document: '', address: '', addressNumber: '',
+  addressComplement: '', neighborhood: '', city: '', state: '', zipCode: '',
+  stateRegistration: '', contact: '',
+};
 const saleUnitLabels = { unit: 'un.', linear_meter: 'm', square_meter: 'm²', kilometer: 'km' };
 
 export default function OrderForm({ modal = false, open = true, onSaved, onCancel }) {
@@ -53,7 +58,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
   const [firstDue, setFirstDue] = useState('');
   const [showNewClient, setShowNewClient] = useState(false);
   const [showMeasureCalculator, setShowMeasureCalculator] = useState(false);
-  const [newClient, setNewClient] = useState({ name: '', phone: '', email: '' });
+  const [newClient, setNewClient] = useState(emptyNewClient);
   const [saving, setSaving] = useState(false);
   const [clientRequiredThreshold, setClientRequiredThreshold] = useState(100);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -242,7 +247,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       setClients([...clients, c]);
       setClientId(c._id);
       setShowNewClient(false);
-      setNewClient({ name: '', phone: '', email: '' });
+      setNewClient(emptyNewClient);
     } catch (e) { alert(e.message); }
   };
 
@@ -572,10 +577,28 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       </form>
 
       <Modal open={showNewClient} onClose={() => setShowNewClient(false)} title="Cadastrar cliente rápido">
-        <div className="space-y-3">
+        <div className="max-h-[75vh] space-y-3 overflow-y-auto">
           <input required placeholder="Nome *" value={newClient.name} onChange={(e) => setNewClient({ ...newClient, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input required placeholder="Telefone/WhatsApp (com DDD) *" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
-          <input placeholder="E-mail" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input placeholder="E-mail" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="CPF/CNPJ" value={newClient.document} onChange={(e) => setNewClient({ ...newClient, document: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+            <input placeholder="Endereço (rua/avenida)" value={newClient.address} onChange={(e) => setNewClient({ ...newClient, address: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="Número" value={newClient.addressNumber} onChange={(e) => setNewClient({ ...newClient, addressNumber: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input placeholder="Complemento" value={newClient.addressComplement} onChange={(e) => setNewClient({ ...newClient, addressComplement: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="Bairro" value={newClient.neighborhood} onChange={(e) => setNewClient({ ...newClient, neighborhood: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="Cidade" value={newClient.city} onChange={(e) => setNewClient({ ...newClient, city: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <div className="grid grid-cols-2 gap-3">
+              <input placeholder="UF" maxLength={2} value={newClient.state} onChange={(e) => setNewClient({ ...newClient, state: e.target.value.toUpperCase() })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+              <input placeholder="CEP" value={newClient.zipCode} onChange={(e) => setNewClient({ ...newClient, zipCode: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            </div>
+            <input placeholder="Inscrição Estadual" value={newClient.stateRegistration} onChange={(e) => setNewClient({ ...newClient, stateRegistration: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="Contato" value={newClient.contact} onChange={(e) => setNewClient({ ...newClient, contact: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
           <button onClick={createClient} className="w-full py-2.5 bg-brand-600 text-white rounded-lg font-medium">Cadastrar e selecionar</button>
         </div>
       </Modal>

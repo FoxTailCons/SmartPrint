@@ -88,6 +88,16 @@ export const normalizeWhatsappPhone = (value) => {
 };
 
 export const canReceivePayments = (order) => !['pendente', 'cancelado'].includes(order.status);
+const printCompany = {
+  name: 'SMART PRINT LINDÓIA',
+  cnpj: '30.792.498/0001-33',
+  address: 'Rua Doutor Francisco Tozzi, 235',
+  neighborhood: 'Jardim Redentor',
+  city: 'Lindóia',
+  state: 'SP',
+  zipCode: '13958-040',
+  phone: '(19) 99803-1407',
+};
 
 export const initializeNewOrder = (order, { quickOrder = false, userName = '' } = {}) => {
   order.history.push({ action: 'criado', by: userName });
@@ -211,10 +221,10 @@ export const buildOrderPdfBuffer = async (order, settings = getOrderSettings()) 
     };
 
     drawLogo(left + 8, 16);
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(client.name || 'Cliente não cadastrado', 330, 18, { width: 235, align: 'right' });
-    doc.font('Helvetica').fontSize(10).text(`Cnpj: ${client.document || '—'}`, 330, 34, { width: 235, align: 'right' });
-    doc.text(client.address || '—', 330, 50, { width: 235, align: 'right' });
-    doc.text(`${client.city || '—'} - ${client.state || '—'} | Cep: ${client.zipCode || '—'}`, 330, 66, { width: 235, align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(printCompany.name, 330, 18, { width: 235, align: 'right' });
+    doc.font('Helvetica').fontSize(10).text(`CNPJ: ${printCompany.cnpj}`, 330, 34, { width: 235, align: 'right' });
+    doc.text(printCompany.address, 330, 50, { width: 235, align: 'right' });
+    doc.text(`${printCompany.neighborhood} · ${printCompany.city}-${printCompany.state}`, 330, 66, { width: 235, align: 'right' });
     doc.moveTo(left, 91).lineTo(right, 91).lineWidth(1).stroke('#6b7280');
 
     doc.rect(left + 18, 96, contentWidth - 36, 27).fill('#000');
@@ -227,7 +237,11 @@ export const buildOrderPdfBuffer = async (order, settings = getOrderSettings()) 
     labelValue('Data de Emissão', fmtDate(order.createdAt), left + 40, 153, 220);
     labelValue('Prev. Entrega', fmtDate(calendarDate(order.deliveryDate)), 350, 153, 190);
     labelValue('Cliente', client.name || 'Cliente não cadastrado', left + 48, 175, contentWidth - 96);
-    labelValue('Endereço', client.address || '—', left + 48, 197, 230);
+    const clientAddress = [
+      [client.address, client.addressNumber].filter(Boolean).join(', '),
+      client.addressComplement,
+    ].filter(Boolean).join(' - ');
+    labelValue('Endereço', clientAddress || '—', left + 48, 197, 230);
     labelValue('Bairro', client.neighborhood || '—', 355, 197, 180);
     labelValue('Cidade', client.city || '—', left + 48, 219, 230);
     labelValue('Estado', client.state || '—', 355, 219, 180);
@@ -337,13 +351,13 @@ export const buildOrderPdfBuffer = async (order, settings = getOrderSettings()) 
     doc.font('Helvetica-Bold').fontSize(9).text('Informa\u00e7\u00f5es Complementares:', left + 42, complementY);
     doc.moveTo(left, complementY + 32).lineTo(right, complementY + 32).stroke('#6b7280');
     const businessDetails = [
-      'CNPJ: 30.792.498/0001-33',
-      'Endereço: Rua Doutor Francisco Tozzi, 235 · Jardim Redentor · Lindóia-SP',
-      'CEP: 13958-040',
-      'Telefone: (19) 99803-1407',
-      settings.businessAddress && settings.businessAddress !== 'Rua Doutor Francisco Tozzi, 235 · Jardim Redentor · Lindóia-SP'
+      `CNPJ: ${printCompany.cnpj}`,
+      `Endereço: ${printCompany.address} · ${printCompany.neighborhood} · ${printCompany.city}-${printCompany.state}`,
+      `CEP: ${printCompany.zipCode}`,
+      `Telefone: ${printCompany.phone}`,
+      settings.businessAddress && settings.businessAddress !== `${printCompany.address} · ${printCompany.neighborhood} · ${printCompany.city}-${printCompany.state}`
         && `Endereço adicional: ${settings.businessAddress}`,
-      settings.businessPhone && settings.businessPhone !== '(19) 99803-1407'
+      settings.businessPhone && settings.businessPhone !== printCompany.phone
         && `Telefone adicional: ${settings.businessPhone}`,
       settings.businessInstagram && `Instagram: ${settings.businessInstagram}`,
     ].filter(Boolean).join(' · ');

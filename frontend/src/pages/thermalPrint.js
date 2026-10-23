@@ -95,16 +95,31 @@ export function buildOrderThermalHtml(order) {
   const paid = Number(order?.amountPaid || 0);
   const paymentDiscounts = getOrderDiscountTotal(order);
   const balance = getOrderBalance(order);
+  const client = order?.client || {};
+  const clientAddress = [
+    [client.address, client.addressNumber].filter(Boolean).join(', '),
+    client.addressComplement,
+  ].filter(Boolean).join(' - ');
+  const clientDetails = [
+    ['CPF/CNPJ', client.document],
+    ['Inscrição Estadual', client.stateRegistration],
+    ['Telefone', client.phone],
+    ['Contato', client.contact],
+    ['E-mail', client.email],
+    ['Endereço', clientAddress],
+    ['Bairro', client.neighborhood],
+    ['Cidade', [client.city, client.state].filter(Boolean).join(' - ')],
+    ['CEP', client.zipCode],
+  ].filter(([, value]) => value)
+    .map(([label, value]) => `<div><strong>${label}:</strong> ${escapeHtml(value)}</div>`)
+    .join('');
   const paymentLines = (order?.payments || []).filter((payment) => !payment.canceledAt).map((payment) => `
     <div class="line"><span>${escapeHtml(payment.method || 'Pagamento')} · ${formatDate(payment.paidAt)}</span><span>${formatMoney(payment.amount)}</span></div>`).join('');
   const content = `
     <h2>${documentLabel(order)} Nº ${number}</h2>
     <div class="block">
-      <div><strong>Cliente:</strong> ${escapeHtml(order?.client?.name || 'Cliente não cadastrado')}</div>
-      ${order?.client?.document ? `<div><strong>CPF/CNPJ:</strong> ${escapeHtml(order.client.document)}</div>` : ''}
-      ${order?.client?.phone ? `<div><strong>Telefone:</strong> ${escapeHtml(order.client.phone)}</div>` : ''}
-      ${order?.client?.email ? `<div><strong>E-mail:</strong> ${escapeHtml(order.client.email)}</div>` : ''}
-      ${order?.client?.address ? `<div><strong>Endereço:</strong> ${escapeHtml(order.client.address)}</div>` : ''}
+      <div><strong>Cliente:</strong> ${escapeHtml(client.name || 'Cliente não cadastrado')}</div>
+      ${clientDetails}
       <div><strong>Emissão:</strong> ${formatDate(order?.createdAt)}</div>
       ${order?.deliveryDate ? `<div><strong>Entrega:</strong> ${formatCivilDate(order.deliveryDate)}</div>` : ''}
     </div>

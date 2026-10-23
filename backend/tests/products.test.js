@@ -198,15 +198,19 @@ test('product routes filter by category while keeping uncategorized legacy produ
   });
 });
 
-test('product routes create and update products only for administrators', async (t) => {
+test('admins and attendants can create and edit products, while cost and status stay admin-only', async (t) => {
   await withApi(t, async (url, _records, auditEvents) => {
     const payload = { name: '  Banner  ', code: 'BNR-1', saleUnit: 'square_meter', price: 95, costPrice: 40, imageUrl: 'https://example.test/material.jpg', category: 'grande_formato' };
-    const forbidden = await fetch(url, {
+    const createdByAttendant = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-test-role': 'atendente' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, code: 'BNR-ATT', active: false }),
     });
-    assert.equal(forbidden.status, 403);
+    assert.equal(createdByAttendant.status, 201);
+    const attendantProduct = await createdByAttendant.json();
+    assert.equal(attendantProduct.active, true);
+    assert.equal(attendantProduct.costPrice, undefined);
+    assert.equal(_records[0].costPrice, undefined);
 
     const created = await fetch(url, {
       method: 'POST',
@@ -233,6 +237,20 @@ test('product routes create and update products only for administrators', async 
     assert.deepEqual(auditEvents[0].detalhes.preco, { antes: 95, depois: 105 });
     assert.equal('custo' in auditEvents[0].detalhes, false);
     assert.equal((await fetch(`${url}/${product._id}`, { headers: { 'x-test-role': 'admin' } }).then((response) => response.json())).costPrice, 40);
+
+    const attendantUpdate = await fetch(`${url}/${product._id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'x-test-role': 'atendente' },
+      body: JSON.stringify({ ...payload, name: 'Banner atualizado por atendente', price: 110, costPrice: 1, active: false }),
+    });
+    assert.equal(attendantUpdate.status, 200);
+    const attendantUpdatedProduct = await attendantUpdate.json();
+    assert.equal(attendantUpdatedProduct.name, 'Banner atualizado por atendente');
+    assert.equal(attendantUpdatedProduct.price, 110);
+    assert.equal(attendantUpdatedProduct.costPrice, undefined);
+    assert.equal(_records.find(({ _id }) => _id === product._id).costPrice, 40);
+    assert.equal(_records.find(({ _id }) => _id === product._id).active, true);
+    assert.equal(auditEvents.length, 2);
 
     const clearedCost = await fetch(`${url}/${product._id}`, {
       method: 'PUT',

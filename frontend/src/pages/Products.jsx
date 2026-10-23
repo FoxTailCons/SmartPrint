@@ -28,6 +28,7 @@ const suggestedServices = [
 export default function Products() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const canManageProducts = isAdmin || user?.role === 'atendente';
   const [queryInput, setQueryInput] = useState('');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
@@ -126,7 +127,7 @@ export default function Products() {
           <h1 className="text-2xl font-bold">Produtos</h1>
           <p className="text-sm text-slate-500">Catálogo e preços por unidade de venda</p>
         </div>
-        {isAdmin && (
+        {canManageProducts && (
           <button
             type="button"
             onClick={() => { setForm(emptyForm); setEditingId(null); setFormOpen(true); }}
@@ -183,6 +184,7 @@ export default function Products() {
           <ProductList
             products={products}
             isAdmin={isAdmin}
+            canManageProducts={canManageProducts}
             page={list.page}
             pageSize={list.pageSize}
             total={total}
@@ -230,11 +232,11 @@ export default function Products() {
             <label className="mb-1 block text-sm font-medium">Preço por {form.saleUnit === 'unit' ? 'unidade' : form.saleUnit === 'linear_meter' ? 'metro linear' : form.saleUnit === 'kilometer' ? 'quilômetro' : 'metro quadrado (m²)'}</label>
             <input required type="number" min="0" step="any" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" />
           </div>
-          <div>
+          {isAdmin && <div>
             <label className="mb-1 block text-sm font-medium">Custo por {form.saleUnit === 'unit' ? 'unidade' : form.saleUnit === 'linear_meter' ? 'metro linear' : form.saleUnit === 'kilometer' ? 'quilômetro' : 'metro quadrado (m²)'} <span className="font-normal text-slate-500">(opcional)</span></label>
             <input type="number" min="0" step="any" value={form.costPrice} onChange={(event) => setForm({ ...form, costPrice: event.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" />
             {form.costPrice !== '' && Number(form.price) > 0 && <p className="mt-1 text-xs text-slate-500">Margem bruta estimada: {(((Number(form.price) - Number(form.costPrice)) / Number(form.price)) * 100).toFixed(1).replace('.', ',')}%</p>}
-          </div>
+          </div>}
           <div>
             <label className="mb-1 block text-sm font-medium">Link da imagem de referência <span className="font-normal text-slate-500">(opcional)</span></label>
             <input type="url" value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.target.value })} placeholder="https://..." className="w-full rounded-lg border px-3 py-2 text-sm" />
@@ -255,7 +257,7 @@ export default function Products() {
             ))}
             <button type="button" onClick={() => setForm({ ...form, priceTiers: [...form.priceTiers, { minQuantity: '', price: '' }] })} className="rounded-lg border px-3 py-2 text-sm">Adicionar faixa</button>
           </fieldset>
-          {editingId && (
+          {editingId && isAdmin && (
             <label className="inline-flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} />
               Produto ativo

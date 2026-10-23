@@ -16,6 +16,11 @@ import { getOrderPaymentStatus } from './orderBalance.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 const paymentMethodLabels = { pix: 'PIX', dinheiro: 'Dinheiro', debito: 'Cartão débito', credito: 'Cartão crédito', parcelado: 'Crédito parcelado' };
+const emptyClientForm = {
+  name: '', phone: '', email: '', document: '', address: '', addressNumber: '',
+  addressComplement: '', neighborhood: '', city: '', state: '', zipCode: '',
+  stateRegistration: '', contact: '',
+};
 
 export default function Clients() {
   const { user } = useAuth();
@@ -29,7 +34,7 @@ export default function Clients() {
   const [editingClient, setEditingClient] = useState(null);
   const [saving, setSaving] = useState(false);
   const [reordering, setReordering] = useState('');
-  const [form, setForm] = useState({ name: '', phone: '', email: '', document: '', address: '' });
+  const [form, setForm] = useState(emptyClientForm);
   const list = useServerPagination('/api/clients', query ? `q=${encodeURIComponent(query)}` : '', page, pageSize);
   const { items: clients, total, loading, error, retry } = list;
   const listState = getListState({ loading, error, items: clients });
@@ -44,11 +49,11 @@ export default function Clients() {
   const closeForm = () => {
     setShowNew(false);
     setEditingClient(null);
-    setForm({ name: '', phone: '', email: '', document: '', address: '' });
+    setForm(emptyClientForm);
   };
   const openNew = () => {
     setEditingClient(null);
-    setForm({ name: '', phone: '', email: '', document: '', address: '' });
+    setForm(emptyClientForm);
     setShowNew(true);
   };
   const editClient = (client) => {
@@ -59,6 +64,14 @@ export default function Clients() {
       email: client.email || '',
       document: client.document || '',
       address: client.address || '',
+      addressNumber: client.addressNumber || '',
+      addressComplement: client.addressComplement || '',
+      neighborhood: client.neighborhood || '',
+      city: client.city || '',
+      state: client.state || '',
+      zipCode: client.zipCode || '',
+      stateRegistration: client.stateRegistration || '',
+      contact: client.contact || '',
     });
     setShowNew(true);
   };
@@ -174,6 +187,14 @@ export default function Clients() {
                     ['E-mail', detail[c._id].email],
                     ['CPF/CNPJ', detail[c._id].document],
                     ['Endereço', detail[c._id].address],
+                    ['Número', detail[c._id].addressNumber],
+                    ['Complemento', detail[c._id].addressComplement],
+                    ['Bairro', detail[c._id].neighborhood],
+                    ['Cidade', detail[c._id].city],
+                    ['Estado', detail[c._id].state],
+                    ['CEP', detail[c._id].zipCode],
+                    ['Inscrição Estadual', detail[c._id].stateRegistration],
+                    ['Contato', detail[c._id].contact],
                   ].map(([label, value]) => (
                     <div key={label} className="text-sm">
                       <div className="text-xs text-slate-500">{label}</div>
@@ -212,12 +233,28 @@ export default function Clients() {
       </div>
 
       <Modal open={showNew} onClose={closeForm} title={editingClient ? 'Editar cliente' : 'Novo Cliente'}>
-        <form onSubmit={saveClient} className="space-y-3">
+        <form onSubmit={saveClient} className="max-h-[75vh] space-y-3 overflow-y-auto">
           <input required autoFocus placeholder="Nome *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input required placeholder="Telefone/WhatsApp (com DDD) *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
-          <input placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
-          <input placeholder="CPF/CNPJ" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
-          <input placeholder="Endereço" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="CPF/CNPJ" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+            <input placeholder="Endereço (rua/avenida)" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="Número" value={form.addressNumber} onChange={(e) => setForm({ ...form, addressNumber: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input placeholder="Complemento" value={form.addressComplement} onChange={(e) => setForm({ ...form, addressComplement: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="Bairro" value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="Cidade" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <div className="grid grid-cols-2 gap-3">
+              <input placeholder="UF" maxLength={2} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+              <input placeholder="CEP" value={form.zipCode} onChange={(e) => setForm({ ...form, zipCode: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            </div>
+            <input placeholder="Inscrição Estadual" value={form.stateRegistration} onChange={(e) => setForm({ ...form, stateRegistration: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="Contato" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
           <button disabled={saving} className="w-full py-2.5 bg-brand-600 text-white rounded-lg font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50">
             {editingClient ? <Pencil size={16} /> : <Plus size={16} />} {saving ? 'Salvando...' : editingClient ? 'Salvar alterações' : 'Cadastrar'}
           </button>

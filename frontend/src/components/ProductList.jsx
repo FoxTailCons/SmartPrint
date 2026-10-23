@@ -11,7 +11,7 @@ const unitLabel = (value) => ({
   kilometer: 'Quilômetro (km)',
 }[value] || value);
 
-export default function ProductList({ products, isAdmin, page, pageSize, total, onPageChange, onPageSizeChange, onEdit, onToggleActive }) {
+export default function ProductList({ products, isAdmin, canManageProducts, page, pageSize, total, onPageChange, onPageSizeChange, onEdit, onToggleActive }) {
   return (
     <>
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
@@ -35,14 +35,14 @@ export default function ProductList({ products, isAdmin, page, pageSize, total, 
               <div className="font-semibold">{fmt(product.price)} <span className="text-xs font-normal text-slate-500">/ {product.saleUnit === 'unit' ? 'un.' : product.saleUnit === 'linear_meter' ? 'm' : product.saleUnit === 'kilometer' ? 'km' : 'm²'}</span></div>
               {isAdmin && product.costPrice !== undefined && <div className="text-xs text-slate-500">Custo {fmt(product.costPrice)} · margem {product.price > 0 ? (((product.price - product.costPrice) / product.price) * 100).toFixed(1).replace('.', ',') : '—'}%</div>}
             </div>
-            {isAdmin && (
+            {canManageProducts && (
               <div className="flex gap-2">
                 <button type="button" onClick={() => onEdit(product)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs hover:bg-slate-50">
                   <Edit2 size={14} /> Editar
                 </button>
-                <button type="button" onClick={() => onToggleActive(product)} className="rounded-lg border px-3 py-2 text-xs hover:bg-slate-50">
+                {isAdmin && <button type="button" onClick={() => onToggleActive(product)} className="rounded-lg border px-3 py-2 text-xs hover:bg-slate-50">
                   {product.active ? 'Desativar' : 'Reativar'}
-                </button>
+                </button>}
               </div>
             )}
           </div>

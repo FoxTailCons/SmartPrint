@@ -7,15 +7,15 @@ import { buildPage, getEffectivePage, parsePagination } from '../services/pagina
 import AuditLog from '../models/AuditLog.js';
 import { recordAuditEvent } from '../services/auditLog.js';
 
-const normalizeInput = (body, { allowActive = false } = {}) => {
+const normalizeInput = (body, { allowActive = false, allowCostPrice = false } = {}) => {
   const name = typeof body?.name === 'string' ? body.name.trim() : '';
   const saleUnit = body?.saleUnit;
   const rawPrice = body?.price;
   const price = typeof rawPrice === 'number' ? rawPrice : Number(String(rawPrice ?? '').trim());
   const code = typeof body?.code === 'string' ? body.code.trim() : '';
   const category = body?.category;
-  const hasCostPrice = Object.prototype.hasOwnProperty.call(body || {}, 'costPrice');
-  const rawCostPrice = body?.costPrice;
+  const hasCostPrice = allowCostPrice && Object.prototype.hasOwnProperty.call(body || {}, 'costPrice');
+  const rawCostPrice = hasCostPrice ? body.costPrice : undefined;
   const costPrice = rawCostPrice === undefined || rawCostPrice === null || rawCostPrice === '' ? undefined
     : typeof rawCostPrice === 'number' ? rawCostPrice : Number(String(rawCostPrice).trim());
   if (body?.imageUrl !== undefined && typeof body.imageUrl !== 'string') {
@@ -149,8 +149,9 @@ export function createProductsRouter({
     }
   });
 
-  router.post('/', adminMiddleware, async (req, res, next) => {
-    const normalized = normalizeInput(req.body);
+  router.post('/', allowRoles('admin', 'atendente'), async (req, res, next) => {
+    const isAdmin = req.user?.role === 'admin';
+    const normalized = normalizeInput(req.body, { allowCostPrice: isAdmin });
     if (normalized.error) return res.status(400).json({ message: normalized.error });
 
     try {
@@ -159,15 +160,16 @@ export function createProductsRouter({
       }
       const product = new ProductModel(normalized.value);
       await product.save();
-      return res.status(201).json(product);
+      return res.status(201).json(hideCost(product, req.user));
     } catch (error) {
       if (isDuplicateKeyError(error)) return res.status(409).json({ message: 'Já existe um produto com esse código' });
       return next(error);
     }
   });
 
-  router.put('/:id', adminMiddleware, async (req, res, next) => {
-    const normalized = normalizeInput(req.body, { allowActive: true });
+  router.put('/:id', allowRoles('admin', 'atendente'), async (req, res, next) => {
+    const isAdmin = req.user?.role === 'admin';
+    const normalized = normalizeInput(req.body, { allowActive: isAdmin, allowCostPrice: isAdmin });
     if (normalized.error) return res.status(400).json({ message: normalized.error });
 
     try {
@@ -201,7 +203,7 @@ export function createProductsRouter({
           return res.status(500).json({ message: 'O produto foi alterado, mas não foi possível registrar a auditoria' });
         }
       }
-      return res.json(product);
+      return res.json(hideCost(product, req.user));
     } catch (error) {
       if (isDuplicateKeyError(error)) return res.status(409).json({ message: 'Já existe um produto com esse código' });
       return next(error);

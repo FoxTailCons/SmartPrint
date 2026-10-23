@@ -60,6 +60,32 @@ test('thermal order print preserves the selected delivery calendar date', () => 
   assert.match(html, /<strong>Entrega:<\/strong> 21\/10\/2026/);
 });
 
+test('thermal order print includes registered client identification and structured address fields', () => {
+  const html = buildOrderThermalHtml({
+    number: '00045',
+    client: {
+      name: 'Cliente',
+      stateRegistration: 'IE-123',
+      address: 'Rua A',
+      addressNumber: '10',
+      addressComplement: '<Fundos>',
+      neighborhood: 'Centro',
+      city: 'Lindóia',
+      state: 'SP',
+      zipCode: '13950-000',
+      contact: 'Ana',
+    },
+    items: [],
+  });
+
+  assert.match(html, /Inscrição Estadual:<\/strong> IE-123/);
+  assert.match(html, /Endereço:<\/strong> Rua A, 10 - &lt;Fundos&gt;/);
+  assert.match(html, /Bairro:<\/strong> Centro/);
+  assert.match(html, /Cidade:<\/strong> Lindóia - SP/);
+  assert.match(html, /CEP:<\/strong> 13950-000/);
+  assert.match(html, /Contato:<\/strong> Ana/);
+});
+
 test('balance document shows open amount and the original installment numbers', () => {
   const html = buildBalanceThermalHtml({
     number: '00042',
