@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../context/AuthContext.jsx';
 import BrandMark from './BrandMark.jsx';
 import { getVisibleMenu } from '../roleAccess.js';
+import DeadlineSidebar from './DeadlineSidebar.jsx';
 
 export const navigationMenu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, permission: 'dashboard' },
@@ -116,6 +117,12 @@ export default function Layout({ children }) {
         </button>
       </aside>
       <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 flex">
+          <main className="min-w-0 overflow-x-hidden">
+            <div className="w-full min-w-0 p-3 sm:p-5 lg:p-6">{children}</div>
+          </main>
+          <DeadlineSidebar />
+        </div>
         <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-white px-4 py-2 lg:hidden">
           <BrandMark />
           <button
