@@ -117,8 +117,8 @@ export default function Layout({ children }) {
         </button>
       </aside>
       <div className="min-w-0 flex-1">
-        <div className="min-w-0 flex-1 flex">
-          <main className="min-w-0 overflow-x-hidden">
+        <div className="min-h-screen lg:flex">
+          <main className="min-w-0 flex-1 overflow-x-hidden">
             <div className="w-full min-w-0 p-3 sm:p-5 lg:p-6">{children}</div>
           </main>
           <DeadlineSidebar />
