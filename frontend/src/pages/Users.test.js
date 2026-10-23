@@ -15,6 +15,8 @@ test('user administration is visible only to Admin', async () => {
 
     const adminHtml = render('admin');
     assert.match(adminHtml, /Novo usuário/);
+    assert.match(adminHtml, /E-mail \(opcional\)/);
+    assert.match(adminHtml, /type="email" autoComplete="email"/);
     assert.match(adminHtml, /Senha inicial \(exatamente 6 caracteres\)/);
     assert.match(adminHtml, /minLength="6" maxLength="6"/);
     assert.match(adminHtml, /Atendente/);

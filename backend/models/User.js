@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema(
       sparse: true,
       match: /^[a-z0-9][a-z0-9._-]{2,39}$/,
     },
-    email: { type: String, required: true, unique: true, lowercase: true },
+    email: { type: String, trim: true, lowercase: true, unique: true, sparse: true },
     password: { type: String, required: true, select: false },
     role: {
       type: String,

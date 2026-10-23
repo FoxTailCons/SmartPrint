@@ -71,6 +71,17 @@ const seedUsers = async () => {
 
 const PORT = process.env.PORT || 5000;
 connectDB().then(async () => {
+  let emailIndex;
+  try {
+    emailIndex = (await User.collection.indexes()).find((index) => (
+      index.key.email === 1 && Object.keys(index.key).length === 1
+    ));
+  } catch (error) {
+    if (error?.code !== 26) throw error;
+  }
+  if (emailIndex && (!emailIndex.unique || !emailIndex.sparse)) {
+    await User.collection.dropIndex(emailIndex.name);
+  }
   await User.init();
   const migrated = await migrateUsernames(User);
   if (migrated) console.log(`Nomes de usuário migrados: ${migrated}`);

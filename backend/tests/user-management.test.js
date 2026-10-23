@@ -22,19 +22,19 @@ const createUsers = (initial = []) => {
   records.push(...initial.map((user) => ({
     ...user,
     async save() {
-      if (records.some((record) => record !== this && (record.email === this.email || (this.username && record.username === this.username)))) throw duplicateEmail();
+      if (records.some((record) => record !== this && ((this.email && record.email === this.email) || (this.username && record.username === this.username)))) throw duplicateEmail();
       return this;
     },
   })));
   class UserModel {
     constructor(values) { Object.assign(this, values); }
     async save() {
-      if (records.some((user) => user.email === this.email || (this.username && user.username === this.username))) {
+      if (records.some((user) => (this.email && user.email === this.email) || (this.username && user.username === this.username))) {
         throw duplicateEmail();
       }
       this._id = validId;
       this.save = async function save() {
-        if (records.some((user) => user !== this && (user.email === this.email || (this.username && user.username === this.username)))) throw duplicateEmail();
+        if (records.some((user) => user !== this && ((this.email && user.email === this.email) || (this.username && user.username === this.username)))) throw duplicateEmail();
         return this;
       };
       records.push(this);
@@ -79,6 +79,18 @@ test('user management routes are restricted to administrators', () => {
   }
 });
 
+test('User allows accounts without email and indexes provided emails uniquely', async () => {
+  const emailPath = User.schema.path('email');
+  const emailIndex = User.schema.indexes().find(([keys]) => keys.email === 1);
+  const user = new User({ name: 'Sem e-mail', username: 'sem-email', password: 'abc123', role: 'atendente' });
+
+  assert.equal(Boolean(emailPath.isRequired), false);
+  assert.equal(emailIndex[1].unique, true);
+  assert.equal(emailIndex[1].sparse, true);
+  await user.validate();
+  assert.equal(user.email, undefined);
+});
+
 test('user management lists only safe user fields', async () => {
   const { UserModel } = createUsers([{ _id: validId, name: 'Ana', username: 'ana', email: 'ana@example.com', role: 'atendente', active: true, password: 'hash' }]);
   const { listUsers } = createUserManagementHandlers({ UserModel });
@@ -108,11 +120,25 @@ test('user management creates only attendant or production accounts with normali
   }
 });
 
+test('user management creates accounts without email using a unique username derived from the name', async () => {
+  const { UserModel, records } = createUsers([{ username: 'maria-silva' }]);
+  const { createUser } = createUserManagementHandlers({ UserModel });
+  const res = createResponse();
+
+  await createUser({ body: { name: 'Maria Silva', password: 'abc123', role: 'atendente' } }, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(records[1].username, 'maria-silva2');
+  assert.equal(records[1].email, undefined);
+  assert.equal(res.body.email, '');
+});
+
 test('user management rejects invalid account fields and administrator role assignment', async () => {
   for (const body of [
     { name: '', email: 'ana@example.com', password: 'abc123', role: 'atendente' },
     { name: 'Ana', username: 'x', email: 'ana@example.com', password: 'abc123', role: 'atendente' },
     { name: 'Ana', email: 'not-an-email', password: 'abc123', role: 'atendente' },
+    { name: 'Ana', email: 42, password: 'abc123', role: 'atendente' },
     { name: 'Ana', email: 'ana@example.com', password: '12345', role: 'atendente' },
     { name: 'Ana', email: 'ana@example.com', password: '1234567', role: 'atendente' },
     { name: 'Ana', email: 'ana@example.com', password: 'abc123', role: 'admin' },
@@ -259,6 +285,32 @@ test('user management rejects invalid edits and does not allow editing Admin acc
   const { updateUser } = createUserManagementHandlers({
     UserModel,
     AuditLogModel: { async create() {} },
+  });
+
+  test('user management allows clearing email from non-admin users but keeps Admin email required', async () => {
+    const { UserModel, records } = createUsers([
+      { _id: validId, name: 'Ana', username: 'ana', email: 'ana@example.com', role: 'atendente', active: true },
+      { _id: '507f191e810c19729de860ea', name: 'Admin', username: 'admin', email: 'admin@example.com', role: 'admin', active: true },
+    ]);
+    const { updateUser } = createUserManagementHandlers({ UserModel, AuditLogModel: { async create() {} } });
+    const cleared = createResponse();
+    await updateUser({
+      params: { id: validId },
+      body: { email: '' },
+      user: { _id: 'admin-2', role: 'admin' },
+    }, cleared);
+
+    assert.equal(cleared.statusCode, 200);
+    assert.equal(records[0].email, undefined);
+
+    const adminEmail = createResponse();
+    await updateUser({
+      params: { id: '507f191e810c19729de860ea' },
+      body: { email: '' },
+      user: { _id: '507f191e810c19729de860ea', role: 'admin' },
+    }, adminEmail);
+    assert.equal(adminEmail.statusCode, 400);
+    assert.equal(records[1].email, 'admin@example.com');
   });
 
   for (const body of [

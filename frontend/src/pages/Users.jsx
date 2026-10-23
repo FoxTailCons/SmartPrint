@@ -109,8 +109,8 @@ export default function Users() {
         <input required minLength="3" maxLength="40" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,39}" autoComplete="username" value={value.username} onChange={(event) => setValue({ ...value, username: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
       <label className="text-sm font-medium text-slate-700">
-        E-mail
-        <input required type="email" autoComplete="email" value={value.email} onChange={(event) => setValue({ ...value, email: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
+        E-mail (opcional)
+        <input type="email" autoComplete="email" value={value.email || ''} onChange={(event) => setValue({ ...value, email: event.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
       <label className="text-sm font-medium text-slate-700">
         {editing ? 'Nova senha (opcional, exatamente 6 caracteres)' : 'Senha inicial (exatamente 6 caracteres)'}
@@ -178,7 +178,7 @@ export default function Users() {
                   <>
                     <div>
                       <div className="font-medium text-slate-800">{user.name}</div>
-                      <div className="text-sm text-slate-500">{user.username || 'Usuário não definido'} · {user.email} · {user.role === 'producao' ? 'Produção' : user.role === 'admin' ? 'Administrador' : 'Atendente'}</div>
+                      <div className="text-sm text-slate-500">{[user.username || 'Usuário não definido', user.email, user.role === 'producao' ? 'Produção' : user.role === 'admin' ? 'Administrador' : 'Atendente'].filter(Boolean).join(' · ')}</div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={`text-xs font-semibold ${user.active ? 'text-emerald-700' : 'text-slate-500'}`}>{user.active ? 'Ativo' : 'Inativo'}</span>

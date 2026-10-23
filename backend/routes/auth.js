@@ -24,7 +24,7 @@ const safeUser = (user) => ({
   _id: user._id,
   name: user.name,
   username: user.username || '',
-  email: user.email,
+  email: user.email || '',
   role: user.role,
   active: user.active,
 });
@@ -37,21 +37,23 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
 
   const createUser = async (req, res) => {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
-    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const emailValue = req.body?.email;
+    const email = typeof emailValue === 'string' ? emailValue.trim().toLowerCase() : '';
     const requestedUsername = normalizeUsername(req.body?.username);
     const { password, role } = req.body || {};
-    if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    if (!name || name.length > 120 || (emailValue !== undefined && typeof emailValue !== 'string')
+      || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       || (requestedUsername && !isValidUsername(requestedUsername))
       || typeof password !== 'string' || password.length !== 6
       || !['atendente', 'producao'].includes(role)) {
-      return res.status(400).json({ message: 'Informe nome, e-mail válido, usuário com 3 a 40 caracteres válidos, senha com exatamente 6 caracteres e perfil permitido' });
+      return res.status(400).json({ message: 'Informe nome, e-mail válido se desejar, usuário com 3 a 40 caracteres válidos, senha com exatamente 6 caracteres e perfil permitido' });
     }
 
     try {
-      const username = requestedUsername || await findAvailableUsername(usernameFromEmail(email), async (value) => (
+      const username = requestedUsername || await findAvailableUsername(usernameFromEmail(email || name), async (value) => (
         Boolean(await UserModel.findOne({ username: value }).select('_id'))
       ));
-      const user = await new UserModel({ name, username, email, password, role, active: true }).save();
+      const user = await new UserModel({ name, username, ...(email ? { email } : {}), password, role, active: true }).save();
       return res.status(201).json(safeUser(user));
     } catch (error) {
       if (error?.code === 11000) return res.status(409).json({ message: 'Já existe uma conta com este nome de usuário ou e-mail' });
@@ -108,12 +110,13 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
     if ('name' in body && (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 120)) {
       return res.status(400).json({ message: 'Informe um nome com até 120 caracteres' });
     }
-    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const emailValue = body.email;
+    const email = typeof emailValue === 'string' ? emailValue.trim().toLowerCase() : '';
     const username = normalizeUsername(body.username);
     if ('username' in body && !isValidUsername(username)) {
       return res.status(400).json({ message: 'O nome de usuário deve ter de 3 a 40 caracteres: letras, números, ponto, hífen ou sublinhado' });
     }
-    if ('email' in body && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if ('email' in body && (typeof emailValue !== 'string' || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))) {
       return res.status(400).json({ message: 'Informe um e-mail válido' });
     }
     if ('role' in body && !['atendente', 'producao'].includes(body.role)) {
@@ -130,6 +133,7 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       if (!isSelf || fields.some((field) => !['username', 'email'].includes(field))) {
         return res.status(403).json({ message: 'Contas de administrador só podem alterar o próprio nome de usuário e e-mail' });
       }
+      if ('email' in body && !email) return res.status(400).json({ message: 'O e-mail do administrador é obrigatório' });
     }
 
     const changes = {};
@@ -137,9 +141,10 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       changes.nome = { antes: user.name, depois: body.name.trim() };
       user.name = body.name.trim();
     }
-    if ('email' in body && user.email !== email) {
-      changes.email = { antes: user.email, depois: email };
-      user.email = email;
+    const normalizedEmail = email || undefined;
+    if ('email' in body && (user.email || undefined) !== normalizedEmail) {
+      changes.email = { antes: user.email || '', depois: email };
+      user.email = normalizedEmail;
     }
     if ('username' in body && user.username !== username) {
       changes.nomeUsuario = { antes: user.username || '', depois: username };
