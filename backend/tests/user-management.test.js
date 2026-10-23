@@ -85,6 +85,7 @@ test('User allows accounts without email and indexes provided emails uniquely', 
   const user = new User({ name: 'Sem e-mail', username: 'sem-email', password: 'abc123', role: 'atendente' });
 
   assert.equal(Boolean(emailPath.isRequired), false);
+  assert.equal(User.schema.options.autoIndex, false);
   assert.equal(emailIndex[1].unique, true);
   assert.equal(emailIndex[1].sparse, true);
   await user.validate();

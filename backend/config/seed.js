@@ -3,6 +3,7 @@ dotenv.config();
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import { findAvailableUsername, migrateUsernames } from '../services/usernames.js';
+import { prepareUserIndexes } from '../services/userIndexes.js';
 
 const users = [
   { name: 'Administrador', username: 'admin', email: 'admin@smartprint.com', password: 'admin123', role: 'admin' },
@@ -12,7 +13,7 @@ const users = [
 
 const run = async () => {
   await mongoose.connect(process.env.MONGO_URI);
-  await User.init();
+  await prepareUserIndexes(User);
   await migrateUsernames(User);
   for (const u of users) {
     const exists = await User.findOne({ email: u.email });

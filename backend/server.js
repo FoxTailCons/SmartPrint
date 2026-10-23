@@ -13,6 +13,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import productRoutes from './routes/products.js';
 import User from './models/User.js';
 import { findAvailableUsername, migrateUsernames } from './services/usernames.js';
+import { prepareUserIndexes } from './services/userIndexes.js';
 import { getOrderSettings } from './config/orderSettings.js';
 import cashRoutes from './routes/cash.js';
 import exportRoutes from './routes/exports.js';
@@ -71,18 +72,7 @@ const seedUsers = async () => {
 
 const PORT = process.env.PORT || 5000;
 connectDB().then(async () => {
-  let emailIndex;
-  try {
-    emailIndex = (await User.collection.indexes()).find((index) => (
-      index.key.email === 1 && Object.keys(index.key).length === 1
-    ));
-  } catch (error) {
-    if (error?.code !== 26) throw error;
-  }
-  if (emailIndex && (!emailIndex.unique || !emailIndex.sparse)) {
-    await User.collection.dropIndex(emailIndex.name);
-  }
-  await User.init();
+  await prepareUserIndexes(User);
   const migrated = await migrateUsernames(User);
   if (migrated) console.log(`Nomes de usuário migrados: ${migrated}`);
   await seedUsers();

@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema(
     active: { type: Boolean, default: true },
     archivedAt: { type: Date, default: null },
   },
-  { timestamps: true }
+  { timestamps: true, autoIndex: false }
 );
 
 userSchema.pre('save', async function (next) {
