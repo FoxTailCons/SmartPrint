@@ -97,6 +97,7 @@ export default function OrderDetail() {
     if (!Number.isFinite(amount) || amount <= 0) return alert('Informe um valor válido');
     if (!Number.isFinite(discount) || discount < 0) return alert('Informe um desconto válido');
     if (discount > 0 && !discountReason.trim()) return alert('Informe o motivo do desconto');
+    if (amount + discount > balance + 0.01) return alert(`A soma do pagamento e do desconto (${fmt(amount + discount)}) não pode exceder o saldo de ${fmt(balance)}`);
     if (discount > 0 && user?.role === 'atendente' && (!adminEmail.trim() || !adminPassword)) {
       return alert('Informe as credenciais do administrador para autorizar o desconto');
     }
@@ -404,7 +405,7 @@ export default function OrderDetail() {
           <div>
             <label className="text-sm font-medium">Valor recebido (R$)</label>
             <input type="number" step="any" autoFocus value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder={balance} className="mt-1 w-full px-3 py-2.5 border rounded-lg text-lg font-semibold" />
-            <button type="button" onClick={() => setPayAmount(balance)} className="mt-1 text-xs text-brand-600 hover:underline">Preencher com saldo total</button>
+            <button type="button" onClick={() => setPayAmount(Math.max(0, balance - Number(paymentDiscount || 0)).toString())} className="mt-1 text-xs text-brand-600 hover:underline">Preencher com saldo total</button>
           </div>
           <div>
             <label className="text-sm font-medium">Forma de pagamento</label>
