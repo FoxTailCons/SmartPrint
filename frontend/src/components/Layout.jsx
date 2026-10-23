@@ -135,9 +135,6 @@ export default function Layout({ children }) {
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </header>
-        <main className="min-w-0 overflow-x-hidden">
-          <div className="w-full min-w-0 p-3 sm:p-5 lg:p-6">{children}</div>
-        </main>
       </div>
     </div>
   );
