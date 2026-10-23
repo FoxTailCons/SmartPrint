@@ -3,22 +3,26 @@ import { normalizePriceTiers } from '../services/orderItemPricing.js';
 
 const saleUnits = ['unit', 'linear_meter', 'square_meter', 'kilometer'];
 const productCategories = [
-  'xerox_impressao',
+  'sem_categoria',
+  'impressao',
   'adesivos',
-  'grande_formato',
+  'lonas',
+  'plotagens',
+  'placas',
   'fachada',
-  'veiculos',
-  'papelaria',
-  'servicos_instalacao',
+  'envelopamento',
+  'servicos',
 ];
 const productCategoryLabels = {
-  xerox_impressao: 'Xerox/ImpressÃ£o',
+  sem_categoria: 'Sem categoria',
+  impressao: 'Impressão',
   adesivos: 'Adesivos',
-  grande_formato: 'Grande formato',
+  lonas: 'Lonas',
+  plotagens: 'Plotagens',
+  placas: 'Placas',
   fachada: 'Fachada',
-  veiculos: 'VeÃ­culos',
-  papelaria: 'Papelaria',
-  servicos_instalacao: 'ServiÃ§os (instalaÃ§Ã£o)',
+  envelopamento: 'Envelopamento',
+  servicos: 'Serviços',
 };
 
 const productSchema = new mongoose.Schema(
@@ -37,15 +41,15 @@ const productSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
-      validate: { validator: Number.isFinite, message: 'O preÃ§o deve ser um nÃºmero finito' },
+      validate: { validator: Number.isFinite, message: 'O preço deve ser um número finito' },
     },
     costPrice: {
       type: Number,
       min: 0,
-      validate: { validator: (value) => value === undefined || Number.isFinite(value), message: 'O custo deve ser um nÃºmero finito' },
+      validate: { validator: (value) => value === undefined || Number.isFinite(value), message: 'O custo deve ser um número finito' },
     },
     imageUrl: { type: String, trim: true, maxlength: 2048, default: '' },
-    priceTiers: { type: [{ minQuantity: Number, price: Number, _id: false }], default: [], validate: { validator: (value) => { try { normalizePriceTiers(value); return true; } catch { return false; } }, message: 'Faixas de preÃ§o invÃ¡lidas' } },
+    priceTiers: { type: [{ minQuantity: Number, price: Number, _id: false }], default: [], validate: { validator: (value) => { try { normalizePriceTiers(value); return true; } catch { return false; } }, message: 'Faixas de preço inválidas' } },
     category: { type: String, enum: productCategories },
     active: { type: Boolean, default: true },
   },
@@ -58,3 +62,4 @@ export { saleUnits };
 export { productCategories };
 export { productCategoryLabels };
 export default mongoose.model('Product', productSchema);
+
