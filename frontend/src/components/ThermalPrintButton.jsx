@@ -1,3 +1,4 @@
+import React from 'react';
 import { Printer } from 'lucide-react';
 import { printThermalHtml } from '../pages/thermalPrint.js';
 

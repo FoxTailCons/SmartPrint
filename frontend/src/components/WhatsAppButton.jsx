@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { MessageCircle, Copy, Check, Download } from 'lucide-react';
 import { api } from '../api';
 import Modal from './Modal.jsx';

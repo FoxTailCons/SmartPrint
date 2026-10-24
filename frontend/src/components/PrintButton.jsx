@@ -1,3 +1,4 @@
+import React from 'react';
 import { Printer } from 'lucide-react';
 import { api } from '../api.js';
 import { buildOrderThermalHtml, openThermalPrintWindow, writeThermalPrint } from '../pages/thermalPrint.js';
