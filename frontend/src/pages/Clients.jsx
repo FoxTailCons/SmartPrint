@@ -130,9 +130,9 @@ export default function Clients() {
           <h1 className="text-2xl font-bold">Clientes</h1>
           <p className="text-sm text-slate-500">{total} cliente(s) · pedidos e orçamentos agrupados por cliente</p>
         </div>
-        <button onClick={openNew} className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-          <UserPlus size={16} /> Novo Cliente
-        </button>
+        <Link to="/pedidos" className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+          Abrir
+        </Link>
       </div>
 
       <div className="relative max-w-md">
@@ -221,8 +221,8 @@ export default function Clients() {
                         <PrintButton orderId={o._id} format="80mm" className="!py-1 !px-2 text-xs" />
                         <WhatsAppButton orderId={o._id} className="!py-1 !px-2 text-xs" />
                         {getOrderDocumentLabel(o) === 'Pedido' && <button type="button" disabled={reordering === o._id} onClick={() => repeatOrder(c._id, o._id)} className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-50"><CopyPlus size={13} /> {reordering === o._id ? 'Criando...' : 'Repetir'}</button>}
-                      </div>
-                      <Link to={`/pedidos/${o._id}`} className="px-2 py-1 border rounded text-xs hover:bg-slate-50">Abrir</Link>
+<Link to={`/pedidos/${o._id}`} className="px-2 py-1 border rounded text-xs hover:bg-slate-50">Abrir</Link>
+                       </div>
                     </div>
                   ))}
                 </div>
