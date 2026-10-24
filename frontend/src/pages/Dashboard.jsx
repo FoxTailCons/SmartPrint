@@ -13,7 +13,7 @@ import ListSkeleton from '../components/ListSkeleton.jsx';
 import Pagination from '../components/Pagination.jsx';
 import { getListState } from '../hooks/listState.js';
 import { usePagination } from '../hooks/usePagination.js';
-import { getDeadline, priorityLabels } from './printshop.js';
+import { getDeadline, priorityLabels, buildBalanceReminderUrl } from './printshop.js';
 import OrderForm from './OrderForm.jsx';
 import { toggleSelectedOrder } from './listPagination.js';
 import { getOrderDocumentLabel } from './orderPresentation.js';
@@ -344,7 +344,7 @@ export default function Dashboard() {
                     <div className="inline-flex flex-wrap gap-2">
                       <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
                       <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />
-                      <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
+                      <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />`n                      {buildBalanceReminderUrl(o) && <a href={buildBalanceReminderUrl(o)} target="_blank" rel="noreferrer" className="inline-flex h-8 w-full items-center justify-center rounded-lg border px-1 py-1 text-[11px] text-emerald-700 hover:bg-emerald-50">Lembrar</a>}
                       <Link to={`/pedidos/${o._id}`} className="inline-flex items-center px-2.5 py-1.5 rounded-lg border text-xs hover:bg-slate-50">Abrir</Link>
                     </div>
                   </td>
@@ -678,3 +678,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+
