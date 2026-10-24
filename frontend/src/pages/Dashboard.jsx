@@ -340,18 +340,13 @@ export default function Dashboard() {
                   <td data-label="Produção" className="px-5 py-3"><StatusBadge value={o.production} /></td>
                   <td data-label="Pagamento" className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
                   <td data-label="Valor" className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
-                  <td data-label="Ações" className="px-5 py-3 text-right">
-                  <div className="mx-auto grid w-full max-w-40 grid-cols-2 gap-1.5">
-                    <PrintButton orderId={o._id} className="!h-8 !w-full !justify-center !gap-1 !rounded-lg !px-1 !py-1 text-[11px]" />
-                    <PrintButton orderId={o._id} format="80mm" className="!h-8 !w-full !justify-center !gap-1 !rounded-lg !px-1 !py-1 text-[11px]" />
-                    <WhatsAppButton orderId={o._id} className="!h-8 !w-full !justify-center !gap-0 !rounded-lg !px-1 !py-1" />
-                    {buildBalanceReminderUrl(o) && <a href={buildBalanceReminderUrl(o)} target="_blank" rel="noreferrer" className="inline-flex h-8 w-full items-center justify-center rounded-lg border px-1 py-1 text-[11px] text-emerald-700 hover:bg-emerald-50">Lembrar</a>}
-                    <Link to={/pedidos/} className="inline-flex h-8 w-full items-center justify-center rounded-lg border px-1 py-1 text-[11px] hover:bg-slate-50">Abrir</Link>
-                  </div>
-                      <PrintButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />
-                      <PrintButton orderId={o._id} format="80mm" className="!py-1.5 !px-2.5 text-xs" />
-                      <WhatsAppButton orderId={o._id} className="!py-1.5 !px-2.5 text-xs" />`n                      {buildBalanceReminderUrl(o) && <a href={buildBalanceReminderUrl(o)} target="_blank" rel="noreferrer" className="inline-flex h-8 w-full items-center justify-center rounded-lg border px-1 py-1 text-[11px] text-emerald-700 hover:bg-emerald-50">Lembrar</a>}
-                      <Link to={`/pedidos/${o._id}`} className="inline-flex items-center px-2.5 py-1.5 rounded-lg border text-xs hover:bg-slate-50">Abrir</Link>
+                  <td data-label="A��es" className="px-5 py-3 text-right">
+                  <td data-label="A��es" className="px-5 py-3 text-right">
+                    <div className="mx-auto grid w-full max-w-40 grid-cols-2 gap-1.5">
+                      <PrintButton orderId={o._id} className="!h-8 !w-full !justify-center !gap-1 !rounded-lg !px-1 !py-1 text-[11px]" />
+                      <PrintButton orderId={o._id} format="80mm" className="!h-8 !w-full !justify-center !gap-1 !rounded-lg !px-1 !py-1 text-[11px]" />
+                      <WhatsAppButton orderId={o._id} className="!h-8 !w-full !justify-center !gap-0 !rounded-lg !px-1 !py-1" />
+                      <Link to={/pedidos/} className="inline-flex h-8 w-full items-center justify-center rounded-lg border px-1 py-1 text-[11px] hover:bg-slate-50">Abrir</Link>
                     </div>
                   </td>
                 </tr>
@@ -684,6 +679,9 @@ export default function Dashboard() {
     </div>
   );
 }
+
+
+
 
 
 
