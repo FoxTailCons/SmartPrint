@@ -90,7 +90,7 @@ export function buildCatalogOrderItem({
   if (metadata.serviceName) description = description.replace(productName, metadata.serviceName);
   if (metadata.material) description += ` - ${metadata.material}`;
   const rawTotal = itemQuantity * unitPrice + (metadata.installationFee || 0) + (metadata.travelFee || 0);
-  const total = Math.ceil(Math.round(rawTotal * 100) / 100);
+  const total = Math.round(rawTotal * 100) / 100;
   if (!Number.isFinite(itemQuantity) || !Number.isFinite(total)) {
     throw new Error('As medidas informadas excedem o limite que pode ser calculado');
   }

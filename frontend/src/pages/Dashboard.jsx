@@ -340,8 +340,7 @@ export default function Dashboard() {
                   <td data-label="ProduÃ§Ã£o" className="px-5 py-3"><StatusBadge value={o.production} /></td>
                   <td data-label="Pagamento" className="px-5 py-3"><StatusBadge value={getOrderPaymentStatus(o)} /></td>
                   <td data-label="Valor" className="px-5 py-3 text-right font-semibold">{fmt(o.finalValue)}</td>
-                  <td data-label="Aï¿½ï¿½es" className="px-5 py-3 text-right">
-                  <td data-label="Ações" className="px-5 py-3 text-right">
+<td data-label="Ações" className="px-5 py-3 text-right">
                     <div className="mx-auto grid w-full max-w-40 grid-cols-2 gap-1.5">
                       <PrintButton orderId={o._id} className="!h-8 !w-full !justify-center !gap-1 !rounded-lg !px-1 !py-1 text-[11px]" />
                       <PrintButton orderId={o._id} format="80mm" className="!h-8 !w-full !justify-center !gap-1 !rounded-lg !px-1 !py-1 text-[11px]" />

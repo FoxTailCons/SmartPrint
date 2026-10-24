@@ -3,7 +3,7 @@ import { normalizePriceTiers } from '../services/orderItemPricing.js';
 
 const saleUnits = ['unit', 'linear_meter', 'square_meter', 'kilometer'];
 const productCategories = [
-  'sem_categoria',
+  'semCategoria',
   'impressao',
   'adesivos',
   'lonas',
@@ -12,9 +12,11 @@ const productCategories = [
   'fachada',
   'envelopamento',
   'servicos',
+  'grande_formato',
+  'xerox_impressao',
 ];
 const productCategoryLabels = {
-  sem_categoria: 'Sem categoria',
+  semCategoria: 'Sem categoria',
   impressao: 'Impressão',
   adesivos: 'Adesivos',
   lonas: 'Lonas',
@@ -23,6 +25,8 @@ const productCategoryLabels = {
   fachada: 'Fachada',
   envelopamento: 'Envelopamento',
   servicos: 'Serviços',
+  grande_formato: 'Grande formato',
+  xerox_impressao: 'Xerox / Impressão',
 };
 
 const productSchema = new mongoose.Schema(
