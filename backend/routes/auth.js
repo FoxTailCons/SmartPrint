@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
@@ -46,7 +46,7 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       || (requestedUsername && !isValidUsername(requestedUsername))
       || typeof password !== 'string' || password.length !== 6
       || !['atendente', 'producao'].includes(role)) {
-      return res.status(400).json({ message: 'Informe nome, e-mail válido se desejar, usuário com 3 a 40 caracteres válidos, senha com exatamente 6 caracteres e perfil permitido' });
+      return res.status(400).json({ message: 'Informe nome, e-mail vÃ¡lido se desejar, usuÃ¡rio com 3 a 40 caracteres vÃ¡lidos, senha com exatamente 6 caracteres e perfil permitido' });
     }
 
     try {
@@ -56,29 +56,29 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       const user = await new UserModel({ name, username, ...(email ? { email } : {}), password, role, active: true }).save();
       return res.status(201).json(safeUser(user));
     } catch (error) {
-      if (error?.code === 11000) return res.status(409).json({ message: 'Já existe uma conta com este nome de usuário ou e-mail' });
+      if (error?.code === 11000) return res.status(409).json({ message: 'JÃ¡ existe uma conta com este nome de usuÃ¡rio ou e-mail' });
       console.error(error);
-      return res.status(500).json({ message: 'Não foi possível criar o usuário' });
+      return res.status(500).json({ message: 'NÃ£o foi possÃ­vel criar o usuÃ¡rio' });
     }
   };
 
   const setUserActive = async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Identificador de usuário inválido' });
+      return res.status(400).json({ message: 'Identificador de usuÃ¡rio invÃ¡lido' });
     }
     if (typeof req.body?.active !== 'boolean') {
-      return res.status(400).json({ message: 'Informe um estado ativo válido' });
+      return res.status(400).json({ message: 'Informe um estado ativo vÃ¡lido' });
     }
 
     const user = await UserModel.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
-    if (user.archivedAt) return res.status(404).json({ message: 'Usuário não encontrado' });
+    if (!user) return res.status(404).json({ message: 'UsuÃ¡rio nÃ£o encontrado' });
+    if (user.archivedAt) return res.status(404).json({ message: 'UsuÃ¡rio nÃ£o encontrado' });
     if (req.body.active === false && user.role === 'admin' && user.active) {
       if (String(user._id) === String(req.user?._id)) {
-        return res.status(400).json({ message: 'Não é possível desativar a própria conta de administrador' });
+        return res.status(400).json({ message: 'NÃ£o Ã© possÃ­vel desativar a prÃ³pria conta de administrador' });
       }
       if (await UserModel.countDocuments({ role: 'admin', active: true }) <= 1) {
-        return res.status(409).json({ message: 'Não é possível desativar o último administrador ativo' });
+        return res.status(409).json({ message: 'NÃ£o Ã© possÃ­vel desativar o Ãºltimo administrador ativo' });
       }
     }
 
@@ -95,45 +95,45 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       });
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ message: 'O acesso foi alterado, mas não foi possível registrar a auditoria' });
+      return res.status(500).json({ message: 'O acesso foi alterado, mas nÃ£o foi possÃ­vel registrar a auditoria' });
     }
     return res.json(safeUser(user));
   };
 
   const updateUser = async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Identificador de usuário inválido' });
+      return res.status(400).json({ message: 'Identificador de usuÃ¡rio invÃ¡lido' });
     }
     const body = req.body || {};
     const fields = ['name', 'username', 'email', 'role', 'password'].filter((field) => Object.hasOwn(body, field));
     if (!fields.length) return res.status(400).json({ message: 'Informe ao menos um campo para alterar' });
     if ('name' in body && (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 120)) {
-      return res.status(400).json({ message: 'Informe um nome com até 120 caracteres' });
+      return res.status(400).json({ message: 'Informe um nome com atÃ© 120 caracteres' });
     }
     const emailValue = body.email;
     const email = typeof emailValue === 'string' ? emailValue.trim().toLowerCase() : '';
     const username = normalizeUsername(body.username);
     if ('username' in body && !isValidUsername(username)) {
-      return res.status(400).json({ message: 'O nome de usuário deve ter de 3 a 40 caracteres: letras, números, ponto, hífen ou sublinhado' });
+      return res.status(400).json({ message: 'O nome de usuÃ¡rio deve ter de 3 a 40 caracteres: letras, nÃºmeros, ponto, hÃ­fen ou sublinhado' });
     }
     if ('email' in body && (typeof emailValue !== 'string' || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))) {
-      return res.status(400).json({ message: 'Informe um e-mail válido' });
+      return res.status(400).json({ message: 'Informe um e-mail vÃ¡lido' });
     }
     if ('role' in body && !['atendente', 'producao'].includes(body.role)) {
-      return res.status(400).json({ message: 'O perfil deve ser Atendente ou Produção' });
+      return res.status(400).json({ message: 'O perfil deve ser Atendente ou ProduÃ§Ã£o' });
     }
     if ('password' in body && (typeof body.password !== 'string' || body.password.length !== 6)) {
       return res.status(400).json({ message: 'A nova senha deve ter exatamente 6 caracteres' });
     }
 
     const user = await UserModel.findById(req.params.id);
-    if (!user || user.archivedAt) return res.status(404).json({ message: 'Usuário não encontrado' });
+    if (!user || user.archivedAt) return res.status(404).json({ message: 'UsuÃ¡rio nÃ£o encontrado' });
     if (user.role === 'admin') {
       const isSelf = String(user._id) === String(req.user?._id);
       if (!isSelf || fields.some((field) => !['username', 'email'].includes(field))) {
-        return res.status(403).json({ message: 'Contas de administrador só podem alterar o próprio nome de usuário e e-mail' });
+        return res.status(403).json({ message: 'Contas de administrador sÃ³ podem alterar o prÃ³prio nome de usuÃ¡rio e e-mail' });
       }
-      if ('email' in body && !email) return res.status(400).json({ message: 'O e-mail do administrador é obrigatório' });
+      if ('email' in body && !email) return res.status(400).json({ message: 'O e-mail do administrador Ã© obrigatÃ³rio' });
     }
 
     const changes = {};
@@ -163,10 +163,10 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
     try {
       await user.save();
     } catch (error) {
-      if (error?.code === 11000) return res.status(409).json({ message: 'Já existe uma conta com este nome de usuário ou e-mail' });
-      if (error?.name === 'VersionError') return res.status(409).json({ message: 'O usuário foi alterado por outra operação; atualize e tente novamente' });
+      if (error?.code === 11000) return res.status(409).json({ message: 'JÃ¡ existe uma conta com este nome de usuÃ¡rio ou e-mail' });
+      if (error?.name === 'VersionError') return res.status(409).json({ message: 'O usuÃ¡rio foi alterado por outra operaÃ§Ã£o; atualize e tente novamente' });
       console.error(error);
-      return res.status(500).json({ message: 'Não foi possível alterar o usuário' });
+      return res.status(500).json({ message: 'NÃ£o foi possÃ­vel alterar o usuÃ¡rio' });
     }
     try {
       await recordAuditEvent({
@@ -177,27 +177,27 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       });
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ message: 'O usuário foi alterado, mas não foi possível registrar a auditoria' });
+      return res.status(500).json({ message: 'O usuÃ¡rio foi alterado, mas nÃ£o foi possÃ­vel registrar a auditoria' });
     }
     return res.json(safeUser(user));
   };
 
   const deleteUser = async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Identificador de usuário inválido' });
+      return res.status(400).json({ message: 'Identificador de usuÃ¡rio invÃ¡lido' });
     }
     const user = await UserModel.findById(req.params.id);
-    if (!user || user.archivedAt) return res.status(404).json({ message: 'Usuário não encontrado' });
-    if (user.role === 'admin') return res.status(403).json({ message: 'Contas de administrador não podem ser excluídas por esta tela' });
+    if (!user || user.archivedAt) return res.status(404).json({ message: 'UsuÃ¡rio nÃ£o encontrado' });
+    if (user.role === 'admin') return res.status(403).json({ message: 'Contas de administrador nÃ£o podem ser excluÃ­das por esta tela' });
 
     user.active = false;
     user.archivedAt = new Date();
     try {
       await user.save();
     } catch (error) {
-      if (error?.name === 'VersionError') return res.status(409).json({ message: 'O usuário foi alterado por outra operação; atualize e tente novamente' });
+      if (error?.name === 'VersionError') return res.status(409).json({ message: 'O usuÃ¡rio foi alterado por outra operaÃ§Ã£o; atualize e tente novamente' });
       console.error(error);
-      return res.status(500).json({ message: 'Não foi possível excluir o usuário' });
+      return res.status(500).json({ message: 'NÃ£o foi possÃ­vel excluir o usuÃ¡rio' });
     }
     try {
       await recordAuditEvent({
@@ -208,7 +208,7 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       });
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ message: 'O usuário foi excluído, mas não foi possível registrar a auditoria' });
+      return res.status(500).json({ message: 'O usuÃ¡rio foi excluÃ­do, mas nÃ£o foi possÃ­vel registrar a auditoria' });
     }
     return res.json(safeUser(user));
   };
@@ -243,7 +243,7 @@ export function createLoginHandler({
           details: { identificador: loginIdentifier },
           success: false,
         });
-        return res.status(401).json({ message: 'Nome de usuário, e-mail ou senha inválidos' });
+        return res.status(401).json({ message: 'Nome de usuÃ¡rio, e-mail ou senha invÃ¡lidos' });
       }
       if (!user.active) {
         await recordAuditEvent({
@@ -254,7 +254,7 @@ export function createLoginHandler({
           details: { identificador: loginIdentifier, motivo: 'usuario_inativo' },
           success: false,
         });
-        return res.status(403).json({ message: 'Usuário inativo' });
+        return res.status(403).json({ message: 'UsuÃ¡rio inativo' });
       }
       await recordAuditEvent({
         AuditLogModel,
@@ -269,7 +269,7 @@ export function createLoginHandler({
       });
     } catch (err) {
       console.error(err);
-      return res.status(500).json({ message: 'Não foi possível realizar o login' });
+      return res.status(500).json({ message: 'NÃ£o foi possÃ­vel realizar o login' });
     }
   };
 }
@@ -281,7 +281,7 @@ export function createLogoutHandler({ AuditLogModel = AuditLog } = {}) {
       return res.json({ ok: true });
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ message: 'Não foi possível registrar a auditoria do logout' });
+      return res.status(500).json({ message: 'NÃ£o foi possÃ­vel registrar a auditoria do logout' });
     }
   };
 }

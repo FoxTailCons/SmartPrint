@@ -151,7 +151,7 @@ orderSchema.pre('validate', async function (next) {
   this.items = (this.items || []).filter((item) => item.description?.trim());
   this.items.forEach((item) => {
     item.description = item.description.trim();
-    item.total = Number(item.quantity || 0) * Number(item.unitPrice || 0) + Number(item.installationFee || 0) + Number(item.travelFee || 0);
+    item.total = Math.round((Number(item.quantity || 0) * Number(item.unitPrice || 0) + Number(item.installationFee || 0) + Number(item.travelFee || 0)) * 100) / 100;
   });
   const itemsTotal = this.items.reduce((s, i) => s + i.total, 0);
   this.totalValue = itemsTotal;

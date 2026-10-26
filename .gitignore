@@ -22,3 +22,7 @@ coverage/
 *.read
 *_backup.*
 *temp*.*
+graphify-out/
+.codex/
+.github/
+*.tmp

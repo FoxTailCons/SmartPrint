@@ -11,7 +11,7 @@ const parsePositiveInteger = (value, name) => {
   return { value: parsed };
 };
 
-export const parsePagination = (query, { defaultPageSize = 20, maxPageSize = 100 } = {}) => {
+export const parsePagination = (query, { defaultPageSize = 100, maxPageSize = 100 } = {}) => {
   const hasPage = query.page !== undefined;
   const hasPageSize = query.pageSize !== undefined;
   if (!hasPage && !hasPageSize) return null;
