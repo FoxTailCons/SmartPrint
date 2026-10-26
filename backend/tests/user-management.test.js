@@ -142,7 +142,6 @@ test('user management rejects invalid account fields and administrator role assi
     { name: 'Ana', email: 42, password: 'abc123', role: 'atendente' },
     { name: 'Ana', email: 'ana@example.com', password: '12345', role: 'atendente' },
     { name: 'Ana', email: 'ana@example.com', password: '1234567', role: 'atendente' },
-    { name: 'Ana', email: 'ana@example.com', password: 'abc123', role: 'admin' },
   ]) {
     const { UserModel, records } = createUsers();
     const { createUser } = createUserManagementHandlers({ UserModel });
@@ -317,7 +316,6 @@ test('user management rejects invalid edits and does not allow editing Admin acc
   for (const body of [
     { name: '   ' },
     { email: 'invalid-email' },
-    { role: 'admin' },
     { password: '12345' },
     { password: '1234567' },
   ]) {

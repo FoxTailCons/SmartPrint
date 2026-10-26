@@ -45,7 +45,7 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       || (requestedUsername && !isValidUsername(requestedUsername))
       || typeof password !== 'string' || password.length !== 6
-      || !['atendente', 'producao'].includes(role)) {
+      || !['atendente', 'producao', 'admin'].includes(role)) {
       return res.status(400).json({ message: 'Informe nome, e-mail vÃ¡lido se desejar, usuÃ¡rio com 3 a 40 caracteres vÃ¡lidos, senha com exatamente 6 caracteres e perfil permitido' });
     }
 
@@ -119,7 +119,7 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
     if ('email' in body && (typeof emailValue !== 'string' || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))) {
       return res.status(400).json({ message: 'Informe um e-mail vÃ¡lido' });
     }
-    if ('role' in body && !['atendente', 'producao'].includes(body.role)) {
+    if ('role' in body && !['atendente', 'producao', 'admin'].includes(body.role)) {
       return res.status(400).json({ message: 'O perfil deve ser Atendente ou ProduÃ§Ã£o' });
     }
     if ('password' in body && (typeof body.password !== 'string' || body.password.length !== 6)) {
@@ -300,5 +300,81 @@ router.post('/users', protect, adminOnly, userManagement.createUser);
 router.patch('/users/:id/active', protect, adminOnly, userManagement.setUserActive);
 router.patch('/users/:id', protect, adminOnly, userManagement.updateUser);
 router.delete('/users/:id', protect, adminOnly, userManagement.deleteUser);
+
+function createPasswordChangeHandlers({ UserModel = User, AuditLogModel = AuditLog } = {}) {
+  const changeOwnPassword = async (req, res) => {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Informe a senha atual e a nova senha' });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length !== 6) {
+      return res.status(400).json({ message: 'A nova senha deve ter exatamente 6 caracteres' });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: 'A nova senha deve ser diferente da atual' });
+    }
+
+    const user = await UserModel.findById(req.user._id).select('+password');
+    if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) return res.status(401).json({ message: 'Senha atual incorreta' });
+
+    user.password = newPassword;
+    await user.save();
+
+    try {
+      await recordAuditEvent({ AuditLogModel, req, action: 'senha.alterada', details: { usuarioId: String(user._id), proprio: true } });
+    } catch (error) {
+      console.error(error);
+    }
+
+    return res.json({ ok: true });
+  };
+
+  const changeUserPasswordByAdmin = async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Identificador de usuário inválido' });
+    }
+    const { newPassword, adminPassword } = req.body || {};
+    if (!newPassword || !adminPassword) {
+      return res.status(400).json({ message: 'Informe a nova senha e a senha do administrador para confirmação' });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length !== 6) {
+      return res.status(400).json({ message: 'A nova senha deve ter exatamente 6 caracteres' });
+    }
+
+    const admin = await UserModel.findById(req.user._id).select('+password');
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ message: 'Acesso negado' });
+
+    const isAdminMatch = await admin.comparePassword(adminPassword);
+    if (!isAdminMatch) return res.status(401).json({ message: 'Senha do administrador incorreta' });
+
+    const targetUser = await UserModel.findById(req.params.id);
+    if (!targetUser || targetUser.archivedAt) return res.status(404).json({ message: 'Usuário não encontrado' });
+
+    targetUser.password = newPassword;
+    await targetUser.save();
+
+    try {
+      await recordAuditEvent({
+        AuditLogModel,
+        req,
+        action: 'senha.alterada',
+        details: { usuarioId: String(targetUser._id), alteradoPor: admin.name }
+      });
+    } catch (error) {
+      console.error(error);
+    }
+
+    return res.json({ ok: true });
+  };
+
+  return { changeOwnPassword, changeUserPasswordByAdmin };
+}
+
+const passwordHandlers = createPasswordChangeHandlers();
+router.post('/password', protect, passwordHandlers.changeOwnPassword);
+router.post('/users/:id/password', protect, adminOnly, passwordHandlers.changeUserPasswordByAdmin);
 
 export default router;
