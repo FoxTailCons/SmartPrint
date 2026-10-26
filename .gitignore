@@ -8,3 +8,17 @@ build/
 .vscode/
 .idea/
 coverage/
+# Backups e versoes temporarias geradas por Codex/agentes
+*.bak
+*.backup
+*.orig
+*.new
+*.old
+*.copy
+*.fixed
+*.final
+*.current
+*.modified
+*.read
+*_backup.*
+*temp*.*
