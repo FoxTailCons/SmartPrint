@@ -82,7 +82,7 @@ test('user management routes are restricted to administrators', () => {
 test('User allows accounts without email and indexes provided emails uniquely', async () => {
   const emailPath = User.schema.path('email');
   const emailIndex = User.schema.indexes().find(([keys]) => keys.email === 1);
-  const user = new User({ name: 'Sem e-mail', username: 'sem-email', password: 'abc123', role: 'atendente' });
+  const user = new User({ name: 'Sem e-mail', username: 'sem-email', password: 'abc12345', role: 'atendente' });
 
   assert.equal(Boolean(emailPath.isRequired), false);
   assert.equal(User.schema.options.autoIndex, false);
@@ -108,7 +108,7 @@ test('user management creates only attendant or production accounts with normali
     const { createUser } = createUserManagementHandlers({ UserModel });
     const res = createResponse();
 
-    await createUser({ body: { name: ' Ana ', email: ' ANA@EXAMPLE.COM ', password: 'abc123', role } }, res);
+    await createUser({ body: { name: ' Ana ', email: ' ANA@EXAMPLE.COM ', password: 'abc12345', role } }, res);
 
     assert.equal(res.statusCode, 201);
     assert.equal(records[0].name, 'Ana');
@@ -126,7 +126,7 @@ test('user management creates accounts without email using a unique username der
   const { createUser } = createUserManagementHandlers({ UserModel });
   const res = createResponse();
 
-  await createUser({ body: { name: 'Maria Silva', password: 'abc123', role: 'atendente' } }, res);
+  await createUser({ body: { name: 'Maria Silva', password: 'abc12345', role: 'atendente' } }, res);
 
   assert.equal(res.statusCode, 201);
   assert.equal(records[1].username, 'maria-silva2');
@@ -136,10 +136,10 @@ test('user management creates accounts without email using a unique username der
 
 test('user management rejects invalid account fields and administrator role assignment', async () => {
   for (const body of [
-    { name: '', email: 'ana@example.com', password: 'abc123', role: 'atendente' },
-    { name: 'Ana', username: 'x', email: 'ana@example.com', password: 'abc123', role: 'atendente' },
-    { name: 'Ana', email: 'not-an-email', password: 'abc123', role: 'atendente' },
-    { name: 'Ana', email: 42, password: 'abc123', role: 'atendente' },
+    { name: '', email: 'ana@example.com', password: 'abc12345', role: 'atendente' },
+    { name: 'Ana', username: 'x', email: 'ana@example.com', password: 'abc12345', role: 'atendente' },
+    { name: 'Ana', email: 'not-an-email', password: 'abc12345', role: 'atendente' },
+    { name: 'Ana', email: 42, password: 'abc12345', role: 'atendente' },
     { name: 'Ana', email: 'ana@example.com', password: '12345', role: 'atendente' },
     { name: 'Ana', email: 'ana@example.com', password: '1234567', role: 'atendente' },
   ]) {
@@ -159,7 +159,7 @@ test('user management maps duplicate account email to conflict', async () => {
   const { createUser } = createUserManagementHandlers({ UserModel });
   const res = createResponse();
 
-  await createUser({ body: { name: 'Ana', email: 'ana@example.com', password: 'abc123', role: 'atendente' } }, res);
+  await createUser({ body: { name: 'Ana', email: 'ana@example.com', password: 'abc12345', role: 'atendente' } }, res);
 
   assert.equal(res.statusCode, 409);
   assert.match(res.body.message, /nome de usuário ou e-mail/);
@@ -180,7 +180,7 @@ test('user management rejects a duplicate explicit username', async () => {
       name: 'Bia',
       username: ' ANA ',
       email: 'bia@example.com',
-      password: 'abc123',
+      password: 'abc12345',
       role: 'atendente',
     },
   }, res);
@@ -270,10 +270,10 @@ test('user management edits profile fields, normalizes email, and changes passwo
   const passwordResponse = createResponse();
   await updateUser({
     params: { id: validId },
-    body: { password: '123456' },
+    body: { password: '12345678' },
     user: { _id: 'admin-1', role: 'admin' },
   }, passwordResponse);
-  assert.equal(records[0].password, '123456');
+  assert.equal(records[0].password, '12345678');
   assert.equal('password' in auditEvents[1].detalhes, false);
 });
 

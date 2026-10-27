@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema(
       default: 'atendente',
     },
     active: { type: Boolean, default: true },
+    mustChangePassword: { type: Boolean, default: false },
     archivedAt: { type: Date, default: null },
   },
   { timestamps: true, autoIndex: false }

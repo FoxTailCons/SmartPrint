@@ -44,9 +44,9 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
     if (!name || name.length > 120 || (emailValue !== undefined && typeof emailValue !== 'string')
       || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       || (requestedUsername && !isValidUsername(requestedUsername))
-      || typeof password !== 'string' || password.length !== 6
+      || typeof password !== 'string' || password.length < 8
       || !['atendente', 'producao', 'admin'].includes(role)) {
-      return res.status(400).json({ message: 'Informe nome, e-mail vÃ¡lido se desejar, usuÃ¡rio com 3 a 40 caracteres vÃ¡lidos, senha com exatamente 6 caracteres e perfil permitido' });
+      return res.status(400).json({ message: 'Informe nome, e-mail vÃ¡lido se desejar, usuÃ¡rio com 3 a 40 caracteres vÃ¡lidos, senha com pelo menos 8 caracteres e perfil permitido' });
     }
 
     try {
@@ -122,8 +122,8 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
     if ('role' in body && !['atendente', 'producao', 'admin'].includes(body.role)) {
       return res.status(400).json({ message: 'O perfil deve ser Atendente ou ProduÃ§Ã£o' });
     }
-    if ('password' in body && (typeof body.password !== 'string' || body.password.length !== 6)) {
-      return res.status(400).json({ message: 'A nova senha deve ter exatamente 6 caracteres' });
+    if ('password' in body && (typeof body.password !== 'string' || body.password.length < 8)) {
+      return res.status(400).json({ message: 'A nova senha deve ter pelo menos 8 caracteres' });
     }
 
     const user = await UserModel.findById(req.params.id);
@@ -265,7 +265,7 @@ export function createLoginHandler({
       });
       return res.json({
         token: signTokenFn(user._id),
-        user: { id: user._id, name: user.name, username: user.username || '', email: user.email, role: user.role },
+        user: { id: user._id, name: user.name, username: user.username || '', email: user.email, role: user.role, mustChangePassword: Boolean(user.mustChangePassword) },
       });
     } catch (err) {
       console.error(err);
@@ -291,7 +291,7 @@ router.post('/logout', protect, createLogoutHandler());
 
 // GET /api/auth/me
 router.get('/me', protect, (req, res) => {
-  res.json({ id: req.user._id, name: req.user.name, username: req.user.username || '', email: req.user.email, role: req.user.role });
+  res.json({ id: req.user._id, name: req.user.name, username: req.user.username || '', email: req.user.email, role: req.user.role, mustChangePassword: Boolean(req.user.mustChangePassword) });
 });
 
 const userManagement = createUserManagementHandlers();
@@ -307,8 +307,8 @@ function createPasswordChangeHandlers({ UserModel = User, AuditLogModel = AuditL
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: 'Informe a senha atual e a nova senha' });
     }
-    if (typeof newPassword !== 'string' || newPassword.length !== 6) {
-      return res.status(400).json({ message: 'A nova senha deve ter exatamente 6 caracteres' });
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ message: 'A nova senha deve ter pelo menos 8 caracteres' });
     }
     if (currentPassword === newPassword) {
       return res.status(400).json({ message: 'A nova senha deve ser diferente da atual' });
@@ -340,8 +340,8 @@ function createPasswordChangeHandlers({ UserModel = User, AuditLogModel = AuditL
     if (!newPassword || !adminPassword) {
       return res.status(400).json({ message: 'Informe a nova senha e a senha do administrador para confirmação' });
     }
-    if (typeof newPassword !== 'string' || newPassword.length !== 6) {
-      return res.status(400).json({ message: 'A nova senha deve ter exatamente 6 caracteres' });
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ message: 'A nova senha deve ter pelo menos 8 caracteres' });
     }
 
     const admin = await UserModel.findById(req.user._id).select('+password');

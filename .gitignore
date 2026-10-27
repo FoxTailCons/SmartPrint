@@ -26,3 +26,4 @@ graphify-out/
 .codex/
 .github/
 *.tmp
+fix.js

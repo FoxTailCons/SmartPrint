@@ -19,10 +19,15 @@ import cashRoutes from './routes/cash.js';
 import exportRoutes from './routes/exports.js';
 import auditRoutes from './routes/audit.js';
 import todoRoutes from './routes/todos.js';
+import rateLimit from 'express-rate-limit';
+import crypto from 'node:crypto';
 
 getOrderSettings();
 const app = express();
 const allowedOrigins = (process.env.CLIENT_URL || '').split(',').map((origin) => origin.trim()).filter(Boolean);
+if (!allowedOrigins.length) {
+  console.warn('AVISO DE SEGURANÇA: CLIENT_URL não definida — CORS aberto para qualquer origem. Defina CLIENT_URL em produção.');
+}
 app.use(cors({
   origin: allowedOrigins.length ? (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
@@ -32,6 +37,14 @@ app.use(cors({
 app.use(helmet());
 app.use(express.json({ limit: '100kb' }));
 app.use(morgan('dev'));
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Muitas requisições. Aguarde um momento e tente novamente.' },
+});
+app.use('/api', apiLimiter);
 
 app.get('/api/health', (req, res) => res.json({ ok: true, app: 'SmartPrint PDV' }));
 
@@ -44,6 +57,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/cash', cashRoutes);
 app.use('/api/exports', exportRoutes);
 app.use('/api/todos', todoRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
@@ -54,9 +68,9 @@ app.use((err, req, res, next) => {
 // Garante que os usuários padrão existam sem sobrescrever senhas existentes.
 const seedUsers = async () => {
   const users = [
-    { name: 'Administrador', username: 'admin', email: 'admin@smartprint.com', password: 'admin123', role: 'admin' },
-    { name: 'Atendente', username: 'atendente', email: 'atendente@smartprint.com', password: 'atend123', role: 'atendente' },
-    { name: 'Produção', username: 'producao', email: 'producao@smartprint.com', password: 'prod123', role: 'producao' },
+    { name: 'Administrador', username: 'admin', email: 'admin@smartprint.com', role: 'admin' },
+    { name: 'Atendente', username: 'atendente', email: 'atendente@smartprint.com', role: 'atendente' },
+    { name: 'Produção', username: 'producao', email: 'producao@smartprint.com', role: 'producao' },
   ];
 
   for (const user of users) {
@@ -65,18 +79,25 @@ const seedUsers = async () => {
       const username = await findAvailableUsername(user.username, async (value) => (
         Boolean(await User.exists({ username: value }))
       ));
-      await User.create({ ...user, username });
+      const tempPassword = crypto.randomBytes(6).toString('hex');
+      await User.create({ ...user, username, password: tempPassword, mustChangePassword: true });
+      console.warn(`USUARIO INICIAL CRIADO: ${user.email} (${username}) — senha temporaria: ${tempPassword} — trocar no primeiro login.`);
       console.log(`Usuário inicial criado: ${user.email} (${username})`);
     }
   }
 };
 
+const shouldSeedUsers = process.env.SEED_USERS === 'true' || process.env.NODE_ENV !== 'production';
 const PORT = process.env.PORT || 5000;
 connectDB().then(async () => {
   await prepareUserIndexes(User);
   const migrated = await migrateUsernames(User);
   if (migrated) console.log(`Nomes de usuário migrados: ${migrated}`);
-  await seedUsers();
+  if (shouldSeedUsers) {
+    await seedUsers();
+  } else {
+    console.log('Seed de usuários padrão desativado em produção. Defina SEED_USERS=true para habilitar.');
+  }
   app.listen(PORT, () => console.log(`API rodando na porta ${PORT}`));
 }).catch((error) => {
   console.error('Falha ao preparar usuários antes de iniciar a API:', error);
