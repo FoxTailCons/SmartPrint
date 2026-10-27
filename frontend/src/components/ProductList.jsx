@@ -1,4 +1,4 @@
-import { Edit2, Package } from 'lucide-react';
+﻿import { Edit2, Package } from 'lucide-react';
 import { fmt } from '../api';
 import Pagination from './Pagination.jsx';
 import { getQuantityPrice } from '../pages/catalogPricing.js';
@@ -7,8 +7,8 @@ import { getCategoryLabel } from '../pages/printshop.js';
 const unitLabel = (value) => ({
   unit: 'Unidade',
   linear_meter: 'Metro linear',
-  square_meter: 'Metro quadrado (m²)',
-  kilometer: 'Quilômetro (km)',
+  square_meter: 'Metro quadrado (mÂ²)',
+  kilometer: 'QuilÃ´metro (km)',
 }[value] || value);
 
 export default function ProductList({ products, isAdmin, canManageProducts, page, pageSize, total, onPageChange, onPageSizeChange, onEdit, onToggleActive }) {
@@ -27,13 +27,13 @@ export default function ProductList({ products, isAdmin, canManageProducts, page
                 <div key={tier.minQuantity} className="text-xs text-slate-600">A partir de {tier.minQuantity}: {fmt(getQuantityPrice(product, tier.minQuantity).unitPrice)}</div>
               ))}
               <div className="text-xs text-slate-500">
-                {product.code ? `${product.code} · ` : ''}{unitLabel(product.saleUnit)} · {getCategoryLabel(product.category)}
+                {product.code ? `${product.code} Â· ` : ''}{unitLabel(product.saleUnit)} Â· {getCategoryLabel(product.category)}
                 {!product.active && <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-slate-500">Inativo</span>}
               </div>
             </div>
             <div className="text-right">
-              <div className="font-semibold">{fmt(product.price)} <span className="text-xs font-normal text-slate-500">/ {product.saleUnit === 'unit' ? 'un.' : product.saleUnit === 'linear_meter' ? 'm' : product.saleUnit === 'kilometer' ? 'km' : 'm²'}</span></div>
-              {isAdmin && product.costPrice !== undefined && <div className="text-xs text-slate-500">Custo {fmt(product.costPrice)} · margem {product.price > 0 ? (((product.price - product.costPrice) / product.price) * 100).toFixed(1).replace('.', ',') : '—'}%</div>}
+              <div className="font-semibold">{fmt(product.price)} <span className="text-xs font-normal text-slate-500">/ {product.saleUnit === 'unit' ? 'un.' : product.saleUnit === 'linear_meter' ? 'm' : product.saleUnit === 'kilometer' ? 'km' : 'mÂ²'}</span></div>
+{isAdmin && product.costPrice !== undefined && product.costPrice > 0 && <div className="text-xs text-slate-500">Custo {fmt(product.costPrice)} · margem {((product.price - product.costPrice) / product.price * 100).toFixed(1).replace(".", ",") + "%"}</div>}
             </div>
             {canManageProducts && (
               <div className="flex gap-2">
@@ -51,3 +51,5 @@ export default function ProductList({ products, isAdmin, canManageProducts, page
     </>
   );
 }
+
+
