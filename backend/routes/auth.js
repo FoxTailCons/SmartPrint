@@ -120,9 +120,7 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
       return res.status(400).json({ message: 'Informe um e-mail vÃ¡lido' });
     }
     if ('role' in body && !['atendente', 'producao', 'admin'].includes(body.role)) {
-      return res.status(400).json({ message: 'O perfil deve ser Atendente ou ProduÃ§Ã£o' });
-    }
-    if ('password' in body && (typeof body.password !== 'string' || body.password.length < 8)) {
+      return res.status(400).json({ message: 'O perfil deve ser Atendente, Produção ou Administrador' });
       return res.status(400).json({ message: 'A nova senha deve ter pelo menos 8 caracteres' });
     }
 

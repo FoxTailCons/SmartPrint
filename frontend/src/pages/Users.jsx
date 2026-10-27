@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -121,7 +121,9 @@ export default function Users() {
         <select value={value.role} onChange={(event) => setValue({ ...value, role: event.target.value })} className="mt-1 w-full rounded-lg border bg-white px-3 py-2">
           <option value="atendente">Atendente</option>
           <option value="producao">Produção</option>
-        </select>
+        
+          <option value="admin">Administrador</option>
+</select>
       </label>
     </div>
   );
