@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
 .brand-wordmark strong { font-size: 1.05rem; letter-spacing: -0.03em; }
 .brand-wordmark span { margin-top: 0.28rem; font-size: 0.48rem; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.62; white-space: normal; }
 .brand-lockup-dark .brand-wordmark { color: #fff; }
