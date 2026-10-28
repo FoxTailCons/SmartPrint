@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Calculator } from 'lucide-react';
 import { buildMeasuredItem } from '../pages/measurements.js';
 import { fmt } from '../api';
@@ -13,8 +13,8 @@ export default function MeasureCalculator({ open, onClose, onAddItem, products =
   const [height, setHeight] = useState('');
   const [pieces, setPieces] = useState('1');
   const [multiplyByPieces, setMultiplyByPieces] = useState(true);
-  
-  
+  const [moldEnabled, setMoldEnabled] = useState(false);
+  const [moldFactor, setMoldFactor] = useState('1');
   const [pricePerSquareMeter, setPricePerSquareMeter] = useState('');
   const [description, setDescription] = useState('');
   const [saleMode, setSaleMode] = useState('area');
@@ -34,7 +34,7 @@ export default function MeasureCalculator({ open, onClose, onAddItem, products =
     try {
       const item = buildMeasuredItem({
         width: parseNumber(width), height: parseNumber(height), pieces: parseNumber(pieces), unit,
-         saleMode, multiplyByPieces,
+         saleMode, multiplyByPieces, moldEnabled, moldFactor: parseNumber(moldFactor),
         pricePerSquareMeter: parseNumber(pricePerSquareMeter), product, description,
         installationFee: parseNumber(installationFee), travelFee: parseNumber(travelFee),
       });
@@ -63,7 +63,7 @@ export default function MeasureCalculator({ open, onClose, onAddItem, products =
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={moldEnabled} onChange={change(setMoldEnabled)} />Aplicar fator de molde</label>
-            { <label className="text-sm">Fator<input inputMode="decimal" value={} onChange={change(setMoldFactor)} className="ml-2 w-24 rounded-lg border px-3 py-2" /></label>}
+            {moldEnabled && <label className="text-sm">Fator<input type="number" min="0" step="any" value={moldFactor} onChange={change(setMoldFactor)} className="ml-2 w-24 rounded-lg border px-3 py-2" /></label>}
           </div>
         </fieldset>
         <fieldset className="space-y-3 rounded-lg border p-4">
@@ -106,6 +106,5 @@ export default function MeasureCalculator({ open, onClose, onAddItem, products =
     </Modal>
   );
 }
-
 
 
