@@ -5,7 +5,7 @@
 - Leia esta especificação antes de implementar.
 - Esta decisão substitui somente os requisitos anteriores de manter o fator de molde em novos pedidos; os demais requisitos do catálogo e da produção permanecem válidos.
 - Preserve os campos de molde já salvos e o comportamento de itens legados ao editar pedidos existentes.
-- Plano de implementação relacionado: [[2026-10-28-remover-fator-molde-aplicar-logo]].
+- Planos de implementação relacionados: [[2026-10-28-remover-fator-molde]] e [[2026-10-28-aplicar-logo-jpeg]].
 
 ## Objetivo
 

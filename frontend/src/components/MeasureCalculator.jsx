@@ -13,8 +13,6 @@ export default function MeasureCalculator({ open, onClose, onAddItem, products =
   const [height, setHeight] = useState('');
   const [pieces, setPieces] = useState('1');
   const [multiplyByPieces, setMultiplyByPieces] = useState(true);
-  const [moldEnabled, setMoldEnabled] = useState(false);
-  const [moldFactor, setMoldFactor] = useState('1');
   const [pricePerSquareMeter, setPricePerSquareMeter] = useState('');
   const [description, setDescription] = useState('');
   const [saleMode, setSaleMode] = useState('area');
@@ -34,8 +32,7 @@ export default function MeasureCalculator({ open, onClose, onAddItem, products =
     try {
       const item = buildMeasuredItem({
         width: parseNumber(width), height: parseNumber(height), pieces: parseNumber(pieces), unit,
-         saleMode, multiplyByPieces, moldEnabled, moldFactor: parseNumber(moldFactor),
-        pricePerSquareMeter: parseNumber(pricePerSquareMeter), product, description,
+         saleMode, multiplyByPieces, pricePerSquareMeter: parseNumber(pricePerSquareMeter), product, description,
         installationFee: parseNumber(installationFee), travelFee: parseNumber(travelFee),
       });
       setCalculated(item);
@@ -60,10 +57,6 @@ export default function MeasureCalculator({ open, onClose, onAddItem, products =
             <label className="text-sm">Largura ({unit})<input inputMode="decimal" required value={width} onChange={change(setWidth)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
             <label className="text-sm">Altura ({unit})<input inputMode="decimal" required value={height} onChange={change(setHeight)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
             <label className="text-sm">Quantidade de peças<input type="number" min="1" step="1" required value={pieces} onChange={change(setPieces)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={moldEnabled} onChange={change(setMoldEnabled)} />Aplicar fator de molde</label>
-            {moldEnabled && <label className="text-sm">Fator<input type="number" min="0" step="any" value={moldFactor} onChange={change(setMoldFactor)} className="ml-2 w-24 rounded-lg border px-3 py-2" /></label>}
           </div>
         </fieldset>
         <fieldset className="space-y-3 rounded-lg border p-4">

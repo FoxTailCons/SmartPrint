@@ -1,19 +1,18 @@
 import { getQuantityPrice } from './catalogPricing.js';
 
-export function calculateAreaPerPiece({ width, height, unit, moldEnabled, moldFactor }) {
+export function calculateAreaPerPiece({ width, height, unit }) {
   const unitInMeters = unit === 'cm' ? 0.01 : 1;
-  const factor = moldEnabled ? moldFactor : 1;
-  return width * unitInMeters * height * unitInMeters * factor;
+  return width * unitInMeters * height * unitInMeters;
 }
 
-export function buildMeasuredItem({ width, height, pieces = 1, unit = 'm', moldEnabled = false, moldFactor = 1, saleMode = 'area', multiplyByPieces = true, pricePerSquareMeter = 0, product, description = '', installationFee = 0, travelFee = 0 }) {
+export function buildMeasuredItem({ width, height, pieces = 1, unit = 'm', saleMode = 'area', multiplyByPieces = true, pricePerSquareMeter = 0, product, description = '', installationFee = 0, travelFee = 0 }) {
   if (![width, height, pieces, pricePerSquareMeter, installationFee, travelFee].every(Number.isFinite)
     || width <= 0 || height <= 0 || !Number.isInteger(pieces) || pieces <= 0 || pricePerSquareMeter < 0
     || installationFee < 0 || travelFee < 0 || !['cm', 'm'].includes(unit)
-    || (moldEnabled && (!Number.isFinite(moldFactor) || moldFactor <= 0))) {
+    || (saleMode === 'area' && multiplyByPieces && !product)) {
     throw new Error('Informe medidas e quantidade válidas e valores não negativos.');
   }
-  const areaPerPiece = calculateAreaPerPiece({ width, height, unit, moldEnabled, moldFactor });
+  const areaPerPiece = calculateAreaPerPiece({ width, height, unit });
   const pieceCount = product || saleMode !== 'area' || multiplyByPieces ? pieces : 1;
   const area = areaPerPiece * pieceCount;
   const quantity = product || saleMode === 'area' ? area : pieces;
@@ -27,7 +26,7 @@ export function buildMeasuredItem({ width, height, pieces = 1, unit = 'm', moldE
     description: `${serviceName} ${format(width)}x${format(height)}m${product ? ` — ${product.name}` : ''}`,
     serviceName,
     ...(product ? { productId: product._id, productName: product.name, saleUnit: 'square_meter', material: product.name, pricingBasis: { basePrice: product.price, priceTiers: product.priceTiers || [] } } : {}),
-    measurements: { width, height, dimensionUnit: unit, pieceCount, moldEnabled, moldFactor: moldEnabled ? moldFactor : undefined },
+    measurements: { width, height, dimensionUnit: unit, pieceCount },
     quantity, unitPrice, total, areaPerPiece, area, installationFee, travelFee,
   };
 }

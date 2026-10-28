@@ -158,8 +158,8 @@ export const buildOrderItems = async (items, existingItems = [], ProductModel = 
     width: item.measurements?.width ?? item.width,
     height: item.measurements?.height ?? item.height,
     dimensionUnit: item.measurements?.dimensionUnit ?? item.dimensionUnit,
-    moldEnabled: item.measurements?.moldEnabled ?? item.moldEnabled ?? false,
-    moldFactor: item.measurements?.moldFactor ?? item.moldFactor,
+    moldEnabled: previousItem?.measurements?.moldEnabled ?? false,
+    moldFactor: previousItem?.measurements?.moldFactor,
     pricingSnapshot,
     ...metadata,
   });

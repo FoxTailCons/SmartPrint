@@ -3,25 +3,6 @@
 @tailwind utilities;
 
 body {
-  @apply text-slate-800 antialiased;
-  background: #f6f7f5;
-  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
-}
-
-button, input, select, textarea { font: inherit; }
-
-.brand-lockup { display: inline-flex; align-items: center; gap: 0.75rem; }
-.brand-mark { position: relative; width: 2.75rem; height: 2.75rem; overflow: hidden; border-radius: 50%; background: #111827; flex: 0 0 auto; }
-.brand-mark span { position: absolute; width: 50%; height: 50%; }
-.brand-mark-cyan { top: 0; left: 0; background: #00a6c7; border-radius: 100% 0 0 0; }
-.brand-mark-magenta { top: 0; right: 0; background: #e91e73; border-radius: 0 100% 0 0; }
-.brand-mark-yellow { bottom: 0; right: 0; background: #f4d21f; border-radius: 0 0 100% 0; }
-.brand-mark-black { bottom: 0; left: 0; background: #111827; border-radius: 0 0 0 100%; }
-.brand-mark-center { inset: 36%; width: 28% !important; height: 28% !important; background: #fff; border: 3px solid #111827; border-radius: 50%; }
-.brand-mark::before, .brand-mark::after { content: ''; position: absolute; z-index: 2; background: #111827; }
-.brand-mark::before { left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); }
-.brand-mark::after { top: 50%; left: 0; right: 0; height: 2px; transform: translateY(-50%); }
-.brand-wordmark { display: flex; flex-direction: column; line-height: 1; }
 .brand-wordmark strong { font-size: 1.05rem; letter-spacing: -0.03em; }
 .brand-wordmark span { margin-top: 0.28rem; font-size: 0.48rem; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.62; white-space: normal; }
 .brand-lockup-dark .brand-wordmark { color: #fff; }

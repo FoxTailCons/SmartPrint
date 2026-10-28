@@ -13,14 +13,14 @@ test('measured catalog material includes dimensions, tier, pieces and fixed inst
 });
 
 test('calculator retains cm conversion and manual by-unit sale mode', () => {
-  const item = buildMeasuredItem({ width: 200, height: 100, pieces: 3, unit: 'cm', saleMode: 'unit', pricePerSquareMeter: 10, moldEnabled: true, moldFactor: 1.5 });
+  const item = buildMeasuredItem({ width: 200, height: 100, pieces: 3, unit: 'cm', saleMode: 'unit', pricePerSquareMeter: 10 });
   assert.equal(item.quantity, 3);
-  assert.equal(item.unitPrice, 30);
-  assert.equal(item.total, 90);
+  assert.equal(item.unitPrice, 20);
+  assert.equal(item.total, 60);
 });
 
 test('calculator rejects invalid dimensions, fractional pieces and negative fees', () => {
-  for (const input of [{ width: 0 }, { pieces: 1.2 }, { installationFee: -1 }, { travelFee: Infinity }, { moldEnabled: true, moldFactor: 0 }]) {
+  for (const input of [{ width: 0 }, { pieces: 1.2 }, { installationFee: -1 }, { travelFee: Infinity }]) {
     assert.throws(() => buildMeasuredItem({ width: 2, height: 1, pieces: 1, pricePerSquareMeter: 10, ...input }));
   }
 });

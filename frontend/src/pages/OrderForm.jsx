@@ -20,8 +20,6 @@ const emptyCatalogMeasure = {
   height: '',
   distanceKm: '',
   dimensionUnit: 'm',
-  moldEnabled: false,
-  moldFactor: '1',
 };
 const emptyNewClient = {
   name: '', phone: '', email: '', document: '', address: '', addressNumber: '',
@@ -123,20 +121,15 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
     catalogQuantity = distanceKm;
     catalogValid = Number.isFinite(distanceKm) && distanceKm > 0;
   } else if (selectedProduct?.saleUnit === 'square_meter') {
-    const moldFactor = Number(catalogMeasure.moldFactor);
-    const moldValid = !catalogMeasure.moldEnabled || (Number.isFinite(moldFactor) && moldFactor > 0);
     const areaPerPiece = calculateAreaPerPiece({
       width,
       height,
       unit: catalogMeasure.dimensionUnit,
-      moldEnabled: catalogMeasure.moldEnabled,
-      moldFactor,
     });
     catalogQuantity = areaPerPiece * pieceCount;
     catalogValid = Number.isInteger(pieceCount) && pieceCount > 0
       && Number.isFinite(width) && width > 0
       && Number.isFinite(height) && height > 0
-      && moldValid
       && Number.isFinite(catalogQuantity);
   }
   const catalogPricing = selectedProduct && catalogValid ? getQuantityPrice(selectedProduct, catalogQuantity) : { unitPrice: selectedProduct?.price || 0, total: 0, minQuantity: null };
@@ -172,8 +165,6 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
           width,
           height,
           dimensionUnit: catalogMeasure.dimensionUnit,
-          moldEnabled: catalogMeasure.moldEnabled,
-          moldFactor: catalogMeasure.moldEnabled ? Number(catalogMeasure.moldFactor) : undefined,
         };
     const description = selectedProduct.saleUnit === 'unit'
       ? selectedProduct.name
@@ -381,21 +372,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                         <input type="number" min="1" step="1" value={catalogMeasure.pieceCount} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, pieceCount: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
                       </label>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className="inline-flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={catalogMeasure.moldEnabled} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, moldEnabled: event.target.checked })} />
-                        Aplicar fator de molde
-                      </label>
-                      {catalogMeasure.moldEnabled && (
-                        <label className="text-sm">
-                          Fator
-                          <input type="number" min="0" step="any" value={catalogMeasure.moldFactor} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, moldFactor: event.target.value })} className="ml-2 w-24 rounded-lg border px-2 py-1.5" />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
                   <span>
                     Quantidade calculada: <strong>{catalogValid ? catalogQuantity.toFixed(4).replace('.', ',') : '—'} {saleUnitLabels[selectedProduct.saleUnit]}</strong>
                     {' · '}Preço: <strong>{fmt(catalogPricing.unitPrice)}</strong>
