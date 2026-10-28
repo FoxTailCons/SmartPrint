@@ -1,4 +1,4 @@
-﻿import logo from '../assets/logo.jpeg'
+﻿import logo from '/logo.jpeg'
 
 export default function BrandMark({ dark = false, compact = false }) {
   return (
