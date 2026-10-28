@@ -1,14 +1,17 @@
-﻿import logo from '../assets/logo.jpeg';
-
-export default function BrandMark({ dark = false, compact = false }) {
+﻿export default function BrandMark({ dark = false, compact = false }) {
   return (
-    <div className={`brand-lockup${dark ? ' brand-lockup--dark' : ''}${compact ? ' brand-lockup--compact' : ''}`}>
+    <div
+      className={`brand-lockup${dark ? ' brand-lockup--dark' : ''}${compact ? ' brand-lockup--compact' : ''}`}
+    >
       <div className="brand-mark" aria-hidden="true">
-        <img src={logo} alt="SmartPrint logo" className="h-6 w-auto" />
+        <span className="cmyk-logo" />
       </div>
       <div className="brand-wordmark">
         <strong>SmartPrint</strong>
-        <span>Acessórios de papelaria<br />e gráfica rápida</span>
+        <span>
+          Acessórios de papelaria
+          <br />e gráfica rápida
+        </span>
       </div>
     </div>
   );

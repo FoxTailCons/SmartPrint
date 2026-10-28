@@ -2,11 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-.brand-wordmark strong { font-size: 1.05rem; letter-spacing: -0.03em; }
-.brand-wordmark span { margin-top: 0.28rem; font-size: 0.48rem; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.62; white-space: normal; }
-.brand-lockup-dark .brand-wordmark { color: #fff; }
+.brand-wordmark strong {
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+}
 
-::selection { background: #bdeff5; color: #111827; }
+.brand-wordmark span {
+  margin-top: 0.28rem;
+  font-size: 0.48rem;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.62;
+  white-space: normal;
+}
+
+.brand-lockup-dark .brand-wordmark {
+  color: #fff;
+}
+
+::selection {
+  background: #bdeff5;
+  color: #111827;
+}
 
 .responsive-table {
   width: 100%;
@@ -28,11 +46,21 @@
   }
 }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 
 @media (max-width: 1199px) {
+
   .responsive-table,
   .responsive-table tbody {
     display: block;
@@ -118,10 +146,79 @@
     margin-bottom: 0.4rem;
   }
 
-  .responsive-table tbody td[data-label="Ações"] > div:not(.grid) {
+  .responsive-table tbody td[data-label="Ações"]>div:not(.grid) {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-start;
     gap: 0.4rem;
   }
+}
+
+/* Logo CMYK + mira de registro */
+.cmyk-logo {
+  --s: 28px;
+  /* tamanho; em compact use 22px via CSS abaixo */
+  position: relative;
+  display: block;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background:
+    /* quadrantes do anel */
+    conic-gradient(from -90deg,
+      #00a8e8 0deg 90deg,
+      /* ciano */
+      #e4007c 90deg 180deg,
+      /* magenta */
+      #ffed00 180deg 270deg,
+      /* amarelo */
+      #111111 270deg 360deg
+      /* preto */
+    );
+  /* furo branco no centro (anel) */
+  -webkit-mask: radial-gradient(circle,
+      transparent 0 28%,
+      #000 29% 100%);
+  mask: radial-gradient(circle,
+      transparent 0 28%,
+      #000 29% 100%);
+}
+
+/* cruz preta (mira) */
+.cmyk-logo::before {
+  content: '';
+  position: absolute;
+  inset: -12%;
+  background:
+    linear-gradient(#111 0 0) center/2px 100% no-repeat,
+    linear-gradient(#111 0 0) center/100% 2px no-repeat;
+  -webkit-mask: none;
+  mask: none;
+  pointer-events: none;
+}
+
+/* ponto central preto */
+.cmyk-logo::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18%;
+  height: 18%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #111;
+  -webkit-mask: none;
+  mask: none;
+}
+
+/* sidebar escura / compacto */
+.brand-lockup--compact .cmyk-logo {
+  --s: 22px;
+}
+
+.brand-lockup--dark .cmyk-logo::before,
+.brand-lockup--dark .cmyk-logo::after {
+  /* na sidebar escura a mira continua preta; se quiser branca:
+  background: #fff; */
 }
