@@ -324,6 +324,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
               ))}
             </select>
             {selectedProduct && (
+              <>
               <div className="space-y-3">
                 {selectedProduct.saleUnit === 'unit' && (
                   <label className="block text-sm">
@@ -385,7 +386,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                 </div>
               </div>
             )}
-</div>
+              </div>
+
           <div className="space-y-2">
             {items.map((it, idx) => (
               <div key={idx} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-12">
@@ -444,6 +446,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
               </div>
             ))}
           </div>
+
           <div className="flex justify-end gap-6 pt-3 border-t text-sm">
             <div>Subtotal: <strong>{fmt(itemsTotal)}</strong></div>
             <div className="flex items-center gap-2">
@@ -452,8 +455,9 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
             </div>
             <div className="text-lg">Total: <strong className="text-brand-600">{fmt(finalValue)}</strong></div>
           </div>
-        </div>
 
+        </>
+          )}
         {/* Parcelas */}
         <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
           <h2 className="font-semibold">Parcelas</h2>
