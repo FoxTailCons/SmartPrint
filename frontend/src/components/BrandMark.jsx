@@ -1,4 +1,4 @@
-﻿import logo from '../assets/logo.jpeg'; // ajuste a extensão se for .jpg/.png
+﻿import logo from '../assets/logo.jpeg'
 
 export default function BrandMark({ dark = false, compact = false }) {
   return (
