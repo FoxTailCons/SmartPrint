@@ -141,7 +141,10 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
       if (index !== idx) return item;
       const next = { ...item, [field]: val };
       if (field === 'quantity' && item.productId && ['unit', 'kilometer'].includes(item.saleUnit) && Number(val) > 0 && Number.isFinite(Number(val))) {
-        next.unitPrice = getQuantityPrice(item, Number(val)).unitPrice;
+        const product = products.find((p) => p._id === item.productId);
+        if (product) {
+          next.unitPrice = getQuantityPrice(product, Number(val)).unitPrice;
+        }
         next.measurements = item.saleUnit === 'unit'
           ? { ...item.measurements, pieceCount: Number(val) }
           : { ...item.measurements, distanceKm: Number(val) };
@@ -160,19 +163,19 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         ? { pieceCount: count, lengthPerPiece }
         : selectedProduct.saleUnit === 'kilometer'
           ? { distanceKm }
-        : {
-          pieceCount: count,
-          width,
-          height,
-          dimensionUnit: catalogMeasure.dimensionUnit,
-        };
+          : {
+            pieceCount: count,
+            width,
+            height,
+            dimensionUnit: catalogMeasure.dimensionUnit,
+          };
     const description = selectedProduct.saleUnit === 'unit'
       ? selectedProduct.name
       : selectedProduct.saleUnit === 'linear_meter'
         ? `${selectedProduct.name} - ${lengthPerPiece} m x ${count} peça(s)`
         : selectedProduct.saleUnit === 'kilometer'
           ? `${selectedProduct.name} - ${distanceKm} km`
-        : `${selectedProduct.name} - ${width} x ${height} ${catalogMeasure.dimensionUnit} - ${count} peça(s)`;
+          : `${selectedProduct.name} - ${width} x ${height} ${catalogMeasure.dimensionUnit} - ${count} peça(s)`;
     setItems((current) => [...current, {
       productId: selectedProduct._id,
       productName: selectedProduct.name,
@@ -216,6 +219,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
         attachments: attachments.filter((item) => item.label?.trim() || item.url?.trim()),
         priority,
         skippedStages,
+        status: orderStatus,
         installments: installments.map((p) => ({ ...p, dueDate: new Date(p.dueDate) })),
       };
       const saved = isEdit
@@ -324,7 +328,6 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
               ))}
             </select>
             {selectedProduct && (
-              <>
               <div className="space-y-3">
                 {selectedProduct.saleUnit === 'unit' && (
                   <label className="block text-sm">
@@ -351,29 +354,29 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                   </label>
                 )}
                 {selectedProduct.saleUnit === 'square_meter' && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                      <label className="text-sm">
-                        Largura
-                        <input type="number" min="0" step="any" value={catalogMeasure.width} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, width: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                      </label>
-                      <label className="text-sm">
-                        Altura
-                        <input type="number" min="0" step="any" value={catalogMeasure.height} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, height: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                      </label>
-                      <label className="text-sm">
-                        Medida
-                        <select value={catalogMeasure.dimensionUnit} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, dimensionUnit: event.target.value })} className="mt-1 block w-full rounded-lg border bg-white px-3 py-2">
-                          <option value="cm">cm</option>
-                          <option value="m">m</option>
-                        </select>
-                      </label>
-                      <label className="text-sm">
-                        Quantidade de peças
-                        <input type="number" min="1" step="1" value={catalogMeasure.pieceCount} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, pieceCount: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
-                      </label>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <label className="text-sm">
+                      Largura
+                      <input type="number" min="0" step="any" value={catalogMeasure.width} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, width: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                    </label>
+                    <label className="text-sm">
+                      Altura
+                      <input type="number" min="0" step="any" value={catalogMeasure.height} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, height: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                    </label>
+                    <label className="text-sm">
+                      Medida
+                      <select value={catalogMeasure.dimensionUnit} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, dimensionUnit: event.target.value })} className="mt-1 block w-full rounded-lg border bg-white px-3 py-2">
+                        <option value="cm">cm</option>
+                        <option value="m">m</option>
+                      </select>
+                    </label>
+                    <label className="text-sm">
+                      Quantidade de peças
+                      <input type="number" min="1" step="1" value={catalogMeasure.pieceCount} onChange={(event) => setCatalogMeasure({ ...catalogMeasure, pieceCount: event.target.value })} className="mt-1 block w-full rounded-lg border px-3 py-2" />
+                    </label>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
                   <span>
                     Quantidade calculada: <strong>{catalogValid ? catalogQuantity.toFixed(4).replace('.', ',') : '—'} {saleUnitLabels[selectedProduct.saleUnit]}</strong>
                     {' · '}Preço: <strong>{fmt(catalogPricing.unitPrice)}</strong>
@@ -386,8 +389,9 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                 </div>
               </div>
             )}
-              </div>
+          </div>
 
+          {/* Lista de itens (sempre visível) */}
           <div className="space-y-2">
             {items.map((it, idx) => (
               <div key={idx} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-12">
@@ -447,6 +451,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
             ))}
           </div>
 
+          {/* Subtotal / Desconto / Total (sempre visível) */}
           <div className="flex justify-end gap-6 pt-3 border-t text-sm">
             <div>Subtotal: <strong>{fmt(itemsTotal)}</strong></div>
             <div className="flex items-center gap-2">
@@ -455,9 +460,8 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
             </div>
             <div className="text-lg">Total: <strong className="text-brand-600">{fmt(finalValue)}</strong></div>
           </div>
+        </div>
 
-        </>
-          )}
         {/* Parcelas */}
         <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
           <h2 className="font-semibold">Parcelas</h2>
