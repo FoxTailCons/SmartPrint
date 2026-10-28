@@ -385,7 +385,7 @@ export default function OrderForm({ modal = false, open = true, onSaved, onCance
                 </div>
               </div>
             )}
-          </div>
+</div>
           <div className="space-y-2">
             {items.map((it, idx) => (
               <div key={idx} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-12">
