@@ -1,4 +1,4 @@
-import { useState } from 'react';
+ï»¿import { useState } from 'react';
 import { Calculator } from 'lucide-react';
 import { buildMeasuredItem } from '../pages/measurements.js';
 import { fmt } from '../api';
@@ -47,57 +47,57 @@ export default function MeasureCalculator({ open, onClose, onAddItem, products =
   };
 
   return (
-    <Modal open={open} onClose={onClose} title=" Calcular item por dimensão\ wide>
+    <Modal open={open} onClose={onClose} title=" Calcular item por dimensÃ£o\ wide>
       <form onSubmit={calculate} className=space-y-5>
         <fieldset className=space-y-3 rounded-lg border p-4>
-          <legend className=px-1 text-sm font-semibold>1. Dimensões de cada peça</legend>
+          <legend className=px-1 text-sm font-semibold>1. DimensÃµes de cada peÃ§a</legend>
           <label className=block text-sm>Unidade de medida
             <select value={unit} onChange={change(setUnit)} className=ml-2 rounded-lg border bg-white px-3 py-2>
-              <option value=m>Metros</option><option value=cm>Centímetros</option>
+              <option value=m>Metros</option><option value=cm>CentÃ­metros</option>
             </select>
           </label>
           <div className=grid grid-cols-2 gap-3 sm:grid-cols-3>
             <label className=text-sm>Largura ({unit})<input inputMode=decimal required value={width} onChange={change(setWidth)} className=mt-1 w-full rounded-lg border px-3 py-2 /></label>
             <label className=text-sm>Altura ({unit})<input inputMode=decimal required value={height} onChange={change(setHeight)} className=mt-1 w-full rounded-lg border px-3 py-2 /></label>
-            <label className=text-sm>Quantidade de peças<input type=number min=1 step=1 required value={pieces} onChange={change(setPieces)} className=mt-1 w-full rounded-lg border px-3 py-2 /></label>
+            <label className=text-sm>Quantidade de peÃ§as<input type=number min=1 step=1 required value={pieces} onChange={change(setPieces)} className=mt-1 w-full rounded-lg border px-3 py-2 /></label>
           </div>
           <div className=flex flex-wrap items-center gap-3>
             <label className=flex items-center gap-2 text-sm>
               <input type=checkbox checked={multiplyByPieces} onChange={change(setMultiplyByPieces)} className=ml-2 rounded-lg border px-3 py-2 />
-              Multiplicar a área pela quantidade de peças
+              Multiplicar a Ã¡rea pela quantidade de peÃ§as
             </label>
           </div>
         </fieldset>
         <fieldset className=space-y-3 rounded-lg border p-4>
-          <legend className=px-1 text-sm font-semibold>2. Material e serviço</legend>
-          <label className=block text-sm>Material do catálogo
+          <legend className=px-1 text-sm font-semibold>2. Material e serviÃ§o</legend>
+          <label className=block text-sm>Material do catÃ¡logo
             <select value={materialId} onChange={change(setMaterialId)} className=mt-1 w-full rounded-lg border bg-white px-3 py-2>
-              <option value=>Item livre / preço manual</option>
- {products.filter((entry) => entry.saleUnit === square_meter && entry.active !== false).map((entry) => <option key={entry._id} value={entry._id}>{entry.name} · {fmt(entry.price)}/m²</option>)}
+              <option value=>Item livre / preÃ§o manual</option>
+ {products.filter((entry) => entry.saleUnit === square_meter && entry.active !== false).map((entry) => <option key={entry._id} value={entry._id}>{entry.name} Â· {fmt(entry.price)}/mÂ²</option>)}
  </select>
  </label>
- <label className=block text-sm>Serviço / descrição
+ <label className=block text-sm>ServiÃ§o / descriÃ§Ã£o
  <input value={description} onChange={change(setDescription)} placeholder=Ex.: Banner adesivo fachada className=mt-1 w-full rounded-lg border px-3 py-2 />
  </label>
  {!product && <>
- <label className=block text-sm>Preço por m² (R$)<input inputMode=decimal required value={pricePerSquareMeter} onChange={change(setPricePerSquareMeter)} className=mt-1 w-full rounded-lg border px-3 py-2 /></label>
+ <label className=block text-sm>PreÃ§o por mÂ² (R$)<input inputMode=decimal required value={pricePerSquareMeter} onChange={change(setPricePerSquareMeter)} className=mt-1 w-full rounded-lg border px-3 py-2 /></label>
  <div className=flex flex-wrap items-center gap-3>
  <label className=text-sm>Venda
- <select value={saleMode} onChange={change(setSaleMode)} className=ml-2 rounded-lg border bg-white px-3 py-2><option value=area>Por m²</option><option value=unit>Por unidade</option></select>
+ <select value={saleMode} onChange={change(setSaleMode)} className=ml-2 rounded-lg border bg-white px-3 py-2><option value=area>Por mÂ²</option><option value=unit>Por unidade</option></select>
  </label>
- {saleMode === area && <label className=flex items-center gap-2 text-sm><input type=checkbox checked={multiplyByPieces} onChange={change(setMultiplyByPieces)} />Multiplicar a área pela quantidade de peças</label>}
+ {saleMode === area && <label className=flex items-center gap-2 text-sm><input type=checkbox checked={multiplyByPieces} onChange={change(setMultiplyByPieces)} />Multiplicar a Ã¡rea pela quantidade de peÃ§as</label>}
  </div>
  </>}</label>
  </fieldset>
  <div className=grid gap-3 sm:grid-cols-2>
- <label className=text-sm>Instalação (R$, opcional)<input type=number min=0 step=0.01 value={installationFee} onChange={change(setInstallationFee)} className=mt-1 w-full rounded-lg border px-3 py-2 /></label>
+ <label className=text-sm>InstalaÃ§Ã£o (R$, opcional)<input type=number min=0 step=0.01 value={installationFee} onChange={change(setInstallationFee)} className=mt-1 w-full rounded-lg border px-3 py-2 /></label>
  <label className=text-sm>Deslocamento (R$, opcional)<input type=number min=0 step=0.01 value={travelFee} onChange={change(setTravelFee)} className=mt-1 w-full rounded-lg border px-3 py-2 /></label>
  </div>
  {error && <p role=alert className=text-sm text-red-600>{error}</p>}
  {calculated && <div className=space-y-2 rounded-lg bg-slate-50 p-4 text-sm aria-live=polite>
  <p className=font-medium>{calculated.description}</p>
- <p>Área por peça: <strong>{formatNumber(calculated.areaPerPiece)} m²</strong> · Área total: <strong>{formatNumber(calculated.area)} m²</strong></p>
- <p>Preço: <strong>{fmt(calculated.unitPrice)}</strong> · Total com acréscimos: <strong>{fmt(calculated.total)}</strong></p>
+ <p>Ãrea por peÃ§a: <strong>{formatNumber(calculated.areaPerPiece)} mÂ²</strong> Â· Ãrea total: <strong>{formatNumber(calculated.area)} mÂ²</strong></p>
+ <p>PreÃ§o: <strong>{fmt(calculated.unitPrice)}</strong> Â· Total com acrÃ©scimos: <strong>{fmt(calculated.total)}</strong></p>
  </div>}
  <div className=flex flex-wrap justify-end gap-2>
  <button type=button onClick={onClose} className=rounded-lg border px-4 py-2 text-sm>Cancelar</button>
