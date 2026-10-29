@@ -162,7 +162,7 @@ test('user management maps duplicate account email to conflict', async () => {
   await createUser({ body: { name: 'Ana', email: 'ana@example.com', password: 'abc12345', role: 'atendente' } }, res);
 
   assert.equal(res.statusCode, 409);
-  assert.match(res.body.message, /nome de usuário ou e-mail/);
+  assert.match(res.body.message, /nome de usu[\u00e1a]rio ou e-mail/);
   assert.equal(records.length, 1);
 });
 

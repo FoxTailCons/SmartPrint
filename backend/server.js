@@ -46,7 +46,7 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
-app.get('/api/health', (req, res) => res.json({ ok: true, app: 'SmartPrint PDV' }));
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/clients', clientRoutes);
@@ -81,7 +81,7 @@ const seedUsers = async () => {
       ));
       const tempPassword = crypto.randomBytes(6).toString('hex');
       await User.create({ ...user, username, password: tempPassword, mustChangePassword: true });
-      console.warn(`USUARIO INICIAL CRIADO: ${user.email} (${username}) — senha temporaria: ${tempPassword} — trocar no primeiro login.`);
+      console.warn(`USUARIO INICIAL CRIADO: ${user.email} (${username}) — senha temporaria definida; o usuario deve trocar no primeiro login.`);
       console.log(`Usuário inicial criado: ${user.email} (${username})`);
     }
   }

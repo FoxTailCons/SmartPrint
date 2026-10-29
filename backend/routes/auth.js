@@ -121,6 +121,8 @@ export function createUserManagementHandlers({ UserModel = User, AuditLogModel =
     }
     if ('role' in body && !['atendente', 'producao', 'admin'].includes(body.role)) {
       return res.status(400).json({ message: 'O perfil deve ser Atendente, Produção ou Administrador' });
+    }
+    if ('password' in body && (typeof body.password !== 'string' || body.password.length < 8)) {
       return res.status(400).json({ message: 'A nova senha deve ter pelo menos 8 caracteres' });
     }
 
@@ -288,7 +290,14 @@ router.post('/login', loginLimiter, createLoginHandler());
 router.post('/logout', protect, createLogoutHandler());
 
 // GET /api/auth/me
-router.get('/me', protect, (req, res) => {
+const meLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Muitas consultas de perfil. Aguarde um momento e tente novamente.' },
+});
+router.get('/me', meLimiter, protect, (req, res) => {
   res.json({ id: req.user._id, name: req.user.name, username: req.user.username || '', email: req.user.email, role: req.user.role, mustChangePassword: Boolean(req.user.mustChangePassword) });
 });
 
