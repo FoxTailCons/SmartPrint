@@ -72,6 +72,38 @@ export default function ProposalDetail() {
           </div>
         </div>
       </div>
+      {/* Título e Estrutura Técnica da Proposta */}
+      {proposal.projectTitle && (
+        <div className="bg-white rounded-xl border shadow-sm p-5 space-y-3">
+          <div className="text-xs text-slate-500 uppercase font-semibold">Título do Projeto</div>
+          <div className="text-base font-bold text-slate-800">{proposal.projectTitle}</div>
+          {proposal.projectDescription && (
+            <div className="pt-2 border-t">
+              <div className="text-xs text-slate-500 uppercase font-semibold">1. Descrição do Projeto</div>
+              <p className="text-sm text-slate-700 mt-1 whitespace-pre-line">{proposal.projectDescription}</p>
+            </div>
+          )}
+          {proposal.areasContemplated && (
+            <div className="pt-2 border-t">
+              <div className="text-xs text-slate-500 uppercase font-semibold">2. Áreas Contempladas</div>
+              <p className="text-sm text-slate-700 mt-1 whitespace-pre-line">{proposal.areasContemplated}</p>
+            </div>
+          )}
+          {proposal.executionProcess && (
+            <div className="pt-2 border-t">
+              <div className="text-xs text-slate-500 uppercase font-semibold">3. Processo de Execução Técnica</div>
+              <p className="text-sm text-slate-700 mt-1 whitespace-pre-line">{proposal.executionProcess}</p>
+            </div>
+          )}
+          {proposal.specialCourtesy && (
+            <div className="pt-2 border-t bg-brand-50 p-3 rounded-lg">
+              <div className="text-xs text-brand-700 uppercase font-semibold">★ Cortesia Especial Smartprint</div>
+              <p className="text-sm text-brand-900 mt-1">{proposal.specialCourtesy}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Dados da proposta */}
       <div className="grid md:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border shadow-sm p-4">

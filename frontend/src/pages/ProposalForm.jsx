@@ -16,7 +16,12 @@ export default function ProposalForm() {
   const [items, setItems] = useState([{ ...emptyItem }]);
   const [validityDate, setValidityDate] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('');
-  const [deliveryTime, setDeliveryTime] = useState('');
+  const [projectTitle, projectDescription, areasContemplated, executionProcess, specialCourtesy, deliveryTime, setDeliveryTime] = useState('');
+  const [projectTitle, setProjectTitle] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [areasContemplated, setAreasContemplated] = useState('');
+  const [executionProcess, setExecutionProcess] = useState('');
+  const [specialCourtesy, setSpecialCourtesy] = useState('');
   const [observations, setObservations] = useState('');
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClient, setNewClient] = useState({ name: '', phone: '', email: '' });
@@ -31,6 +36,11 @@ export default function ProposalForm() {
         setValidityDate(p.validityDate ? new Date(p.validityDate).toISOString().slice(0, 10) : '');
         setPaymentTerms(p.paymentTerms || '');
         setDeliveryTime(p.deliveryTime || '');
+        setProjectTitle(p.projectTitle || '');
+        setProjectDescription(p.projectDescription || '');
+        setAreasContemplated(p.areasContemplated || '');
+        setExecutionProcess(p.executionProcess || '');
+        setSpecialCourtesy(p.specialCourtesy || '');
         setObservations(p.observations || '');
       });
     }
@@ -117,6 +127,61 @@ export default function ProposalForm() {
         <Link to="/propostas" className="text-sm text-slate-500 hover:underline">← Voltar</Link>
       </div>
       <form onSubmit={handleSaveDraft} className="space-y-5">
+        {/* Detalhes do Projeto / Proposta Técnica */}
+        <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
+          <h2 className="font-semibold text-slate-800">Estrutura da Proposta Técnica & Comercial</h2>
+          <label className="block text-sm">
+            Título do Projeto (ex: Renovação e Restauração da Comunicação Visual em Vidros)
+            <input
+              type="text"
+              value={projectTitle}
+              onChange={(e) => setProjectTitle(e.target.value)}
+              placeholder="Ex: Renovação e Restauração da Comunicação Visual..."
+              className="mt-1 block w-full px-3 py-2 border rounded-lg text-sm bg-white"
+            />
+          </label>
+          <label className="block text-sm">
+            1. Descrição do Projeto
+            <textarea
+              value={projectDescription}
+              onChange={(e) => setProjectDescription(e.target.value)}
+              rows="3"
+              placeholder="Descreva o escopo geral do projeto, tecnologias e acabamentos..."
+              className="mt-1 block w-full px-3 py-2 border rounded-lg text-sm"
+            />
+          </label>
+          <label className="block text-sm">
+            2. Áreas Contempladas
+            <textarea
+              value={areasContemplated}
+              onChange={(e) => setAreasContemplated(e.target.value)}
+              rows="2"
+              placeholder="Ex: Fachada Frontal Fixa: 02 vidros; Porta de Acesso: 04 painéis..."
+              className="mt-1 block w-full px-3 py-2 border rounded-lg text-sm"
+            />
+          </label>
+          <label className="block text-sm">
+            3. Processo de Execução Técnica
+            <textarea
+              value={executionProcess}
+              onChange={(e) => setExecutionProcess(e.target.value)}
+              rows="2"
+              placeholder="Ex: Remoção, limpeza, preparação com álcool isopropálico, aplicação..."
+              className="mt-1 block w-full px-3 py-2 border rounded-lg text-sm"
+            />
+          </label>
+          <label className="block text-sm">
+            Cortesia Especial Smartprint (Opcional)
+            <input
+              type="text"
+              value={specialCourtesy}
+              onChange={(e) => setSpecialCourtesy(e.target.value)}
+              placeholder="Ex: Fechando a aprovação, executaremos sem custo adicional a limpeza da placa..."
+              className="mt-1 block w-full px-3 py-2 border rounded-lg text-sm bg-white"
+            />
+          </label>
+        </div>
+
         {/* Cliente */}
         <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
           <h2 className="font-semibold">Cliente</h2>

@@ -17,6 +17,11 @@ const proposalSchema = new mongoose.Schema(
     // Numeração sequencial da proposta (mesmo padrão do campo `number` de Order.js)
     number: { type: String, unique: true, index: true },
     client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', default: null },
+    projectTitle: { type: String, default: '' },
+    projectDescription: { type: String, default: '' },
+    areasContemplated: { type: String, default: '' },
+    executionProcess: { type: String, default: '' },
+    specialCourtesy: { type: String, default: '' },
     // Snapshot dos dados do cliente no momento da proposta (para preservar histórico mesmo se o cliente for editado)
     clientSnapshot: {
       name: { type: String, default: '' },

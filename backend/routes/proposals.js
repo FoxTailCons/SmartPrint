@@ -64,7 +64,7 @@ export const buildProposalPdfBuffer = async (proposal) => {
   const client = proposal?.client || proposal?.clientSnapshot || {};
   const items = Array.isArray(proposal.items) ? proposal.items : [];
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 0 });
+    const doc = new PDFDocument({ size: 'A4', margin: 30 });
     const chunks = [];
     doc.on('data', (chunk) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -86,76 +86,108 @@ export const buildProposalPdfBuffer = async (proposal) => {
       doc.moveTo(x, y + 18).lineTo(x + 36, y + 18).stroke();
       doc.circle(x + 18, y + 18, 5).fill('#fff').stroke('#111827');
       doc.restore();
-      doc.font('Helvetica-Bold').fontSize(25).fillColor('#111827').text('smart print.', x, y + 43);
-      doc.font('Helvetica').fontSize(8).fillColor('#111827').text('gráfica e comunicação visual', x + 3, y + 72);
+      doc.font('Helvetica-Bold').fontSize(22).fillColor('#111827').text('smart print.', x, y + 42);
+      doc.font('Helvetica').fontSize(7).fillColor('#111827').text('gráfica & comunicação visual', x + 3, y + 68);
     };
 
-    const labelValue = (label, value, x, y, width) => {
-      doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text(`${label}:`, x, y, { continued: true });
-      doc.font('Helvetica').text(` ${value || '—'}`, { width });
-    };
+    drawLogo(left, 20);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text(client.name || 'Cliente não cadastrado', 320, 22, { width: 245, align: 'right' });
+    doc.font('Helvetica').fontSize(9).text(`Fone: ${client.phone || '—'}`, 320, 36, { width: 245, align: 'right' });
+    doc.text(`E-mail: ${client.email || '—'}`, 320, 50, { width: 245, align: 'right' });
 
-    drawLogo(left + 8, 16);
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(client.name || 'Cliente não cadastrado', 330, 18, { width: 235, align: 'right' });
-    doc.font('Helvetica').fontSize(10).text(`Fone: ${client.phone || '—'}`, 330, 34, { width: 235, align: 'right' });
-    doc.text(`E-mail: ${client.email || '—'}`, 330, 50, { width: 235, align: 'right' });
+    doc.moveDown(4);
+    doc.rect(left, doc.y, contentWidth, 24).fill('#111827');
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#fff').text(`PROPOSTA Nº ${proposal.number || '00000'} — TÉCNICA & COMERCIAL`, left, doc.y - 17, { width: contentWidth, align: 'center' });
+    doc.moveDown(1.5);
 
-    doc.moveTo(left, 91).lineTo(right, 91).lineWidth(1).stroke('#6b7280');
-    doc.rect(left + 18, 96, contentWidth - 36, 27).fill('#000');
-    doc.font('Helvetica-Bold').fontSize(15).fillColor('#fff').text(`PROPOSTA Nº ${proposal.number || '00000'}`, left + 18, 103, { width: contentWidth - 36, align: 'center' });
+    if (proposal.projectTitle) {
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#00a6c7').text(proposal.projectTitle, left, doc.y, { width: contentWidth });
+      doc.moveDown(0.5);
+    }
 
-    doc.font('Helvetica').fontSize(10).fillColor('#111827').text('Proposta aos cuidados do(a) Sr(a):', left, 133, { width: contentWidth, align: 'center' });
-    labelValue('Data de Emissão', fmtDate(proposal.createdAt), left + 40, 153, 220);
-    labelValue('Validade', fmtDate(proposal.validityDate), 350, 153, 190);
-    labelValue('Cliente', client.name || 'Cliente não cadastrado', left + 48, 175, contentWidth - 96);
-    labelValue('Fone', client.phone || '—', left + 48, 197, 230);
-    labelValue('E-mail', client.email || '—', 355, 197, 180);
-    labelValue('Prazo de entrega', proposal.deliveryTime || '—', left + 48, 219, 230);
-    labelValue('Pagamento', proposal.paymentTerms || '—', 355, 219, 180);
+    const infoTop = doc.y;
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text('Emissão:', left, infoTop, { continued: true });
+    doc.font('Helvetica').text(` ${fmtDate(proposal.createdAt)}`);
+    doc.font('Helvetica-Bold').text('Validade:', left + 180, infoTop, { continued: true });
+    doc.font('Helvetica').text(` ${fmtDate(proposal.validityDate)}`);
+    doc.font('Helvetica-Bold').text('Prazo:', left + 360, infoTop, { continued: true });
+    doc.font('Helvetica').text(` ${proposal.deliveryTime || '—'}`);
+    doc.moveDown(0.8);
 
-    const tableY = 250;
-    const cols = { code: left, description: left + 42, quantity: 320, unit: 385, unitPrice: 450, total: 520 };
-    doc.rect(left, tableY, contentWidth, 22).fill('#000');
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#fff');
+    // Seções descritivas estruturadas (como no documento Soraya Cury)
+    if (proposal.projectDescription) {
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('1. DESCRIÇÃO DO PROJETO');
+      doc.font('Helvetica').fontSize(9).fillColor('#374151').text(proposal.projectDescription, { width: contentWidth });
+      doc.moveDown(0.6);
+    }
+
+    if (proposal.areasContemplated) {
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('▌ 2. ÁREAS CONTEMPLADAS');
+      doc.font('Helvetica').fontSize(9).fillColor('#374151').text(proposal.areasContemplated, { width: contentWidth });
+      doc.moveDown(0.6);
+    }
+
+    if (proposal.executionProcess) {
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('▌ 3. PROCESSO DE EXECUÇÃO TÉCNICA');
+      doc.font('Helvetica').fontSize(9).fillColor('#374151').text(proposal.executionProcess, { width: contentWidth });
+      doc.moveDown(0.6);
+    }
+
+    if (proposal.specialCourtesy) {
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#00a6c7').text('★ CORTESIA ESPECIAL SMARTPRINT');
+      doc.font('Helvetica').fontSize(9).fillColor('#111827').text(proposal.specialCourtesy, { width: contentWidth });
+      doc.moveDown(0.6);
+    }
+
+    // 4. Investimento e Condições de Pagamento
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('▌ 4. INVESTIMENTO E CONDIÇÕES DE PAGAMENTO');
+    doc.moveDown(0.3);
+
+    const tableY = doc.y;
+    const cols = { code: left, description: left + 35, quantity: 310, unit: 375, unitPrice: 440, total: 510 };
+    doc.rect(left, tableY, contentWidth, 20).fill('#111827');
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#fff');
     doc.text('Cod', cols.code + 4, tableY + 6);
     doc.text('Descrição', cols.description + 4, tableY + 6);
     doc.text('Qtde', cols.quantity, tableY + 6, { width: 45, align: 'right' });
-    doc.text('Un.', cols.unit, tableY + 6, { width: 55, align: 'right' });
+    doc.text('Un.', cols.unit, tableY + 6, { width: 45, align: 'right' });
     doc.text('Valor Un.', cols.unitPrice, tableY + 6, { width: 55, align: 'right' });
-    doc.text('Total', cols.total, tableY + 6, { width: 45, align: 'right' });
+    doc.text('Total', cols.total, tableY + 6, { width: 50, align: 'right' });
 
-    let currentY = tableY + 30;
+    let currentY = tableY + 24;
     items.forEach((item, index) => {
-      const description = String(item.description || 'Item sem descrição');
-      const quantity = Number(item.quantity || 0);
-      const unitPrice = Number(item.unitPrice || 0);
-      const total = Number(item.total ?? quantity * unitPrice);
-      const descriptionHeight = doc.heightOfString(description, { width: 265, fontSize: 9 });
-      doc.font('Helvetica').fontSize(9).fillColor('#111827');
+      const desc = String(item.description || '');
+      const q = Number(item.quantity || 0);
+      const up = Number(item.unitPrice || 0);
+      const tot = Number(item.total ?? q * up);
+      doc.font('Helvetica').fontSize(8).fillColor('#111827');
       doc.text(String(index + 1).padStart(3, '0'), cols.code + 4, currentY);
-      doc.text(description, cols.description + 4, currentY, { width: 265 });
-      doc.text(quantity.toFixed(4).replace('.', ','), cols.quantity, currentY, { width: 45, align: 'right' });
-      doc.text(String(item.unit || ''), cols.unit, currentY, { width: 55, align: 'right' });
-      doc.text(fmtMoney(unitPrice), cols.unitPrice, currentY, { width: 55, align: 'right' });
-      doc.text(fmtMoney(total), cols.total, currentY, { width: 45, align: 'right' });
-      currentY += Math.max(22, descriptionHeight + 7);
+      doc.text(desc, cols.description + 4, currentY, { width: 260 });
+      doc.text(q.toFixed(4).replace('.', ','), cols.quantity, currentY, { width: 45, align: 'right' });
+      doc.text(String(item.unit || ''), cols.unit, currentY, { width: 45, align: 'right' });
+      doc.text(fmtMoney(up), cols.unitPrice, currentY, { width: 55, align: 'right' });
+      doc.text(fmtMoney(tot), cols.total, currentY, { width: 50, align: 'right' });
+      currentY += 20;
     });
 
-    doc.font('Helvetica-BoldOblique').fontSize(12).fillColor('#111827').text('VALOR TOTAL:', 420, currentY, { continued: true });
-    doc.text(` ${fmtMoney(Number(proposal.totalAmount || 0))}`);
+    currentY += 10;
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(`VALOR TOTAL: ${fmtMoney(Number(proposal.totalAmount || 0))}`, left, currentY, { width: contentWidth, align: 'right' });
+    currentY += 25;
 
-    const obsY = currentY + 30;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text('Observações:', left + 42, obsY);
-    doc.moveTo(left + 42, obsY + 20).lineTo(right, obsY + 20).stroke('#6b7280');
-    if (proposal.observations) {
-      doc.font('Helvetica').fontSize(9).text(proposal.observations, left + 42, obsY + 24, { width: contentWidth - 55 });
+    if (proposal.paymentTerms) {
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text('Condições de Pagamento:', left, currentY);
+      doc.font('Helvetica').fontSize(9).text(proposal.paymentTerms, left, currentY + 12);
+      currentY += 25;
     }
 
-    const signatureY = Math.min(obsY + 120, 700);
-    doc.moveTo(left, signatureY).lineTo(left + 220, signatureY).stroke('#111827');
-    doc.moveTo(right - 220, signatureY).lineTo(right, signatureY).stroke('#111827');
-    doc.font('Helvetica').fontSize(8).fillColor('#111827').text(client.name || 'Cliente', left, signatureY + 7, { width: 220, align: 'center' });
-    doc.text('SMART PRINT', right - 220, signatureY + 7, { width: 220, align: 'center' });
+    if (proposal.observations) {
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text('Observações Gerais:', left, currentY);
+      doc.font('Helvetica').fontSize(9).text(proposal.observations, left, currentY + 12);
+      currentY += 25;
+    }
+
+    doc.font('Helvetica').fontSize(8).fillColor('#6b7280').text('Smartprint Gráfica Rápida & Comunicação Visual — Contato / WhatsApp: (19) 99803-1407', left, 780, { width: contentWidth, align: 'center' });
+    doc.text(`Proposta válida por ${proposal.validityDate ? 'data informada' : '15 dias'}`, left, 792, { width: contentWidth, align: 'center' });
 
     doc.end();
   });
@@ -215,7 +247,7 @@ router.post('/', async (req, res) => {
     if (req.body?.status && !PROPOSAL_STATUSES.includes(req.body.status)) {
       return res.status(400).json({ message: 'Status de proposta inválido' });
     }
-    const fields = ['client', 'items', 'status', 'validityDate', 'paymentTerms', 'deliveryTime', 'observations'];
+    const fields = ['client', 'projectTitle', 'projectDescription', 'areasContemplated', 'executionProcess', 'specialCourtesy', 'items', 'status', 'validityDate', 'paymentTerms', 'deliveryTime', 'observations'];
     const payload = Object.fromEntries(fields.filter((field) => field in req.body).map((field) => [field, req.body[field]]));
     if (payload.client === '') payload.client = null;
     const proposal = await Proposal.create({ ...payload, createdBy: req.user._id });
