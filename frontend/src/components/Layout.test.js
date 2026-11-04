@@ -35,3 +35,15 @@ test('responsive tables expose labeled cards on narrow screens', async () => {
   assert.match(styles, /\.responsive-table tbody td::before/);
   assert.match(styles, /content: attr\(data-label\)/);
 });
+
+test('compact brand hides its wordmark on desktop while preserving it on mobile', async () => {
+  const server = await createServer({ server: { middlewareMode: true, ws: false } });
+  try {
+    const { default: BrandMark } = await server.ssrLoadModule('/src/components/BrandMark.jsx');
+    const html = renderToString(React.createElement(BrandMark, { dark: true, compact: true }));
+
+    assert.match(html, /class="brand-wordmark lg:hidden"/);
+  } finally {
+    await server.close();
+  }
+});

@@ -6,7 +6,7 @@
       <div className="brand-mark" aria-hidden="true">
         <span className="cmyk-logo" />
       </div>
-      <div className="brand-wordmark">
+      <div className={`brand-wordmark${compact ? ' lg:hidden' : ''}`}>
         <strong>SmartPrint</strong>
         <span>
           Acessórios de papelaria

@@ -16,7 +16,7 @@ export default function ProposalForm() {
   const [items, setItems] = useState([{ ...emptyItem }]);
   const [validityDate, setValidityDate] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('');
-  const [projectTitle, projectDescription, areasContemplated, executionProcess, specialCourtesy, deliveryTime, setDeliveryTime] = useState('');
+  const [deliveryTime, setDeliveryTime] = useState('');
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [areasContemplated, setAreasContemplated] = useState('');
@@ -209,34 +209,34 @@ export default function ProposalForm() {
           </div>
           <div className="space-y-2">
             {items.map((it, idx) => (
-              <div key={idx} className="grid grid-cols-12 items-center gap-2">
+              <div key={idx} className="grid grid-cols-2 items-center gap-2 xl:grid-cols-12">
                 <input
-                  className="col-span-6 rounded-lg border px-3 py-2 text-sm"
+                  className="col-span-2 min-w-0 rounded-lg border px-3 py-2 text-sm xl:col-span-6"
                   placeholder="Descrição (ex: Banner 2x1m, Adesivo 100un...)"
                   value={it.description}
                   onChange={(e) => updateItem(idx, 'description', e.target.value)}
                 />
                 <input
                   type="number" min="0" step="any"
-                  className="col-span-2 rounded-lg border px-3 py-2 text-sm"
+                  className="min-w-0 rounded-lg border px-3 py-2 text-sm xl:col-span-2"
                   placeholder="Qtd"
                   value={it.quantity}
                   onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
                 />
                 <input
-                  className="col-span-1 rounded-lg border px-3 py-2 text-sm"
+                  className="min-w-0 rounded-lg border px-3 py-2 text-sm xl:col-span-1"
                   placeholder="Un."
                   value={it.unit}
                   onChange={(e) => updateItem(idx, 'unit', e.target.value)}
                 />
                 <input
                   type="number" min="0" step="any"
-                  className="col-span-2 rounded-lg border px-3 py-2 text-sm"
+                  className="min-w-0 rounded-lg border px-3 py-2 text-sm xl:col-span-2"
                   placeholder="Preço unit. (R$)"
                   value={it.unitPrice}
                   onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
                 />
-                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-1 text-red-500 hover:bg-red-50 p-2 rounded-lg">
+                <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="flex justify-center rounded-lg p-2 text-red-500 hover:bg-red-50 xl:col-span-1">
                   <Trash2 size={16} />
                 </button>
               </div>
