@@ -2,7 +2,6 @@ const statusStyles = {
   pendente: 'bg-amber-100 text-amber-700 border-amber-200',
   aprovado: 'bg-blue-100 text-blue-700 border-blue-200',
   concluido: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  cancelado: 'bg-red-100 text-red-700 border-red-200',
   aberto: 'bg-slate-100 text-slate-700 border-slate-200',
   parcial: 'bg-orange-100 text-orange-700 border-orange-200',
   pago: 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -10,13 +9,17 @@ const statusStyles = {
   nao_iniciado: 'bg-slate-100 text-slate-600 border-slate-200',
   em_producao: 'bg-blue-100 text-blue-700 border-blue-200',
   pausado: 'bg-red-100 text-red-700 border-red-200',
+  // Status do módulo de Propostas
+  rascunho: 'bg-slate-100 text-slate-600 border-slate-200',
+  enviada: 'bg-blue-100 text-blue-700 border-blue-200',
+  aceita: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  rejeitada: 'bg-red-100 text-red-700 border-red-200',
+  cancelada: 'bg-slate-200 text-slate-700 border-slate-300',
 };
-
 const labels = {
   pendente: 'Pendente',
   aprovado: 'Aprovado',
   concluido: 'Concluído',
-  cancelado: 'Cancelado',
   aberto: 'Aberto',
   parcial: 'Parcial',
   pago: 'Pago',
@@ -24,8 +27,12 @@ const labels = {
   nao_iniciado: 'Não iniciado',
   em_producao: 'Em produção',
   pausado: 'Pausado',
+  rascunho: 'Rascunho',
+  enviada: 'Enviada',
+  aceita: 'Aceita',
+  rejeitada: 'Rejeitada',
+  cancelada: 'Cancelada',
 };
-
 export function StatusBadge({ value }) {
   return (
     <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusStyles[value] || 'bg-slate-100 text-slate-600'}`}>
