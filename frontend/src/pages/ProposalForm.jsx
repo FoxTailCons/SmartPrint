@@ -189,7 +189,7 @@ export default function ProposalForm() {
             <select
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              className="flex-1 px-3 py-2.5 border rounded-lg text-sm bg-white"
+              className="flex-1 min-w-0 px-3 py-2.5 border rounded-lg text-sm bg-white"
             >
               <option value="">Sem cliente cadastrado</option>
               {clients.map((c) => <option key={c._id} value={c._id}>{c.name} {c.phone ? `(${c.phone})` : ''}</option>)}
